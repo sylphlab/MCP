@@ -1,7 +1,9 @@
+#!/usr/bin/env node
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import { McpTool } from '@sylphlab/mcp-core'; // Only need McpTool type now
+import { ZodObject, ZodRawShape } from 'zod'; // Import necessary Zod types
+import { McpTool } from '@sylphlab/mcp-core'; // Import base McpTool type
 
 // Import the complete tool objects from the core library
 import {
@@ -18,13 +20,25 @@ import {
   writeFilesTool,
 } from '@sylphlab/mcp-filesystem-core';
 
-// --- Server Setup using SDK ---
+// --- Server Setup ---
 
 const serverName = 'filesystem';
 const serverDescription = 'Provides tools for interacting with the local filesystem.';
 const serverVersion = '0.1.1'; // Match package.json version
 
-// Array of tool objects (before schema conversion)
+// Instantiate McpServer
+const mcpServer = new McpServer(
+  {
+    name: serverName,
+    version: serverVersion,
+    description: serverDescription,
+  },
+  {
+    // Capabilities will be registered via mcpServer.tool()
+  },
+);
+
+// Array of imported tool objects
 const definedTools: McpTool<any, any>[] = [
     copyItemsTool,
     createFolderTool,
@@ -39,52 +53,47 @@ const definedTools: McpTool<any, any>[] = [
     writeFilesTool,
 ];
 
-// Create the transport (stdio)
-const transport = new StdioServerTransport();
-
-// Create the MCP Server instance using the SDK, passing tools in constructor
-const server = new McpServer({
-    transport,
-    name: serverName, // Correct property name
-    description: serverDescription,
-    version: serverVersion,
-    // Pass tools, converting schemas and wrapping execute
-    tools: definedTools.map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: zodToJsonSchema(tool.inputSchema, { $refStrategy: 'none' }),
-        execute: async (args: unknown) => {
-            // SDK handles validation based on the JSON schema
-            const workspaceRoot = process.cwd(); // TODO: Improve workspace root detection
-            // The actual tool.execute expects validated input matching its Zod schema.
-            // We rely on the SDK having validated args against the JSON schema derived from Zod.
-            // A direct cast 'args as any' is pragmatic here, assuming SDK validation is sufficient.
-            // For stricter typing, one might parse args again with tool.inputSchema, but that's redundant.
-            return tool.execute(args as any, workspaceRoot);
-        },
-    })),
-    // Optional: Define resources here if needed
-    // resources: [...]
+// Register tools using the mcpServer.tool() method
+definedTools.forEach((tool) => {
+  // Assume all tools have name, execute, and inputSchema (which is a ZodObject)
+  if (tool && tool.name && tool.execute && tool.inputSchema instanceof ZodObject) {
+    const zodShape: ZodRawShape = tool.inputSchema.shape;
+    mcpServer.tool(
+      tool.name,
+      tool.description || '',
+      zodShape, // Pass the .shape property
+      async (args: unknown) => { // Wrap the original execute
+          const workspaceRoot = process.cwd(); // TODO: Improve workspace root detection
+          try {
+              // SDK validates against the shape, execute expects validated args
+              const result = await tool.execute(args as any, workspaceRoot);
+              return result;
+          } catch (execError: any) {
+               console.error(`Error during execution of ${tool.name}:`, execError);
+               return {
+                   success: false,
+                   error: `Tool execution failed: ${execError.message || 'Unknown error'}`,
+                   content: [{ type: 'text', text: `Tool execution failed: ${execError.message || 'Unknown error'}` }]
+               };
+          }
+      }
+    );
+    console.error(`Registered tool: ${tool.name}`);
+  } else {
+    console.warn('Skipping invalid tool definition during registration:', tool);
+  }
 });
 
-// Logging registration happens internally in the SDK or can be added if needed
-console.error(`MCP Server "${serverName}" v${serverVersion} initialized with ${definedTools.length} tools.`);
-console.error('Transport will start listening automatically...');
 
-// SDK handles start/stop via transport lifecycle.
-
-// Handle graceful shutdown (Transport might handle this, but keep for safety)
-process.on('SIGINT', () => {
-    console.error('Received SIGINT. Attempting graceful shutdown...');
-    // Check SDK documentation for specific shutdown methods if needed
-    // transport.close(); // Example
-    process.exit(0);
-});
-process.on('SIGTERM', () => {
-    console.error('Received SIGTERM. Attempting graceful shutdown...');
-    // transport.close(); // Example
-    process.exit(0);
-});
-
-// Keep the process alive indefinitely
-setInterval(() => {}, 1 << 30); // Use a large interval (approx. 12 days)
+// --- Server Start ---
+try {
+  const transport = new StdioServerTransport();
+  // Connect the underlying server instance from McpServer
+  // Use mcpServer.server which holds the actual rpc-server instance
+  await mcpServer.server.connect(transport);
+  console.error(`Filesystem MCP Server "${serverName}" v${serverVersion} started successfully via stdio.`);
+  console.error('Waiting for requests...');
+} catch (error: unknown) {
+  console.error('Server failed to start:', error);
+  process.exit(1);
+}
