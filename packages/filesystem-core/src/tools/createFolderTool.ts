@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput } from '@sylphlab/mcp-core'; // Import base types
 
 // --- Zod Schema for Input Validation ---
-const CreateFolderToolInputSchema = z.object({
+export const CreateFolderToolInputSchema = z.object({
   folderPaths: z.array(
       z.string({ required_error: 'Each path must be a string' })
        .min(1, 'Folder path cannot be empty')

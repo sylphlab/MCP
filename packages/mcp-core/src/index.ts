@@ -38,3 +38,5 @@ export interface McpTool<
 
 // Base input type placeholder (can be extended by specific tools if needed)
 export interface McpToolInput { [key: string]: any; }
+
+// Server logic removed - should reside in server implementations

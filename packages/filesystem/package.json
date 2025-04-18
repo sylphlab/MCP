@@ -1,0 +1,34 @@
+{
+  "name": "@sylphlab/mcp-filesystem",
+  "version": "0.1.0",
+  "description": "MCP Filesystem Server",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "filesystem",
+    "server"
+  ],
+  "author": "Sylph Lab <hi@sylphlab.com>",
+  "license": "MIT",
+  "packageManager": "pnpm@10.8.0",
+  "dependencies": {
+    "@sylphlab/mcp-core": "workspace:*",
+    "@sylphlab/mcp-filesystem-core": "workspace:*",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3"
+  }
+}

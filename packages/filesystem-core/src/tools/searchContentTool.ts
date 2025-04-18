@@ -5,7 +5,7 @@ import glob from 'fast-glob'; // Import fast-glob
 import { McpTool, BaseMcpToolOutput, McpToolInput } from '@sylphlab/mcp-core'; // Import base types
 
 // --- Zod Schema for Input Validation ---
-const SearchContentToolInputSchema = z.object({
+export const SearchContentToolInputSchema = z.object({
   paths: z.array(
       z.string({ required_error: 'Each path/glob must be a string' })
        .min(1, 'Path/glob cannot be empty')

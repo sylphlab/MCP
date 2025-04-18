@@ -18,7 +18,7 @@ const CopyItemSchema = z.object({
   destinationPath: z.string({ required_error: 'destinationPath is required' }).min(1, 'destinationPath cannot be empty'),
 });
 
-const CopyItemsToolInputSchema = z.object({
+export const CopyItemsToolInputSchema = z.object({
   items: z.array(CopyItemSchema).min(1, 'items array cannot be empty'),
   overwrite: z.boolean().optional().default(false),
 });

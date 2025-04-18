@@ -12,7 +12,7 @@ const WriteItemSchema = z.object({
   content: z.string({ required_error: 'content is required' }), // Content is always string
 });
 
-const WriteFilesToolInputSchema = z.object({
+export const WriteFilesToolInputSchema = z.object({
   items: z.array(WriteItemSchema).min(1, 'items array cannot be empty'),
   encoding: z.enum(['utf-8', 'base64']).optional().default('utf-8'),
   append: z.boolean().optional().default(false),

@@ -16,7 +16,7 @@ const ReplaceOperationSchema = z.object({
     path: ['flags'],
 });
 
-const ReplaceContentToolInputSchema = z.object({
+export const ReplaceContentToolInputSchema = z.object({
   paths: z.array(
       z.string({ required_error: 'Each path/glob must be a string' })
        .min(1, 'Path/glob cannot be empty')

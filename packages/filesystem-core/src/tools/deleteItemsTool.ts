@@ -5,7 +5,7 @@ import trash from 'trash'; // Import the trash library
 import { McpTool, BaseMcpToolOutput, McpToolInput } from '@sylphlab/mcp-core'; // Import base types
 
 // --- Zod Schema for Input Validation ---
-const DeleteItemsToolInputSchema = z.object({
+export const DeleteItemsToolInputSchema = z.object({
   paths: z.array(
       z.string({ required_error: 'Each path must be a string' })
        .min(1, 'Path cannot be empty')

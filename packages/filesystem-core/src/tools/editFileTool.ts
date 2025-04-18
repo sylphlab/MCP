@@ -70,8 +70,8 @@ const FileChangeSchema = z.object({
     edits: z.array(EditOperationSchema).min(1, 'edits array cannot be empty'),
 });
 
-const EditFileToolInputSchema = z.object({
-    changes: z.array(FileChangeSchema).min(1, 'changes array cannot be empty'),
+export const EditFileToolInputSchema = z.object({
+  changes: z.array(FileChangeSchema).min(1, 'changes array cannot be empty'),
 });
 
 // Infer the TypeScript type from the Zod schema

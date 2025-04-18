@@ -9,6 +9,7 @@
     "resolveJsonModule": true,
     "moduleDetection": "force",
     "isolatedModules": true,
+    // "composite": true, // Enable project references
 
     /* Strictness */
     "strict": true,
@@ -22,7 +23,7 @@
     "alwaysStrict": true,
 
     /* If transpiling with TypeScript: */
-    "moduleResolution": "Node",
+    "moduleResolution": "Node", // Use modern resolution
     "module": "ESNext",
     // "outDir": "./dist", // Handled by tsup
     // "sourceMap": true, // Handled by tsup
@@ -34,8 +35,8 @@
     "lib": ["esnext"],
 
     /* Library-specific options */
-    // "declaration": true, // Handled by tsup
-    // "declarationMap": true, // Handled by tsup
+    "declaration": true, // Explicitly enable for reference resolution
+    "declarationMap": true, // Explicitly enable for reference resolution
     // "rootDir": "./src", // Not needed when only type-checking
 
     /* Type Definitions */

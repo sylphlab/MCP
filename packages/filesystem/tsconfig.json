@@ -4,7 +4,7 @@
     /* Base Options */
     "target": "ESNext",
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler", // Use modern resolution
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
@@ -24,14 +24,9 @@
     "rootDir": "./src",
 
     /* Type Checking */
-    "noEmit": true, // Let tsup handle emit, TS only checks types
+    // "noEmit": true, // Let tsup handle emit, TS only checks types (Try removing this)
     "types": ["node"] // Base node types
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"],
-  "references": [
-    // Reference the dependent packages for type checking
-    { "path": "../mcp-core" },
-    { "path": "../filesystem-core" }
-  ]
 }
