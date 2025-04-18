@@ -1,4 +1,4 @@
-import { processXmlOperations, type XmlInputItem, type XmlResultItem, type XmlOperation } from 'xml-core-mcp';
+import { processXmlOperations, type XmlInputItem, type XmlResultItem, type XmlOperation } from '@sylphlab/mcp-xml-core';
 
 console.log('MCP XML Package Loaded (re-exporting core)');
 

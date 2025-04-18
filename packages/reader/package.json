@@ -43,7 +43,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "reader-core-mcp": "workspace:*",
+    "@sylphlab/mcp-reader-core": "workspace:*",
     "@sylphlab/mcp-core": "workspace:*"
   }
 }

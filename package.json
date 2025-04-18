@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "turbo run build",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage"
   },
   "keywords": [],
   "author": "",

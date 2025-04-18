@@ -1,4 +1,4 @@
-import { processJsonOperations, type JsonInputItem, type JsonResultItem, type JsonOperation } from 'json-core-mcp';
+import { processJsonOperations, type JsonInputItem, type JsonResultItem, type JsonOperation } from '@sylphlab/mcp-json-core';
 
 console.log('MCP JSON Package Loaded (re-exporting core)');
 

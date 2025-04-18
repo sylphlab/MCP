@@ -9,7 +9,6 @@
     "resolveJsonModule": true,
     "moduleDetection": "force",
     "isolatedModules": true,
-    // "composite": true, // Enable project references
 
     /* Strictness */
     "strict": true,
@@ -25,7 +24,7 @@
     /* If transpiling with TypeScript: */
     "moduleResolution": "Node", // Use modern resolution
     "module": "ESNext",
-    // "outDir": "./dist", // Handled by tsup
+    "outDir": "./dist", // Needed by tsc -b for declaration emit
     // "sourceMap": true, // Handled by tsup
 
     /* If your code runs in the DOM: */
@@ -36,12 +35,12 @@
 
     /* Library-specific options */
     "declaration": true, // Explicitly enable for reference resolution
-    "declarationMap": true, // Explicitly enable for reference resolution
-    // "rootDir": "./src", // Not needed when only type-checking
+    "declarationMap": false, // Explicitly enable for reference resolution
+    "rootDir": "src", // Explicitly set root directory
 
     /* Type Definitions */
     "types": ["node", "vitest/globals"] // Include node and vitest global types
   },
   "include": ["src/**/*"], // Include all files in src
-  "exclude": ["node_modules", "dist", "vitest.config.ts"] // Exclude build output and tests config
+  "exclude": ["node_modules", "dist", "vitest.config.ts", "**/*.test.ts"] // Exclude build output, tests config, and test files
 }

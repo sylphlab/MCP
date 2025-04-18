@@ -42,6 +42,6 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "json-core-mcp": "workspace:*"
+    "@sylphlab/mcp-json-core": "workspace:*"
   }
 }

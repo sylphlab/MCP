@@ -1,14 +1,18 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'], // Entry point
+  entry: ['src/index.ts'], // Entry point for exporting types
   format: ['esm', 'cjs'], // Output formats
-  dts: true, // Disable dts generation for now to bypass build error
-  splitting: false, // Keep as single file for simplicity, can enable later if needed
-  sourcemap: true, // Generate source maps
-  clean: true, // Clean output directory before build
-  target: 'node18', // Target Node.js version (adjust if needed)
-  minify: 'terser',
-  terserOptions: { compress: true },
-  outDir: 'dist', // Output directory
+  tsconfig: './tsconfig.json', // Specify tsconfig at top level
+  dts: true, // Generate declaration files (.d.ts)
+  splitting: false,
+  sourcemap: true,
+  clean: true,
+  minify: 'terser', // Use Terser for minification
+  terserOptions: {
+    compress: true, // Enable compression
+    mangle: true, // Enable mangling of variable names
+  },
+  target: 'node18',
+  outDir: 'dist',
 });

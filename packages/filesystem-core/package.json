@@ -17,8 +17,9 @@
     "dist"
   ],
   "scripts": {
-    "test": "vitest run --coverage",
-    "build": "tsup"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean --dts-resolve"
   },
   "keywords": [
     "mcp",

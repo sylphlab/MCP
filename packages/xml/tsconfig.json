@@ -9,7 +9,7 @@
     "resolveJsonModule": true,
     "moduleDetection": "force",
     "isolatedModules": true,
-    "composite": true,
+    // "composite": true,
 
     /* Strictness */
     "strict": true,

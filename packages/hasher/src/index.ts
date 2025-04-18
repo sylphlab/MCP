@@ -1,4 +1,4 @@
-import { processHashOperations, type HasherInputItem, type HasherResultItem, type HashAlgorithm } from 'hasher-core-mcp';
+export { processHashOperationsTool, type HasherInputItem, type HasherResultItem, type HashAlgorithm } from '@sylphlab/mcp-hasher-core';
 
 console.log('MCP Hasher Package Loaded (re-exporting core)');
 

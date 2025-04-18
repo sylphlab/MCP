@@ -1,4 +1,4 @@
-import { processFetchRequests, type FetchInputItem, type FetchResultItem } from 'fetch-core-mcp';
+import { processFetchRequests, type FetchInputItem, type FetchResultItem } from '@sylphlab/mcp-fetch-core';
 
 console.log('MCP Fetch Package Loaded (re-exporting core)');
 

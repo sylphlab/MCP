@@ -1,4 +1,4 @@
-import { processNetOperations, type NetInputItem, type NetResultItem, type NetOperation } from 'net-core-mcp';
+import { processNetOperations, type NetInputItem, type NetResultItem, type NetOperation } from '@sylphlab/mcp-net-core';
 
 console.log('MCP Net Package Loaded (re-exporting core)');
 

@@ -43,6 +43,6 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "fetch-core-mcp": "workspace:*"
+    "@sylphlab/mcp-fetch-core": "workspace:*"
   }
 }
