@@ -8,5 +8,7 @@ export default defineConfig({
   sourcemap: true, // Generate source maps
   clean: true, // Clean output directory before build
   target: 'node18', // Target Node.js version (adjust if needed)
+  minify: 'terser',
+  terserOptions: { compress: true },
   outDir: 'dist', // Output directory
 });

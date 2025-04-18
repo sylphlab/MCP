@@ -8,5 +8,7 @@ export default defineConfig({
   sourcemap: true, // Generate source maps
   clean: true, // Clean the output directory before building
   splitting: false, // Keep output in a single file for server simplicity
+  minify: 'terser',
+  terserOptions: { compress: true },
   treeshake: true,
 });
