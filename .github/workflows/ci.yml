@@ -30,6 +30,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Validate Changeset
+        uses: changesets/action@v1
+        # Only run this step on pull requests
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # Add linting step later if needed
       # - name: Lint
       #   run: pnpm run lint # Assumes a lint script exists
