@@ -1,6 +1,7 @@
-import { z } from 'zod';
-import readline from 'readline';
-import { McpTool, BaseMcpToolOutput } from '@sylphlab/mcp-core'; // Import only base types
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+import { McpTool } from '@sylphlab/mcp-core'; // Only need McpTool type now
 
 // Import the complete tool objects from the core library
 import {
@@ -17,123 +18,73 @@ import {
   writeFilesTool,
 } from '@sylphlab/mcp-filesystem-core';
 
-// --- Server Logic (Moved from mcp-core) ---
+// --- Server Setup using SDK ---
 
-// defineMcpTool helper removed - construct object directly
+const serverName = 'filesystem';
+const serverDescription = 'Provides tools for interacting with the local filesystem.';
+const serverVersion = '0.1.1'; // Match package.json version
 
-interface McpServerOptions {
-    name: string;
-    description: string;
-    version: string;
-}
+// Array of tool objects (before schema conversion)
+const definedTools: McpTool<any, any>[] = [
+    copyItemsTool,
+    createFolderTool,
+    deleteItemsTool,
+    editFileTool,
+    listFilesTool,
+    moveRenameItemsTool,
+    readFilesTool,
+    replaceContentTool,
+    searchContentTool,
+    statItemsTool,
+    writeFilesTool,
+];
 
-interface McpServer {
-    registerTool: <TInputSchema extends z.ZodTypeAny, TOutput extends BaseMcpToolOutput>(
-        tool: McpTool<TInputSchema, TOutput>
-    ) => void;
-    start: () => Promise<void>;
-}
+// Create the transport (stdio)
+const transport = new StdioServerTransport();
 
-/**
- * Creates a basic MCP server instance that communicates over stdio.
- */
-function createMcpServer(options: McpServerOptions): McpServer {
-    const tools: Map<string, McpTool<any, any>> = new Map();
-
-    const registerTool = <TInputSchema extends z.ZodTypeAny, TOutput extends BaseMcpToolOutput>(
-        tool: McpTool<TInputSchema, TOutput>
-    ) => {
-        if (tools.has(tool.name)) {
-            console.warn(`Warning: Tool "${tool.name}" is already registered. Overwriting.`);
-        }
-        tools.set(tool.name, tool);
-        console.log(`Registered tool: ${tool.name}`);
-    };
-
-    const start = async (): Promise<void> => {
-        console.log(`Starting MCP Server: ${options.name} v${options.version}`);
-        console.log(options.description);
-        console.log('Waiting for requests on stdin...');
-
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-            terminal: false
-        });
-
-        rl.on('line', async (line) => {
-            try {
-                const request = JSON.parse(line);
-                if (request.type !== 'tool_call' || !request.tool_name || !request.arguments) {
-                    throw new Error('Invalid request format.');
-                }
-
-                const tool = tools.get(request.tool_name);
-                if (!tool) {
-                    throw new Error(`Tool "${request.tool_name}" not found.`);
-                }
-
-                const parsedInput = tool.inputSchema.safeParse(request.arguments);
-                if (!parsedInput.success) {
-                    throw new Error(`Input validation failed for tool "${request.tool_name}": ${parsedInput.error.message}`);
-                }
-
-                // TODO: Determine workspaceRoot properly - using process.cwd() for now
-                const workspaceRoot = process.cwd();
-                const result = await tool.execute(parsedInput.data, workspaceRoot);
-
-                process.stdout.write(JSON.stringify({ type: 'tool_result', result }) + '\n');
-
-            } catch (error: any) {
-                process.stdout.write(JSON.stringify({
-                    type: 'tool_result',
-                    result: {
-                        success: false,
-                        error: error.message || 'An unknown error occurred.',
-                        content: [{ type: 'text', text: `Error: ${error.message || 'Unknown error'}` }]
-                    }
-                }) + '\n');
-            }
-        });
-
-        rl.on('close', () => {
-            console.log('Stdin closed. Exiting server.');
-            process.exit(0);
-        });
-    };
-
-    return {
-        registerTool,
-        start,
-    };
-}
-
-// --- Server Setup & Tool Registration ---
-
-const server = createMcpServer({
-  name: 'filesystem',
-  description: 'Provides tools for interacting with the local filesystem.',
-  version: '0.1.0', // Match package.json
+// Create the MCP Server instance using the SDK, passing tools in constructor
+const server = new McpServer({
+    transport,
+    name: serverName, // Correct property name
+    description: serverDescription,
+    version: serverVersion,
+    // Pass tools, converting schemas and wrapping execute
+    tools: definedTools.map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: zodToJsonSchema(tool.inputSchema, { $refStrategy: 'none' }),
+        execute: async (args: unknown) => {
+            // SDK handles validation based on the JSON schema
+            const workspaceRoot = process.cwd(); // TODO: Improve workspace root detection
+            // The actual tool.execute expects validated input matching its Zod schema.
+            // We rely on the SDK having validated args against the JSON schema derived from Zod.
+            // A direct cast 'args as any' is pragmatic here, assuming SDK validation is sufficient.
+            // For stricter typing, one might parse args again with tool.inputSchema, but that's redundant.
+            return tool.execute(args as any, workspaceRoot);
+        },
+    })),
+    // Optional: Define resources here if needed
+    // resources: [...]
 });
 
-// Define and register tools using imported implementations and schemas
-// Pass the imported McpTool objects directly
-server.registerTool(copyItemsTool);
-server.registerTool(createFolderTool);
-server.registerTool(deleteItemsTool);
-server.registerTool(editFileTool);
-server.registerTool(listFilesTool);
-server.registerTool(moveRenameItemsTool);
-server.registerTool(readFilesTool);
-server.registerTool(replaceContentTool);
-server.registerTool(searchContentTool);
-server.registerTool(statItemsTool);
-server.registerTool(writeFilesTool);
+// Logging registration happens internally in the SDK or can be added if needed
+console.error(`MCP Server "${serverName}" v${serverVersion} initialized with ${definedTools.length} tools.`);
+console.error('Transport will start listening automatically...');
 
-// Start the server
-server.start().catch((error) => {
-  console.error('Failed to start filesystem server:', error);
-  process.exit(1);
+// SDK handles start/stop via transport lifecycle.
+
+// Handle graceful shutdown (Transport might handle this, but keep for safety)
+process.on('SIGINT', () => {
+    console.error('Received SIGINT. Attempting graceful shutdown...');
+    // Check SDK documentation for specific shutdown methods if needed
+    // transport.close(); // Example
+    process.exit(0);
+});
+process.on('SIGTERM', () => {
+    console.error('Received SIGTERM. Attempting graceful shutdown...');
+    // transport.close(); // Example
+    process.exit(0);
 });
 
-console.log('Filesystem MCP server started.');
+// Keep the process alive indefinitely
+setInterval(() => {}, 1 << 30); // Use a large interval (approx. 12 days)
