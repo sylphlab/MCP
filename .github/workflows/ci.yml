@@ -8,8 +8,9 @@ on:
 
 jobs:
   lint_test_build:
+    # This job runs on PRs and pushes to main for basic checks
+    name: Lint, Test & Build
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,3 +44,49 @@ jobs:
 
       - name: Build
         run: pnpm run build # Runs 'turbo run build'
+
+  release:
+    # This job runs only on pushes to the main branch
+    name: Release Packages
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: lint_test_build # Ensure checks pass before releasing
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for changeset versioning
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18 # Match target specified in tsup.config.ts
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build packages
+        run: pnpm run build # Build necessary for publish
+
+      - name: Create Release Pull Request or Publish to npm
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          # Decide whether to publish or create a PR
+          # publish: pnpm publish -r --no-git-checks # Uncomment to publish directly
+          # For creating PRs instead:
+          version: pnpm changeset version
+          commit: "chore: version packages for release"
+          title: "chore: version packages for release"
+          # Optional: If using a custom bot user for commits
+          # user.name: "github-actions[bot]"
+          # user.email: "github-actions[bot]@users.noreply.github.com"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # NPM_TOKEN required only if 'publish' command is used above
+          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
