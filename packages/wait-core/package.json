@@ -33,6 +33,10 @@
   ],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "@sylphlab/mcp-core": "workspace:*",
+    "zod": "^3.23.8"
+  },
   "devDependencies": {
     "@types/node": "^20.12.12",
     "@typescript-eslint/eslint-plugin": "^7.10.0",

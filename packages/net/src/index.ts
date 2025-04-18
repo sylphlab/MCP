@@ -1,5 +1,7 @@
-import { getNetworkInfo } from 'net-core-mcp';
+import { processNetOperations, type NetInputItem, type NetResultItem, type NetOperation } from 'net-core-mcp';
 
 console.log('MCP Net Package Loaded (re-exporting core)');
 
-export { getNetworkInfo };
+// Re-export the core function and types
+export { processNetOperations };
+export type { NetInputItem, NetResultItem, NetOperation };

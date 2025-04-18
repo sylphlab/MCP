@@ -2,7 +2,7 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Stats } from 'node:fs'; // Import Stats type
 import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput } from '@sylphlab/mcp-core'; // Import base types
+import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
 
 // --- Zod Schema for Input Validation ---
 export const ReadFilesToolInputSchema = z.object({
@@ -13,6 +13,7 @@ export const ReadFilesToolInputSchema = z.object({
     .min(1, 'paths array cannot be empty'),
   encoding: z.enum(['utf-8', 'base64']).optional().default('utf-8'),
   includeStats: z.boolean().optional().default(false),
+  // allowOutsideWorkspace removed from schema
 });
 
 // Infer the TypeScript type from the Zod schema
@@ -52,7 +53,7 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
   description: 'Reads the content of one or more files within the workspace.',
   inputSchema: ReadFilesToolInputSchema,
 
-  async execute(input: ReadFilesToolInput, workspaceRoot: string): Promise<ReadFilesToolOutput> {
+  async execute(input: ReadFilesToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<ReadFilesToolOutput> { // Add options
     // Zod validation
     const parsed = ReadFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -66,34 +67,40 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
         content: [], // Add required content field
       };
     }
-    const { paths: inputPaths, encoding, includeStats } = parsed.data;
+    const { paths: inputPaths, encoding, includeStats } = parsed.data; // allowOutsideWorkspace comes from options
     // --- End Zod Validation ---
 
     const results: ReadFileResult[] = [];
     let anySuccess = false;
 
     for (const itemPath of inputPaths) {
-      const fullPath = path.resolve(workspaceRoot, itemPath);
       let itemSuccess = false;
       let content: string | undefined = undefined;
       let itemStat: Stats | undefined = undefined;
       let error: string | undefined;
       let suggestionForError: string | undefined;
+      let fullPath: string | undefined;
 
-      // --- Security Check ---
-      const relativePath = path.relative(workspaceRoot, fullPath);
-      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-          error = `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativePath}'`;
+      // --- Validate Path ---
+      const validationResult = validateAndResolvePath(itemPath, workspaceRoot, options?.allowOutsideWorkspace);
+      if (typeof validationResult !== 'string') {
+          error = `Path validation failed: ${validationResult.error}`;
+          suggestionForError = validationResult.suggestion;
           console.error(`Skipping read for ${itemPath}: ${error}`);
-          // Assign suggestion directly here as we don't proceed further
-          results.push({ path: itemPath, success: false, error, suggestion: `Ensure the path '${itemPath}' is relative to the workspace root and does not attempt to go outside it.` });
-          anySuccess = false; // Ensure overall success reflects this failure if it's the only path
+          results.push({ path: itemPath, success: false, error, suggestion: suggestionForError });
+          // anySuccess remains false or keeps previous value
           continue; // Skip to next itemPath
       } else {
+          fullPath = validationResult; // Path is valid and resolved
+      }
+      // --- End Path Validation ---
+
+      // Proceed only if path is valid
+      if (fullPath) {
         try {
             // Optionally get stats first
             if (includeStats) {
-                itemStat = await stat(fullPath);
+                itemStat = await stat(fullPath); // Use validated path
                 // Ensure it's a file if stats are requested
                  if (!itemStat.isFile()) {
                     throw new Error(`Path '${itemPath}' is not a file.`);
@@ -101,7 +108,7 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
             }
 
             // Read the file content with specified encoding
-            const fileBuffer = await readFile(fullPath);
+            const fileBuffer = await readFile(fullPath); // Use validated path
             content = fileBuffer.toString(encoding);
 
             itemSuccess = true;

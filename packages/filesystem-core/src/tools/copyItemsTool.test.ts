@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach, MockedFunction } from 'vitest';
+import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
 import { cp, stat, mkdir } from 'node:fs/promises'; // Use named imports
 import path from 'node:path';
+import { Stats } from 'node:fs'; // Import Stats type
 import { copyItemsTool, CopyItemsToolInput } from './copyItemsTool';
 
 // Mock the specific fs/promises functions we need (using named exports)
@@ -10,20 +11,31 @@ vi.mock('node:fs/promises', () => ({
   mkdir: vi.fn(),
 }));
 
-// Mock path.resolve to control path resolution if necessary, though often not needed if workspaceRoot is consistent
-// vi.mock('node:path');
-
 const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
+
+// Helper to create mock Stats objects
+const createMockStats = (isFile: boolean): Stats => ({
+    isFile: () => isFile,
+    isDirectory: () => !isFile,
+    // Add other properties if needed, or cast to Partial<Stats>
+    dev: 0, ino: 0, mode: 0, nlink: 0, uid: 0, gid: 0, rdev: 0, size: 123, blksize: 4096, blocks: 1, atimeMs: 0, mtimeMs: 0, ctimeMs: 0, birthtimeMs: 0, atime: new Date(), mtime: new Date(), ctime: new Date(), birthtime: new Date(),
+} as Stats);
+
 
 describe('copyItemsTool', () => {
   // Cast the imported named function to access mock methods
   const mockCp = cp as MockedFunction<typeof cp>;
-  // const mockStat = stat as MockedFunction<typeof stat>; // If needed
+  const mockStat = stat as MockedFunction<typeof stat>;
   // const mockMkdir = mkdir as MockedFunction<typeof mkdir>; // If needed
 
   beforeEach(() => {
     // Reset mocks before each test
     vi.resetAllMocks();
+    // Default stat to ENOENT (file not found)
+    const enoentError = new Error('ENOENT');
+    (enoentError as any).code = 'ENOENT';
+    mockStat.mockRejectedValue(enoentError);
+    mockCp.mockResolvedValue(undefined); // Default cp to success
   });
 
   it('should successfully copy a single file when destination does not exist', async () => {
@@ -31,12 +43,12 @@ describe('copyItemsTool', () => {
     const input: CopyItemsToolInput = {
       items: [{ sourcePath: 'source.txt', destinationPath: 'dest/target.txt' }],
       overwrite: false,
+      allowOutsideWorkspace: false,
     };
-    // Mock fsPromises.cp to resolve successfully for this case
-    mockCp.mockResolvedValue(undefined);
+    // stat will reject with ENOENT (default mock)
 
     // Act
-    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false }); // Pass via options
 
     // Assert
     expect(result.success).toBe(true);
@@ -55,36 +67,31 @@ describe('copyItemsTool', () => {
 
   it('should fail if input items array is empty', async () => {
     // Arrange
-    // Note: Zod schema handles empty array check before accessing overwrite
-    const input = {
-      items: [], // Empty array
-    };
+    const input = { items: [] };
 
     // Act
-    // Cast to any to bypass static type check for testing runtime validation
     const result = await copyItemsTool.execute(input as any, WORKSPACE_ROOT);
 
     // Assert
     expect(result.success).toBe(false);
-    expect(result.error).toContain('items array cannot be empty'); // Match Zod error
+    expect(result.error).toContain('items array cannot be empty');
     expect(result.results).toHaveLength(0);
     expect(mockCp).not.toHaveBeenCalled();
   });
 
   it('should fail if an item has missing sourcePath', async () => {
     // Arrange
-    const input = { // Intentionally malformed input, Zod will catch this
+    const input = {
         items: [{ destinationPath: 'dest.txt' } as any],
-        overwrite: false, // Add overwrite
+        overwrite: false,
+        allowOutsideWorkspace: false,
     };
 
     // Act
-    // Cast to McpToolInput as the raw input might not match the Zod-inferred type perfectly before parsing
     const result = await copyItemsTool.execute(input as any, WORKSPACE_ROOT);
 
     // Assert
-    expect(result.success).toBe(false); // Overall should fail
-    // Zod error message format might differ, check for general validation failure and mention of the field
+    expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('sourcePath');
@@ -93,7 +100,7 @@ describe('copyItemsTool', () => {
 
 
   // TODO: Add tests for:
-  // - Overwrite true/false scenarios (when destination exists)
+  // - Overwrite true/false scenarios (when destination exists) -> Covered below
   // - Multiple items (some succeed, some fail)
   // - Recursive directory copy
 
@@ -101,21 +108,22 @@ describe('copyItemsTool', () => {
     // Arrange
     const input: CopyItemsToolInput = {
       items: [{ sourcePath: 'nonexistent.txt', destinationPath: 'dest.txt' }],
-      overwrite: false, // Add missing overwrite
+      overwrite: false,
+      allowOutsideWorkspace: false,
     };
     const enoentError = new Error('Source does not exist');
     (enoentError as any).code = 'ENOENT';
-    mockCp.mockRejectedValue(enoentError);
+    mockCp.mockRejectedValue(enoentError); // Mock cp failure
 
     // Act
-    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false }); // Pass via options
 
     // Assert
     expect(result.success).toBe(false);
     expect(result.results).toHaveLength(1);
     expect(result.results[0]!.success).toBe(false);
     expect(result.results[0]!.error).toContain('Source path does not exist');
-    expect(result.results[0]!.suggestion).toEqual(expect.any(String)); // Check suggestion exists
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
     expect(mockCp).toHaveBeenCalledTimes(1);
   });
 
@@ -123,26 +131,27 @@ describe('copyItemsTool', () => {
     // Arrange
     const input: CopyItemsToolInput = {
       items: [{ sourcePath: 'source.txt', destinationPath: 'existing.txt' }],
-      overwrite: false, // Explicitly false
+      overwrite: false,
+      allowOutsideWorkspace: false,
     };
     const eexistError = new Error('Destination exists');
     (eexistError as any).code = 'EEXIST';
-    mockCp.mockRejectedValue(eexistError);
+    mockCp.mockRejectedValue(eexistError); // Mock cp failure
 
     // Act
-    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false }); // Pass via options
 
     // Assert
     expect(result.success).toBe(false);
     expect(result.results).toHaveLength(1);
     expect(result.results[0]!.success).toBe(false);
     expect(result.results[0]!.error).toContain('Destination path already exists and overwrite is false');
-    expect(result.results[0]!.suggestion).toEqual(expect.any(String)); // Check suggestion exists
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
     expect(mockCp).toHaveBeenCalledTimes(1);
     expect(mockCp).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, 'source.txt'),
       path.resolve(WORKSPACE_ROOT, 'existing.txt'),
-      { recursive: true, force: false, errorOnExist: true } // Check options
+      { recursive: true, force: false, errorOnExist: true }
     );
   });
 
@@ -150,25 +159,66 @@ describe('copyItemsTool', () => {
     // Arrange
     const input: CopyItemsToolInput = {
       items: [{ sourcePath: 'source.txt', destinationPath: 'dest.txt' }],
-      overwrite: false, // Add overwrite
+      overwrite: false,
+      allowOutsideWorkspace: false,
     };
     const genericError = new Error('Something went wrong');
     mockCp.mockRejectedValue(genericError);
 
     // Act
-    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false }); // Pass via options
 
     // Assert
     expect(result.success).toBe(false);
     expect(result.results).toHaveLength(1);
     expect(result.results[0]!.success).toBe(false);
     expect(result.results[0]!.error).toContain('Something went wrong');
-    expect(result.results[0]!.suggestion).toEqual(expect.any(String)); // Check suggestion exists
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
     expect(mockCp).toHaveBeenCalledTimes(1);
   });
 
-  // - Source path does not exist (ENOENT error)
-  // - Destination exists and overwrite is false (EEXIST error)
-  // - Paths outside workspace root (security check)
+  it('should fail path validation if path is outside workspace and allowOutsideWorkspace is false (default)', async () => {
+    const input: CopyItemsToolInput = {
+      items: [{ sourcePath: '../outside.txt', destinationPath: 'dest.txt' }],
+      overwrite: false,
+      // allowOutsideWorkspace removed from input
+    };
+
+    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false }); // Pass via options
+
+    expect(result.success).toBe(false);
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('Path validation failed');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
+    expect(mockCp).not.toHaveBeenCalled();
+  });
+
+  it('should NOT fail path validation if path is outside workspace and allowOutsideWorkspace is true', async () => {
+    const input: CopyItemsToolInput = {
+      items: [{ sourcePath: '../outside.txt', destinationPath: 'dest.txt' }],
+      overwrite: false,
+      // allowOutsideWorkspace removed from input
+    };
+    // Mock cp to succeed even though path is outside for this test
+    mockCp.mockResolvedValue(undefined);
+
+    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: true }); // Pass via options
+
+    // Expect success because validation is skipped
+    expect(result.success).toBe(true);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.error).toBeUndefined();
+    expect(mockCp).toHaveBeenCalledTimes(1);
+    // Check that resolved paths (potentially outside root) were used
+    expect(mockCp).toHaveBeenCalledWith(
+      path.resolve(WORKSPACE_ROOT, '../outside.txt'),
+      path.resolve(WORKSPACE_ROOT, 'dest.txt'),
+      expect.anything()
+    );
+  });
+
+  // TODO: Add tests for:
+  // - Multiple items (success/fail mix)
+  // - Recursive directory copy
   // - Other potential fs errors
 });

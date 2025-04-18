@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
 import { writeFile, appendFile, mkdir } from 'node:fs/promises'; // Use named imports
 import path from 'node:path';
 import { writeFilesTool, WriteFilesToolInput, WriteFileResult } from './writeFilesTool';
+import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -25,6 +26,9 @@ describe('writeFilesTool', () => {
     mockAppendFile.mockResolvedValue(undefined);
   });
 
+  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true };
+
   // Helper
   const createInput = (items: { path: string; content: string }[], options: Partial<Omit<WriteFilesToolInput, 'items'>> = {}): WriteFilesToolInput => ({
       items,
@@ -37,7 +41,7 @@ describe('writeFilesTool', () => {
     const expectedPath = path.resolve(WORKSPACE_ROOT, 'file.txt');
     const expectedOptions = { encoding: 'utf-8' };
 
-    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -56,7 +60,7 @@ describe('writeFilesTool', () => {
     const expectedPath = path.resolve(WORKSPACE_ROOT, 'file.bin');
     const expectedOptions = { encoding: 'base64' };
 
-    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -69,7 +73,7 @@ describe('writeFilesTool', () => {
     const expectedPath = path.resolve(WORKSPACE_ROOT, 'log.txt');
     const expectedOptions = { encoding: 'utf-8' };
 
-    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -85,7 +89,7 @@ describe('writeFilesTool', () => {
       { path: 'sub/file2.js', content: 'Content 2' },
     ]);
 
-    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(2);
@@ -100,6 +104,7 @@ describe('writeFilesTool', () => {
 
   it('should return validation error for empty items array', async () => {
     const input = { items: [] }; // Invalid input
+    // No options needed for input validation failure
     const result = await writeFilesTool.execute(input as any, WORKSPACE_ROOT);
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
@@ -110,7 +115,8 @@ describe('writeFilesTool', () => {
 
   it('should handle path validation failure (outside workspace)', async () => {
     const input = createInput([{ path: '../secret.txt', content: 'hacked' }]);
-    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT);
+    // Explicitly test with allowOutsideWorkspace: false
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
     expect(result.success).toBe(false); // Overall success is false
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path validation failed');
@@ -124,7 +130,7 @@ describe('writeFilesTool', () => {
     const mkdirError = new Error('EACCES');
     mockMkdir.mockRejectedValue(mkdirError);
 
-    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -140,7 +146,7 @@ describe('writeFilesTool', () => {
     const writeError = new Error('EROFS');
     mockWriteFile.mockRejectedValue(writeError);
 
-    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -156,7 +162,7 @@ describe('writeFilesTool', () => {
     const appendError = new Error('EROFS');
     mockAppendFile.mockRejectedValue(appendError);
 
-    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -166,4 +172,24 @@ describe('writeFilesTool', () => {
   });
 
   // TODO: Add tests for multiple items with mixed results
-});
+
+  it('should allow writing outside workspace when allowOutsideWorkspace is true', async () => {
+    // Need to use createInput defined within the describe block's scope
+    const input = createInput([{ path: '../outside.txt', content: 'allowed' }]);
+    const expectedPath = path.resolve(WORKSPACE_ROOT, '../outside.txt');
+    const expectedOptions = { encoding: 'utf-8' };
+
+    // Execute with allowOutsideWorkspace: true
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, allowOutsideOptions);
+
+    expect(result.success).toBe(true);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.error).toBeUndefined();
+    // Use mock variables defined in the describe block's scope
+    expect(mockMkdir).toHaveBeenCalledTimes(1);
+    expect(mockMkdir).toHaveBeenCalledWith(path.dirname(expectedPath), { recursive: true });
+    expect(mockWriteFile).toHaveBeenCalledTimes(1);
+    expect(mockWriteFile).toHaveBeenCalledWith(expectedPath, 'allowed', expectedOptions);
+    expect(mockAppendFile).not.toHaveBeenCalled();
+  });
+}); // End of describe block

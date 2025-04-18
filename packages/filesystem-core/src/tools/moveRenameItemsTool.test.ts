@@ -3,6 +3,8 @@ import { rename, mkdir, rm, stat } from 'node:fs/promises'; // Use named imports
 import path from 'node:path';
 import { Stats } from 'node:fs'; // Import Stats type
 import { moveRenameItemsTool, MoveRenameItemsToolInput } from './moveRenameItemsTool';
+import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -40,15 +42,19 @@ describe('moveRenameItemsTool', () => {
     (enoentError as any).code = 'ENOENT';
     mockStat.mockRejectedValue(enoentError);
   });
+  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true };
+
 
   it('should successfully move/rename item when destination does not exist', async () => {
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'old.txt', destinationPath: 'new.txt' }],
       overwrite: false,
+      // allowOutsideWorkspace removed
     };
     // stat will reject with ENOENT (default mock)
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -66,11 +72,12 @@ describe('moveRenameItemsTool', () => {
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'old.txt', destinationPath: 'existing.txt' }],
       overwrite: true,
+      // allowOutsideWorkspace removed
     };
     // Mock stat to indicate destination exists
     mockStat.mockResolvedValue(createMockStats(false, true));
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -89,11 +96,12 @@ describe('moveRenameItemsTool', () => {
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'old.txt', destinationPath: 'existing.txt' }],
       overwrite: false,
+      // allowOutsideWorkspace removed
     };
     // Mock stat to indicate destination exists
     mockStat.mockResolvedValue(createMockStats(false, true));
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -107,6 +115,7 @@ describe('moveRenameItemsTool', () => {
 
   it('should return validation error for empty items array', async () => {
     const input = { items: [] }; // Invalid input
+    // No options needed for input validation failure
     const result = await moveRenameItemsTool.execute(input as any, WORKSPACE_ROOT);
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
@@ -118,8 +127,10 @@ describe('moveRenameItemsTool', () => {
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'valid.txt', destinationPath: '../outside.txt' }],
       overwrite: false,
+      // allowOutsideWorkspace removed
     };
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT);
+    // Explicitly test with allowOutsideWorkspace: false
+    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path validation failed');
@@ -131,13 +142,14 @@ describe('moveRenameItemsTool', () => {
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'nonexistent.txt', destinationPath: 'new.txt' }],
       overwrite: false,
+      // allowOutsideWorkspace removed
     };
     const renameError = new Error('ENOENT');
     (renameError as any).code = 'ENOENT';
     mockRename.mockRejectedValue(renameError);
     // stat will reject with ENOENT (default mock) for destination
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -150,12 +162,13 @@ describe('moveRenameItemsTool', () => {
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'old.txt', destinationPath: 'new_dir/new.txt' }],
       overwrite: false,
+      // allowOutsideWorkspace removed
     };
     const mkdirError = new Error('EACCES');
     mockMkdir.mockRejectedValue(mkdirError);
     // stat will reject with ENOENT (default mock) for destination
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -169,12 +182,13 @@ describe('moveRenameItemsTool', () => {
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'old.txt', destinationPath: 'existing.txt' }],
       overwrite: true,
+      // allowOutsideWorkspace removed
     };
     mockStat.mockResolvedValue(createMockStats(false, true)); // Destination exists
     const rmError = new Error('EPERM');
     mockRm.mockRejectedValue(rmError); // Mock rm failure
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -183,6 +197,33 @@ describe('moveRenameItemsTool', () => {
     expect(mockRm).toHaveBeenCalledTimes(1);
     expect(mockRename).not.toHaveBeenCalled();
   });
+
+  it('should NOT fail path validation if path is outside workspace and allowOutsideWorkspace is true', async () => {
+    const input: MoveRenameItemsToolInput = {
+      items: [{ sourcePath: 'valid.txt', destinationPath: '../outside.txt' }],
+      overwrite: false,
+      // allowOutsideWorkspace removed
+    };
+    // stat will reject with ENOENT (default mock) for destination
+    mockRename.mockResolvedValue(undefined); // Mock success
+
+    // Act
+    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, allowOutsideOptions); // Pass flag via options
+
+    // Assert
+    expect(result.success).toBe(true); // Should succeed as validation is skipped
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.error).toBeUndefined();
+    expect(mockMkdir).toHaveBeenCalledTimes(1); // Dest dir check
+    expect(mockStat).toHaveBeenCalledTimes(1); // Dest existence check
+    expect(mockRm).not.toHaveBeenCalled();
+    expect(mockRename).toHaveBeenCalledTimes(1);
+    expect(mockRename).toHaveBeenCalledWith(
+      path.resolve(WORKSPACE_ROOT, 'valid.txt'),
+      path.resolve(WORKSPACE_ROOT, '../outside.txt') // Check resolved path
+    );
+  });
+
 
   // TODO: Add tests for multiple items (success/fail mix)
   // TODO: Add tests for moving directories vs files

@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import glob from 'fast-glob'; // Import fast-glob
-import { McpTool, BaseMcpToolOutput, McpToolInput } from '@sylphlab/mcp-core'; // Import base types
+import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
 
 // --- Zod Schema for Input Validation ---
 const ReplaceOperationSchema = z.object({
@@ -22,6 +22,7 @@ export const ReplaceContentToolInputSchema = z.object({
     )
     .min(1, 'paths array cannot be empty'),
   operations: z.array(ReplaceOperationSchema).min(1, 'operations array cannot be empty'),
+  // allowOutsideWorkspace removed from schema
 });
 
 // Infer the TypeScript type from the Zod schema
@@ -61,7 +62,7 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
   description: 'Performs search and replace operations across multiple files (supports globs).',
   inputSchema: ReplaceContentToolInputSchema,
 
-  async execute(input: ReplaceContentToolInput, workspaceRoot: string): Promise<ReplaceContentToolOutput> {
+  async execute(input: ReplaceContentToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<ReplaceContentToolOutput> { // Add options
     // Zod validation
     const parsed = ReplaceContentToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -75,7 +76,7 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
         content: [], // Add required content field
       };
     }
-    const { paths: pathPatterns, operations } = parsed.data;
+    const { paths: pathPatterns, operations } = parsed.data; // allowOutsideWorkspace comes from options
     // --- End Zod Validation ---
 
     const fileResults: FileReplaceResult[] = [];
@@ -110,10 +111,13 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
         let fileError: string | undefined;
         let totalReplacementsMade = 0;
         let contentChanged = false;
+        let suggestion: string | undefined;
+
 
         // Double-check security (glob should handle this, but belt-and-suspenders)
+        // Skip this check if allowOutsideWorkspace is true
         const relativeCheck = path.relative(workspaceRoot, fullPath);
-         if (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck)) {
+        if (!options?.allowOutsideWorkspace && (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck))) {
             fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
             console.error(fileError);
             fileSuccess = false;
@@ -162,7 +166,7 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
 
             // Write file only if content actually changed
             if (currentContent !== originalContent) {
-                await writeFile(fullPath, currentContent, 'utf-8');
+                await writeFile(fullPath, currentContent, 'utf-8'); // Use validated path
                 contentChanged = true;
                 console.error(`Applied ${totalReplacementsMade} replacement(s) to ${relativeFilePath}.`); // Log to stderr
             } else {
@@ -174,17 +178,16 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
             overallSuccess = false;
             fileError = `Error processing file '${relativeFilePath}': ${e.message}`;
             console.error(fileError);
-            let suggestion: string | undefined;
+            // let suggestion: string | undefined; // Already declared above
             if (e.code === 'ENOENT') {
-                suggestion = `Ensure the file path '${relativeFilePath}' is correct and the file exists.`;
+                suggestion = `Ensure the file path '${relativeFilePath}' is correct and the file exists.`; // Assign to outer suggestion
             } else if (e.code === 'EACCES') {
-                suggestion = `Check read/write permissions for the file '${relativeFilePath}'.`;
+                suggestion = `Check read/write permissions for the file '${relativeFilePath}'.`; // Assign to outer suggestion
             } else if (e.message.includes('Invalid regex')) {
-                 suggestion = 'Verify the regex pattern syntax in the operations.';
+                 suggestion = 'Verify the regex pattern syntax in the operations.'; // Assign to outer suggestion
             } else {
-                suggestion = `Check file path, permissions, and operation details.`;
+                suggestion = `Check file path, permissions, and operation details.`; // Assign to outer suggestion
             }
-            // Assign suggestion to the result object later
         }
 
         fileResults.push({
@@ -193,7 +196,8 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
             replacementsMade: totalReplacementsMade,
             contentChanged: contentChanged,
             error: fileError,
-            suggestion: !fileSuccess ? (fileResults.find(r => r.path === relativeFilePath)?.suggestion ?? `Check file path, permissions, and operation details.`) : undefined,
+            // Use suggestion populated during validation or catch block
+            suggestion: !fileSuccess ? suggestion : undefined,
         });
     } // End files loop
 

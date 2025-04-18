@@ -1,10 +1,9 @@
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
-import { Stats } from 'node:fs'; // Import Stats type
+import { Stats } from 'node:fs';
 import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput } from '@sylphlab/mcp-core'; // Import base types
+import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
 
-// --- Zod Schema for Input Validation ---
 export const StatItemsToolInputSchema = z.object({
   paths: z.array(
       z.string({ required_error: 'Each path must be a string' })
@@ -13,42 +12,27 @@ export const StatItemsToolInputSchema = z.object({
     .min(1, 'paths array cannot be empty'),
 });
 
-// Infer the TypeScript type from the Zod schema
 export type StatItemsToolInput = z.infer<typeof StatItemsToolInputSchema>;
 
-// --- Output Types ---
 export interface StatItemResult {
-  /** The path provided in the input. */
   path: string;
-  /** Whether the stat operation for this specific path was successful. */
   success: boolean;
-  /** The file system stats object. Undefined if the operation failed or path doesn't exist. */
   stat?: Stats;
-  /** Optional error message if the operation failed for this path. */
   error?: string;
-  /** Optional suggestion for fixing the error. */
   suggestion?: string;
 }
 
-// Extend the base output type
 export interface StatItemsToolOutput extends BaseMcpToolOutput {
-  /** Overall operation success (true if stats were retrieved for at least one path). */
-  // success: boolean; // Inherited
-  /** Optional general error message if the tool encountered a major issue. */
   error?: string;
-  /** Array of results for each stat operation. */
   results: StatItemResult[];
 }
-
-// --- Tool Definition (following SDK pattern) ---
 
 export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsToolOutput> = {
   name: 'statItemsTool',
   description: 'Gets file system stats for one or more specified paths within the workspace.',
   inputSchema: StatItemsToolInputSchema,
 
-  async execute(input: StatItemsToolInput, workspaceRoot: string): Promise<StatItemsToolOutput> {
-    // Zod validation
+  async execute(input: StatItemsToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<StatItemsToolOutput> {
     const parsed = StatItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
@@ -58,74 +42,67 @@ export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsTo
         success: false,
         error: `Input validation failed: ${errorMessages}`,
         results: [],
-        content: [], // Add required content field
+        content: [],
       };
     }
     const { paths: inputPaths } = parsed.data;
-    // --- End Zod Validation ---
 
     const results: StatItemResult[] = [];
     let anySuccess = false;
 
     for (const itemPath of inputPaths) {
-      const fullPath = path.resolve(workspaceRoot, itemPath);
       let itemSuccess = false;
       let itemStat: Stats | undefined = undefined;
       let error: string | undefined;
+      let suggestion: string | undefined;
+      let resolvedPath: string | undefined;
 
-      // --- Security Check ---
-      const relativePath = path.relative(workspaceRoot, fullPath);
-      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-          error = `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativePath}'`;
-          console.error(`Skipping stat for ${itemPath}: ${error}`);
-          // Assign suggestion directly here as we don't proceed further
-          results.push({ path: itemPath, success: false, error, suggestion: `Ensure the path '${itemPath}' is relative to the workspace root and does not attempt to go outside it.` });
-          anySuccess = false; // Ensure overall success reflects this failure if it's the only path
-          continue; // Skip to next itemPath
-      } else {
+      // Correct argument order: relativePathInput, workspaceRoot
+      const validationResult = validateAndResolvePath(itemPath, workspaceRoot, options?.allowOutsideWorkspace);
+
+      // Check if validation succeeded (result is a string)
+      if (typeof validationResult === 'string') {
+        resolvedPath = validationResult;
+
         try {
-            // Get stats
-            itemStat = await stat(fullPath);
-            itemSuccess = true;
-            anySuccess = true; // Mark overall success if at least one works
-
+          itemStat = await stat(resolvedPath);
+          itemSuccess = true;
+          anySuccess = true;
         } catch (e: any) {
-            itemSuccess = false;
-            // Report ENOENT (Not Found) as a non-error state for stat, but itemSuccess is false
-            if (e.code === 'ENOENT') {
-                 error = `Path '${itemPath}' not found.`;
-                 console.error(error); // Log info to stderr for consistency
+          itemSuccess = false;
+          if (e.code === 'ENOENT') {
+            error = `Path '${itemPath}' not found.`;
+            suggestion = `Ensure the path '${itemPath}' exists.`;
+            console.error(error);
+          } else {
+            error = `Failed to get stats for '${itemPath}': ${e.message}`;
+            console.error(error);
+            if (e.code === 'EACCES') {
+              suggestion = `Check permissions for the path '${itemPath}'.`;
             } else {
-                 // Report other errors as failures
-                 error = `Failed to get stats for '${itemPath}': ${e.message}`;
-                 console.error(error);
+              suggestion = `Check the path and permissions.`;
             }
-            // Add suggestion based on error
-            let suggestion: string | undefined;
-            if (e.code === 'ENOENT') {
-                suggestion = `Ensure the path '${itemPath}' exists.`;
-            } else if (e.code === 'EACCES') {
-                suggestion = `Check permissions for the path '${itemPath}'.`;
-            } else {
-                suggestion = `Check the path and permissions.`;
-            }
-            // Assign suggestion to the result object later
+          }
         }
+        results.push({
+          path: itemPath,
+          success: itemSuccess,
+          stat: itemStat,
+          error,
+          suggestion,
+        });
+      } else {
+         // Validation failed, result is the error object (or unexpected format)
+        error = (validationResult as any)?.error ?? 'Unknown path validation error'; // Access .error
+        suggestion = (validationResult as any)?.suggestion ?? 'Review path and workspace settings.';
+        console.error(`Path validation failed for ${itemPath}: ${error}. Raw validationResult:`, validationResult);
+        results.push({ path: itemPath, success: false, error, suggestion });
       }
-
-      results.push({
-        path: itemPath,
-        success: itemSuccess,
-        stat: itemStat, // Will be undefined if error occurred or not found
-        error,
-        suggestion: !itemSuccess && error !== `Path '${itemPath}' not found.` ? (results.find(r => r.path === itemPath)?.suggestion ?? `Check the path and permissions.`) : undefined, // Add suggestion only for actual errors, not ENOENT
-      });
-    }
+    } // End loop
 
     return {
-      success: anySuccess, // True if at least one stat succeeded
+      success: anySuccess,
       results,
-      // Add a default success message to content if overall successful
       content: anySuccess
         ? [{ type: 'text', text: `Stat operation completed. Success: ${anySuccess}` }]
         : [],

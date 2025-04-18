@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
 import { Stats } from 'node:fs'; // Import Stats type
 import { statItemsTool, StatItemsToolInput } from './statItemsTool';
+import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -28,12 +29,15 @@ describe('statItemsTool', () => {
     mockStat.mockResolvedValue(createMockStats(true));
   });
 
+  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true };
+
   it('should successfully get stats for a single item', async () => {
     const input: StatItemsToolInput = { paths: ['file.txt'] };
     const mockStatsData = createMockStats(true);
     mockStat.mockResolvedValue(mockStatsData);
 
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -53,7 +57,7 @@ describe('statItemsTool', () => {
       .mockResolvedValueOnce(mockStats1)
       .mockResolvedValueOnce(mockStats2);
 
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(2);
@@ -70,7 +74,7 @@ describe('statItemsTool', () => {
     (enoentError as any).code = 'ENOENT';
     mockStat.mockRejectedValue(enoentError);
 
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false); // Overall success is false if any path not found
     expect(result.results).toHaveLength(1);
@@ -86,7 +90,7 @@ describe('statItemsTool', () => {
     (accessError as any).code = 'EACCES';
     mockStat.mockRejectedValue(accessError);
 
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
     expect(result.results).toHaveLength(1);
@@ -108,7 +112,7 @@ describe('statItemsTool', () => {
       .mockResolvedValueOnce(mockStatsFound)
       .mockRejectedValueOnce(enoentError);
 
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true); // Overall success is true because one succeeded
     expect(result.results).toHaveLength(2);
@@ -120,12 +124,13 @@ describe('statItemsTool', () => {
     expect(result.results[1]?.success).toBe(false);
     expect(result.results[1]?.stat).toBeUndefined();
     expect(result.results[1]?.error).toContain('not found');
-    expect(result.results[1]?.suggestion).toBeUndefined(); // No suggestion for ENOENT
+    expect(result.results[1]?.suggestion).toEqual(expect.any(String)); // Expect a suggestion for ENOENT
     expect(mockStat).toHaveBeenCalledTimes(2);
   });
 
   it('should return validation error for empty paths array', async () => {
     const input = { paths: [] }; // Invalid input
+    // No options needed for input validation failure
     const result = await statItemsTool.execute(input as any, WORKSPACE_ROOT);
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
@@ -135,7 +140,8 @@ describe('statItemsTool', () => {
 
   it('should handle path validation failure (outside workspace)', async () => {
     const input: StatItemsToolInput = { paths: ['../outside.txt'] };
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT);
+    // Explicitly test with allowOutsideWorkspace: false
+    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
     expect(result.success).toBe(false); // Overall success is false
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path validation failed');
@@ -143,4 +149,19 @@ describe('statItemsTool', () => {
     expect(mockStat).not.toHaveBeenCalled();
   });
 
-});
+  it('should allow stat outside workspace when allowOutsideWorkspace is true', async () => {
+    const input: StatItemsToolInput = { paths: ['../outside.txt'] };
+    const mockStatsData = createMockStats(true);
+    mockStat.mockResolvedValue(mockStatsData);
+
+    // Execute with allowOutsideWorkspace: true
+    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, allowOutsideOptions);
+
+    expect(result.success).toBe(true);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.error).toBeUndefined();
+    expect(result.results[0]?.stat).toEqual(mockStatsData);
+    expect(mockStat).toHaveBeenCalledTimes(1);
+    expect(mockStat).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, '../outside.txt'));
+  });
+}); // End of describe block

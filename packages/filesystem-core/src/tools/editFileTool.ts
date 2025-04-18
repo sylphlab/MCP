@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput } from '@sylphlab/mcp-core'; // Import base types
+import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
 
 // --- Zod Schemas for Edit Operations ---
 
@@ -72,6 +72,7 @@ const FileChangeSchema = z.object({
 
 export const EditFileToolInputSchema = z.object({
   changes: z.array(FileChangeSchema).min(1, 'changes array cannot be empty'),
+  // allowOutsideWorkspace is handled internally via options, not part of the input schema
 });
 
 // Infer the TypeScript type from the Zod schema
@@ -99,6 +100,8 @@ export interface FileEditResult {
     success: boolean;
     /** Optional error message if file reading/writing failed or a major issue occurred. */
     error?: string;
+    /** Optional suggestion if file processing failed early (e.g., path validation or read error). */
+    suggestion?: string;
     /** Array of results for each edit operation applied to this file. */
     edit_results: EditResult[];
 }
@@ -120,7 +123,7 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
   description: 'Applies selective edits (insert, delete, replace by line or search pattern) to one or more files.',
   inputSchema: EditFileToolInputSchema,
 
-  async execute(input: EditFileToolInput, workspaceRoot: string): Promise<EditFileToolOutput> {
+  async execute(input: EditFileToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<EditFileToolOutput> { // Add options
     // Zod validation
     const parsed = EditFileToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -134,7 +137,7 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
         content: [], // Add required content field
       };
     }
-    const { changes } = parsed.data;
+    const { changes } = parsed.data; // allowOutsideWorkspace comes from options
     // --- End Zod Validation ---
 
     const fileResults: FileEditResult[] = [];
@@ -142,21 +145,25 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
 
     for (const change of changes) {
         const filePath = change.path;
-        const fullPath = path.resolve(workspaceRoot, filePath);
         const editResults: EditResult[] = [];
         let fileSuccess = true;
         let fileError: string | undefined;
+        let fileSuggestion: string | undefined; // For path validation error
 
-        // --- Security Check ---
-        const relativePath = path.relative(workspaceRoot, fullPath);
-        if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-            fileError = `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativePath}'`;
+        // --- Validate and Resolve Path ---
+        const validationResult = validateAndResolvePath(filePath, workspaceRoot, options?.allowOutsideWorkspace);
+        if (typeof validationResult !== 'string') {
+            fileError = validationResult.error;
+            fileSuggestion = validationResult.suggestion;
             console.error(`Skipping file ${filePath}: ${fileError}`);
             fileSuccess = false;
             overallSuccess = false;
-            fileResults.push({ path: filePath, success: false, error: fileError, edit_results: [] });
+            // Add a single FileEditResult indicating path failure
+            fileResults.push({ path: filePath, success: false, error: fileError, suggestion: fileSuggestion, edit_results: [] });
             continue; // Skip this file change
         }
+        const fullPath = validationResult;
+        // --- End Path Validation ---
 
         try {
             // Read the file content
@@ -335,7 +342,7 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
             path: filePath,
             success: fileSuccess,
             error: fileError,
-            // Suggestion added to individual edit results in this case
+            suggestion: fileSuggestion, // Add suggestion if path validation failed initially
             edit_results: editResults,
         });
     }

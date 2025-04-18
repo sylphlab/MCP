@@ -1,7 +1,7 @@
 {
   "name": "reader-mcp",
   "version": "0.1.0",
-  "description": "MCP reader tool (re-exports reader-core-mcp)",
+  "description": "MCP tool for reading content from files (PDF text extraction, etc.)",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -43,6 +43,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "reader-core-mcp": "workspace:*"
+    "reader-core-mcp": "workspace:*",
+    "@sylphlab/mcp-core": "workspace:*"
   }
 }

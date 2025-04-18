@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import glob from 'fast-glob'; // Import fast-glob
-import { McpTool, BaseMcpToolOutput, McpToolInput } from '@sylphlab/mcp-core'; // Import base types
+import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
 
 // --- Zod Schema for Input Validation ---
 export const SearchContentToolInputSchema = z.object({
@@ -17,6 +17,7 @@ export const SearchContentToolInputSchema = z.object({
   contextLinesBefore: z.number().int().min(0).optional().default(0),
   contextLinesAfter: z.number().int().min(0).optional().default(0),
   maxResultsPerFile: z.number().int().min(1).optional(),
+  // allowOutsideWorkspace removed from schema
 });
 // Removed refine check causing issues with isRegex:true and matchCase:true
 
@@ -68,7 +69,7 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
   description: 'Searches for content within multiple files (supports globs).',
   inputSchema: SearchContentToolInputSchema,
 
-  async execute(input: SearchContentToolInput, workspaceRoot: string): Promise<SearchContentToolOutput> {
+  async execute(input: SearchContentToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<SearchContentToolOutput> { // Add options
     // Zod validation
     const parsed = SearchContentToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -90,7 +91,7 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
         contextLinesBefore,
         contextLinesAfter,
         maxResultsPerFile,
-    } = parsed.data;
+    } = parsed.data; // allowOutsideWorkspace comes from options
     // --- End Zod Validation ---
 
     const fileResults: FileSearchResult[] = [];
@@ -121,10 +122,13 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
         let fileSuccess = true;
         let fileError: string | undefined;
         const matches: SearchMatch[] = [];
+        let suggestion: string | undefined;
+
 
         // Double-check security
+        // Skip this check if allowOutsideWorkspace is true
         const relativeCheck = path.relative(workspaceRoot, fullPath);
-         if (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck)) {
+        if (!options?.allowOutsideWorkspace && (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck))) {
             fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
             console.error(fileError); // Keep error log
             fileSuccess = false;
@@ -205,17 +209,16 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
             overallSuccess = false;
             fileError = `Error processing file '${relativeFilePath}': ${e.message}`;
             console.error(fileError); // Keep original error log too
-            let suggestion: string | undefined;
+            // let suggestion: string | undefined; // Already declared above
             if (e.code === 'ENOENT') {
-                suggestion = `Ensure the file path '${relativeFilePath}' is correct and the file exists.`;
+                suggestion = `Ensure the file path '${relativeFilePath}' is correct and the file exists.`; // Assign to outer suggestion
             } else if (e.code === 'EACCES') {
-                suggestion = `Check read permissions for the file '${relativeFilePath}'.`;
+                suggestion = `Check read permissions for the file '${relativeFilePath}'.`; // Assign to outer suggestion
             } else if (e.message.includes('Invalid regex')) {
-                 suggestion = 'Verify the regex query syntax.';
+                 suggestion = 'Verify the regex query syntax.'; // Assign to outer suggestion
             } else {
-                suggestion = `Check file path and permissions.`;
+                suggestion = `Check file path and permissions.`; // Assign to outer suggestion
             }
-            // Assign suggestion to the result object later
         }
 
         fileResults.push({
@@ -223,7 +226,8 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
             success: fileSuccess,
             matches: matches.length > 0 ? matches : undefined, // Only include matches array if not empty
             error: fileError,
-            suggestion: !fileSuccess ? (fileResults.find(r => r.path === relativeFilePath)?.suggestion ?? `Check file path and permissions.`) : undefined,
+            // Use suggestion populated during validation or catch block
+            suggestion: !fileSuccess ? suggestion : undefined,
         });
     } // End files loop
 

@@ -3,6 +3,8 @@ import { readdir, stat } from 'node:fs/promises'; // Use named imports
 import path from 'node:path';
 import { Stats, Dirent } from 'node:fs'; // Import types
 import { listFilesTool, ListFilesToolInput } from './listFilesTool';
+import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -68,12 +70,16 @@ describe('listFilesTool', () => {
     mockStat.mockResolvedValue(createMockStats(true, false)); // Assume path exists and is directory by default
     mockReaddir.mockResolvedValue([]); // Default to empty directory
   });
+  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true };
+
 
   it('should list files non-recursively', async () => {
     const input: ListFilesToolInput = {
         paths: ['dir1'],
-        recursive: false, // Add missing
-        includeStats: false, // Add missing
+        recursive: false,
+        includeStats: false,
+        // allowOutsideWorkspace removed
     };
     const mockDirents = [
         createMockDirent('file1.txt', false, true),
@@ -81,7 +87,7 @@ describe('listFilesTool', () => {
     ];
     mockReaddir.mockResolvedValue(mockDirents as any); // Cast needed as mock Dirent is simplified
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results['dir1']?.success).toBe(true);
@@ -99,7 +105,8 @@ describe('listFilesTool', () => {
     const input: ListFilesToolInput = {
         paths: ['dir1'],
         recursive: true,
-        includeStats: false, // Add missing
+        includeStats: false,
+        // allowOutsideWorkspace removed
     };
     const topLevelDirents = [createMockDirent('file1.txt', false, true), createMockDirent('subdir', true, false)];
     const subLevelDirents = [createMockDirent('file2.txt', false, true)];
@@ -108,7 +115,7 @@ describe('listFilesTool', () => {
         .mockResolvedValueOnce(topLevelDirents as any) // For dir1
         .mockResolvedValueOnce(subLevelDirents as any); // For dir1/subdir
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results['dir1']?.success).toBe(true);
@@ -123,14 +130,15 @@ describe('listFilesTool', () => {
     const input: ListFilesToolInput = {
         paths: ['dir1'],
         recursive: true,
-        maxDepth: 0, // Only top level
-        includeStats: false, // Add missing
+        maxDepth: 0,
+        includeStats: false,
+        // allowOutsideWorkspace removed
     };
     const topLevelDirents = [createMockDirent('file1.txt', false, true), createMockDirent('subdir', true, false)];
 
     mockReaddir.mockResolvedValueOnce(topLevelDirents as any); // For dir1
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results['dir1']?.success).toBe(true);
@@ -142,7 +150,8 @@ describe('listFilesTool', () => {
     const input: ListFilesToolInput = {
         paths: ['dir1'],
         includeStats: true,
-        recursive: false, // Add missing
+        recursive: false,
+        // allowOutsideWorkspace removed
     };
     const mockDirents = [createMockDirent('file1.txt', false, true)];
     const mockFileStats = createMockStats(false, true);
@@ -152,7 +161,7 @@ describe('listFilesTool', () => {
         .mockResolvedValueOnce(createMockStats(true, false)) // For input path check
         .mockResolvedValueOnce(mockFileStats); // For file1.txt
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(true);
     expect(result.results['dir1']?.success).toBe(true);
@@ -164,6 +173,7 @@ describe('listFilesTool', () => {
 
   it('should return validation error for empty paths array', async () => {
     const input = { paths: [] }; // Invalid input
+    // No options needed for input validation failure
     const result = await listFilesTool.execute(input as any, WORKSPACE_ROOT);
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
@@ -174,10 +184,12 @@ describe('listFilesTool', () => {
   it('should handle path validation failure (outside workspace)', async () => {
     const input: ListFilesToolInput = {
         paths: ['../outside'],
-        recursive: false, // Add missing
-        includeStats: false, // Add missing
+        recursive: false,
+        includeStats: false,
+        // allowOutsideWorkspace removed
     };
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT);
+    // Explicitly test with allowOutsideWorkspace: false
+    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
     expect(result.success).toBe(false); // Overall success is false
     expect(result.results['../outside']?.success).toBe(false);
     expect(result.results['../outside']?.error).toContain('Path validation failed');
@@ -188,14 +200,15 @@ describe('listFilesTool', () => {
   it('should handle non-existent path error', async () => {
     const input: ListFilesToolInput = {
         paths: ['nonexistent'],
-        recursive: false, // Add missing
-        includeStats: false, // Add missing
+        recursive: false,
+        includeStats: false,
+        // allowOutsideWorkspace removed
     };
     const statError = new Error('ENOENT');
     (statError as any).code = 'ENOENT';
     mockStat.mockRejectedValue(statError); // Mock stat failure for input path
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
     expect(result.results['nonexistent']?.success).toBe(false);
@@ -207,12 +220,13 @@ describe('listFilesTool', () => {
    it('should handle path is not a directory error', async () => {
     const input: ListFilesToolInput = {
         paths: ['file.txt'],
-        recursive: false, // Add missing
-        includeStats: false, // Add missing
+        recursive: false,
+        includeStats: false,
+        // allowOutsideWorkspace removed
     };
     mockStat.mockResolvedValue(createMockStats(false, true)); // Mock stat says it's a file
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT);
+    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
     expect(result.results['file.txt']?.success).toBe(false);
@@ -220,6 +234,31 @@ describe('listFilesTool', () => {
     expect(result.results['file.txt']?.suggestion).toEqual(expect.any(String));
     expect(mockReaddir).not.toHaveBeenCalled();
   });
+
+  it('should NOT fail path validation if path is outside workspace and allowOutsideWorkspace is true', async () => {
+    const input: ListFilesToolInput = {
+        paths: ['../outside'],
+        recursive: false,
+        includeStats: false,
+        // allowOutsideWorkspace removed
+    };
+    const mockDirents = [createMockDirent('file_out.txt', false, true)];
+    mockReaddir.mockResolvedValue(mockDirents as any);
+    // Mock stat for input path check to succeed
+    mockStat.mockResolvedValue(createMockStats(true, false));
+
+    // Act
+    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, allowOutsideOptions); // Pass flag via options
+
+    // Assert
+    expect(result.success).toBe(true); // Should succeed as validation is skipped
+    expect(result.results['../outside']?.success).toBe(true);
+    expect(result.results['../outside']?.error).toBeUndefined();
+    expect(mockStat).toHaveBeenCalledTimes(1); // Only input path stat check
+    expect(mockReaddir).toHaveBeenCalledTimes(1);
+    expect(mockReaddir).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, '../outside'), { withFileTypes: true }); // Check resolved path
+  });
+
 
   // TODO: Add tests for readdir error during recursion
   // TODO: Add tests for stat error during includeStats loop

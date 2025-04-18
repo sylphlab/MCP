@@ -2,7 +2,7 @@ import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Stats } from 'node:fs'; // Import Stats type
 import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput } from '@sylphlab/mcp-core'; // Import base types
+import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
 
 // --- Zod Schema for Input Validation ---
 export const ListFilesToolInputSchema = z.object({
@@ -12,8 +12,9 @@ export const ListFilesToolInputSchema = z.object({
     )
     .min(1, 'paths array cannot be empty'),
   recursive: z.boolean().optional().default(false),
-  maxDepth: z.number().int().min(0).optional(), // 0 means only top level
+  maxDepth: z.number().int().min(0).optional(),
   includeStats: z.boolean().optional().default(false),
+  // allowOutsideWorkspace removed from schema
 });
 
 // Infer the TypeScript type from the Zod schema
@@ -118,7 +119,7 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
   description: 'Lists files and directories within one or more specified paths in the workspace.',
   inputSchema: ListFilesToolInputSchema,
 
-  async execute(input: ListFilesToolInput, workspaceRoot: string): Promise<ListFilesToolOutput> {
+  async execute(input: ListFilesToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<ListFilesToolOutput> {
     // Zod validation
     const parsed = ListFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -132,31 +133,35 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
         content: [], // Add required content field
       };
     }
-    const { paths: inputPaths, recursive, maxDepth, includeStats } = parsed.data;
+    const { paths: inputPaths, recursive, maxDepth, includeStats } = parsed.data; // allowOutsideWorkspace comes from options
     // --- End Zod Validation ---
 
     const results: { [inputPath: string]: PathListResult } = {};
     let anySuccess = false;
 
     for (const inputPath of inputPaths) {
-        const fullPath = path.resolve(workspaceRoot, inputPath);
+        // const fullPath = path.resolve(workspaceRoot, inputPath); // Remove original declaration
         let pathSuccess = false;
         let pathEntries: ListEntry[] | undefined = undefined;
         let pathError: string | undefined;
+        let pathSuggestion: string | undefined; // Declare pathSuggestion here
 
-        // --- Security Check ---
-        const relativePathCheck = path.relative(workspaceRoot, fullPath);
-        if (relativePathCheck.startsWith('..') || path.isAbsolute(relativePathCheck)) {
-            pathError = `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativePathCheck}'`;
-            console.error(pathError);
-            // Assign suggestion directly here as we don't proceed further
-            results[inputPath] = { success: false, error: pathError, suggestion: `Ensure the path '${inputPath}' is relative to the workspace root and does not attempt to go outside it.` };
-            anySuccess = false; // Ensure overall success reflects this failure if it's the only path
+        // --- Validate and Resolve Path ---
+        const validationResult = validateAndResolvePath(inputPath, workspaceRoot, options?.allowOutsideWorkspace);
+        let fullPath: string; // Declare fullPath here
+        if (typeof validationResult !== 'string') {
+            pathError = validationResult.error;
+            pathSuggestion = validationResult.suggestion; // Assign suggestion from validation
+            console.error(`Skipping path ${inputPath}: ${pathError}`);
+            results[inputPath] = { success: false, error: pathError, suggestion: pathSuggestion };
+            // anySuccess remains false or keeps previous value
             continue; // Skip to next inputPath
         } else {
+             fullPath = validationResult; // Path is valid and resolved
+            // --- End Path Validation ---
             try {
                 // Check if path exists and is a directory before reading
-                const pathStat = await stat(fullPath);
+                const pathStat = await stat(fullPath); // Use validated fullPath
                 if (!pathStat.isDirectory()) {
                     throw new Error(`Path '${inputPath}' is not a directory.`);
                 }
@@ -195,24 +200,23 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
                 pathError = `Error listing path '${inputPath}': ${e.message}`;
                 console.error(pathError);
                 // Add suggestion based on error
-                let suggestion: string | undefined;
+                // let suggestion: string | undefined; // pathSuggestion already declared above
                 if (e.code === 'ENOENT') {
-                    suggestion = `Ensure the path '${inputPath}' exists.`;
+                    pathSuggestion = `Ensure the path '${inputPath}' exists.`; // Assign directly
                 } else if (e.message.includes('is not a directory')) {
-                    suggestion = `The path '${inputPath}' points to a file, not a directory. Provide a directory path.`;
+                    pathSuggestion = `The path '${inputPath}' points to a file, not a directory. Provide a directory path.`; // Assign directly
                 } else {
-                    suggestion = `Check permissions for '${inputPath}' and ensure it is a valid directory path.`;
+                    pathSuggestion = `Check permissions for '${inputPath}' and ensure it is a valid directory path.`; // Assign directly
                 }
-                // Assign suggestion to the result object later
             }
         }
 
+        // Assign result, including suggestion if an error occurred
         results[inputPath] = {
             success: pathSuccess,
             entries: pathEntries,
             error: pathError,
-            // Add suggestion if an error occurred in the try block
-            suggestion: !pathSuccess ? (results[inputPath]?.suggestion ?? `Check permissions for '${inputPath}' and ensure it is a valid directory path.`) : undefined,
+            suggestion: pathSuggestion,
         };
     }
 

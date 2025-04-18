@@ -1,7 +1,7 @@
 import { rename, mkdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput } from '@sylphlab/mcp-core'; // Import base types
+import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
 
 // --- Zod Schema for Input Validation ---
 const MoveRenameItemSchema = z.object({
@@ -12,6 +12,7 @@ const MoveRenameItemSchema = z.object({
 export const MoveRenameItemsToolInputSchema = z.object({
   items: z.array(MoveRenameItemSchema).min(1, 'items array cannot be empty'),
   overwrite: z.boolean().optional().default(false),
+  // allowOutsideWorkspace removed from schema
 });
 
 // Infer the TypeScript type from the Zod schema
@@ -31,6 +32,7 @@ export interface MoveRenameItemResult {
   error?: string;
   /** Optional suggestion for fixing the error. */
   suggestion?: string;
+  // Removed duplicate suggestion property
 }
 
 // Extend the base output type
@@ -50,7 +52,7 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
   description: 'Moves or renames one or more files or folders within the workspace. Use relative paths.',
   inputSchema: MoveRenameItemsToolInputSchema,
 
-  async execute(input: MoveRenameItemsToolInput, workspaceRoot: string): Promise<MoveRenameItemsToolOutput> {
+  async execute(input: MoveRenameItemsToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<MoveRenameItemsToolOutput> { // Add options
     // Zod validation
     const parsed = MoveRenameItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -64,44 +66,60 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
         content: [], // Add required content field
       };
     }
-    const { items, overwrite } = parsed.data;
+    const { items, overwrite } = parsed.data; // allowOutsideWorkspace comes from options
     // --- End Zod Validation ---
 
     const results: MoveRenameItemResult[] = [];
     let overallSuccess = true;
 
     for (const item of items) {
-      const sourceFullPath = path.resolve(workspaceRoot, item.sourcePath);
-      const destinationFullPath = path.resolve(workspaceRoot, item.destinationPath);
       let itemSuccess = false;
       let message: string | undefined;
       let error: string | undefined;
+      let suggestion: string | undefined; // Declare suggestion
+      let sourceFullPath: string | undefined; // Use let for validated paths
+      let destinationFullPath: string | undefined; // Use let for validated paths
 
-      // --- Security Check ---
-      const relativeSource = path.relative(workspaceRoot, sourceFullPath);
-      const relativeDest = path.relative(workspaceRoot, destinationFullPath);
-      if (relativeSource.startsWith('..') || path.isAbsolute(relativeSource) ||
-          relativeDest.startsWith('..') || path.isAbsolute(relativeDest))
-      {
-          error = `Path validation failed: Paths must resolve within the workspace root ('${workspaceRoot}').`;
-          console.error(`Skipping move ${item.sourcePath} -> ${item.destinationPath}: ${error}`);
-          message = `Suggestion: Ensure both source ('${item.sourcePath}') and destination ('${item.destinationPath}') paths are relative to the workspace root and do not attempt to go outside it.`; // Use message for suggestion
-          overallSuccess = false;
-      } else if (sourceFullPath === destinationFullPath) {
-          error = `Source and destination paths cannot be the same: '${item.sourcePath}'`;
-          console.error(error);
-          message = `Suggestion: Provide different source and destination paths.`; // Use message for suggestion
+      // --- Validate Paths ---
+      const sourceValidation = validateAndResolvePath(item.sourcePath, workspaceRoot, options?.allowOutsideWorkspace);
+      if (typeof sourceValidation !== 'string') {
+          error = `Source path validation failed: ${sourceValidation.error}`;
+          suggestion = sourceValidation.suggestion;
           overallSuccess = false;
       } else {
+          sourceFullPath = sourceValidation;
+      }
+
+      if (!error) { // Only validate destination if source is valid
+          const destValidation = validateAndResolvePath(item.destinationPath, workspaceRoot, options?.allowOutsideWorkspace);
+          if (typeof destValidation !== 'string') {
+              error = `Destination path validation failed: ${destValidation.error}`;
+              suggestion = destValidation.suggestion;
+              overallSuccess = false;
+          } else {
+              destinationFullPath = destValidation;
+          }
+      }
+      // --- End Path Validation ---
+
+      // Check if paths are the same after validation
+      if (!error && sourceFullPath === destinationFullPath) {
+          error = `Source and destination paths resolve to the same location: '${sourceFullPath}'`;
+          suggestion = `Provide different source and destination paths.`;
+          overallSuccess = false;
+      }
+
+      // Proceed only if paths are valid and different
+      if (!error && sourceFullPath && destinationFullPath) {
         try {
           // Ensure destination directory exists
-          const destDir = path.dirname(destinationFullPath);
+          const destDir = path.dirname(destinationFullPath); // Use validated path
           await mkdir(destDir, { recursive: true });
 
           // Handle overwrite logic
           let destinationExists = false;
           try {
-              await stat(destinationFullPath); // Check if destination exists
+              await stat(destinationFullPath); // Check if destination exists (use validated path)
               destinationExists = true;
           } catch (statError: any) {
               if (statError.code !== 'ENOENT') {
@@ -113,13 +131,13 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
           if (destinationExists) {
               if (overwrite) {
                   console.error(`Overwrite enabled: Removing existing destination '${item.destinationPath}' before move.`); // Log to stderr
-                  await rm(destinationFullPath, { recursive: true, force: true }); // Remove existing destination
+                  await rm(destinationFullPath, { recursive: true, force: true }); // Remove existing destination (use validated path)
               } else {
                   throw new Error(`Destination path '${item.destinationPath}' already exists and overwrite is false.`);
               }
           }
 
-          // Perform the rename/move operation
+          // Perform the rename/move operation (use validated paths)
           await rename(sourceFullPath, destinationFullPath);
 
           itemSuccess = true;
@@ -133,13 +151,13 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
           console.error(error);
           // Add suggestion based on error type if possible
           if (e.code === 'ENOENT') {
-              message = `Suggestion: Verify the source path '${item.sourcePath}' exists.`;
+              suggestion = `Suggestion: Verify the source path '${item.sourcePath}' exists.`; // Assign to suggestion
           } else if (e.message.includes('already exists and overwrite is false')) {
-              message = `Suggestion: Enable the 'overwrite' option or choose a different destination path.`;
+              suggestion = `Suggestion: Enable the 'overwrite' option or choose a different destination path.`; // Assign to suggestion
           } else if (e.code === 'EPERM' || e.code === 'EACCES') {
-              message = `Suggestion: Check file system permissions for both source and destination paths.`;
+              suggestion = `Suggestion: Check file system permissions for both source and destination paths.`; // Assign to suggestion
           } else {
-              message = `Suggestion: Check file paths, permissions, and disk space.`;
+              suggestion = `Suggestion: Check file paths, permissions, and disk space.`; // Assign to suggestion
           }
         }
       }
@@ -150,7 +168,8 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
         success: itemSuccess,
         message: itemSuccess ? message : undefined,
         error,
-        suggestion: !itemSuccess ? message : undefined,
+        // Use the suggestion populated during validation or catch block if item failed
+        suggestion: !itemSuccess ? suggestion : undefined,
       });
     }
 

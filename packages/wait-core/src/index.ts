@@ -1,19 +1,7 @@
-/**
- * Waits for a specified duration.
- * @param ms The number of milliseconds to wait.
- */
-async function wait(ms: number): Promise<void> {
-  // Add basic validation
-  if (typeof ms !== 'number' || ms < 0) {
-    console.error('Invalid duration provided to wait function.');
-    // Or throw an error, depending on desired behavior
-    return;
-  }
-  console.log(`Waiting for ${ms}ms...`);
-  await new Promise(resolve => setTimeout(resolve, ms));
-  console.log('Wait finished.');
-}
+// src/index.ts for @sylphlab/mcp-wait-core
 
-console.log('MCP Wait Core Package Loaded');
+// Export the tool implementation, Zod schema, and inferred type
+export { waitTool, WaitToolInputSchema } from './tools/waitTool.js';
+export type { WaitToolInput, WaitToolOutput } from './tools/waitTool.js'; // Also export output type if needed
 
-export { wait };
+console.log('MCP Wait Core Package (Tool Structure) Loaded');

@@ -30,8 +30,9 @@ describe('deleteItemsTool', () => {
     // Arrange
     const input: DeleteItemsToolInput = {
       paths: ['file_to_trash.txt'],
-      useTrash: true, // Explicitly true for clarity, matches default
-      recursive: true, // Explicitly true for clarity, matches default
+      useTrash: true,
+      recursive: true,
+      // allowOutsideWorkspace removed
     };
     mockTrash.mockResolvedValue(undefined); // Mock successful trash operation
 
@@ -55,7 +56,8 @@ describe('deleteItemsTool', () => {
     const input: DeleteItemsToolInput = {
       paths: ['file1.txt', 'folder_to_delete'],
       useTrash: false,
-      recursive: true, // Explicitly true, though default
+      recursive: true,
+      // allowOutsideWorkspace removed
     };
     mockRm.mockResolvedValue(undefined); // Mock successful rm operation
 
@@ -80,7 +82,7 @@ describe('deleteItemsTool', () => {
     const input = { paths: [] }; // Invalid input
 
     // Act
-    const result = await deleteItemsTool.execute(input as any, WORKSPACE_ROOT);
+    const result = await deleteItemsTool.execute(input as any, WORKSPACE_ROOT); // No options needed
 
     // Assert
     expect(result.success).toBe(false);
@@ -97,11 +99,12 @@ describe('deleteItemsTool', () => {
     const input: DeleteItemsToolInput = {
       paths: ['../outside.txt'],
       useTrash: true,
-      recursive: true, // Add missing property
+      recursive: true,
+      // allowOutsideWorkspace removed
     };
 
     // Act
-    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
 
     // Assert
     expect(result.success).toBe(false); // Overall success is false
@@ -118,13 +121,14 @@ describe('deleteItemsTool', () => {
     const input: DeleteItemsToolInput = {
       paths: ['error_file.txt'],
       useTrash: true,
-      recursive: true, // Add missing property
+      recursive: true,
+      // allowOutsideWorkspace removed
     };
     const testError = new Error('Trash failed');
     mockTrash.mockRejectedValue(testError);
 
     // Act
-    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
 
     // Assert
     expect(result.success).toBe(false);
@@ -142,13 +146,14 @@ describe('deleteItemsTool', () => {
     const input: DeleteItemsToolInput = {
       paths: ['error_file.txt'],
       useTrash: false,
-      recursive: true, // Add missing property (though rm uses it directly)
+      recursive: true,
+      // allowOutsideWorkspace removed
     };
     const testError = new Error('rm failed');
     mockRm.mockRejectedValue(testError);
 
     // Act
-    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
 
     // Assert
     expect(result.success).toBe(false);
@@ -160,6 +165,28 @@ describe('deleteItemsTool', () => {
     expect(mockRm).toHaveBeenCalledTimes(1);
     expect(mockTrash).not.toHaveBeenCalled();
   });
+
+  it('should NOT fail path validation if path is outside workspace and allowOutsideWorkspace is true', async () => {
+    const input: DeleteItemsToolInput = {
+      paths: ['../outside.txt'],
+      useTrash: true, // Use trash for simplicity
+      recursive: true,
+      // allowOutsideWorkspace removed
+    };
+    mockTrash.mockResolvedValue(undefined); // Mock success
+
+    // Act
+    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: true }); // Pass flag via options
+
+    // Assert
+    expect(result.success).toBe(true); // Should succeed as validation is skipped
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.error).toBeUndefined();
+    expect(mockTrash).toHaveBeenCalledTimes(1);
+    expect(mockTrash).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, '../outside.txt')); // Check resolved path
+    expect(mockRm).not.toHaveBeenCalled();
+  });
+
 
   // TODO: Add tests for glob support once implemented
   // TODO: Add tests for recursive false when using rm

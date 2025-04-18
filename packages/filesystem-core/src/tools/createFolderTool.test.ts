@@ -22,6 +22,7 @@ describe('createFolderTool', () => {
     // Arrange
     const input: CreateFolderToolInput = {
       folderPaths: ['new/folder'],
+      // allowOutsideWorkspace removed
     };
     mockMkdir.mockResolvedValue(undefined); // Mock successful creation
 
@@ -45,6 +46,7 @@ describe('createFolderTool', () => {
     // Arrange
     const input: CreateFolderToolInput = {
       folderPaths: ['folder1', 'folder2/sub'],
+      // allowOutsideWorkspace removed
     };
     mockMkdir.mockResolvedValue(undefined);
 
@@ -66,7 +68,7 @@ describe('createFolderTool', () => {
     const input = { folderPaths: [] }; // Invalid input
 
     // Act
-    const result = await createFolderTool.execute(input as any, WORKSPACE_ROOT);
+    const result = await createFolderTool.execute(input as any, WORKSPACE_ROOT); // No options needed
 
     // Assert
     expect(result.success).toBe(false); // Overall success is false
@@ -81,10 +83,11 @@ describe('createFolderTool', () => {
     // Arrange
     const input: CreateFolderToolInput = {
       folderPaths: ['../outside'],
+      // allowOutsideWorkspace removed
     };
 
     // Act
-    const result = await createFolderTool.execute(input, WORKSPACE_ROOT);
+    const result = await createFolderTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
 
     // Assert
     expect(result.success).toBe(false); // Overall success is false
@@ -99,6 +102,7 @@ describe('createFolderTool', () => {
     // Arrange
     const input: CreateFolderToolInput = {
       folderPaths: ['valid/path', 'error/path'],
+      // allowOutsideWorkspace removed
     };
     const testError = new Error('Permission denied');
     // Mock first call success, second call failure
@@ -107,7 +111,7 @@ describe('createFolderTool', () => {
       .mockRejectedValueOnce(testError);
 
     // Act
-    const result = await createFolderTool.execute(input, WORKSPACE_ROOT);
+    const result = await createFolderTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
 
     // Assert
     expect(result.success).toBe(true); // Overall success is true because one succeeded
@@ -121,6 +125,28 @@ describe('createFolderTool', () => {
     expect(result.results[1]!.suggestion).toEqual(expect.any(String));
     expect(mockMkdir).toHaveBeenCalledTimes(2);
   });
+
+  it('should NOT fail path validation if path is outside workspace and allowOutsideWorkspace is true', async () => {
+    const input: CreateFolderToolInput = {
+      folderPaths: ['../outside/new'],
+      // allowOutsideWorkspace removed from input
+    };
+    mockMkdir.mockResolvedValue(undefined); // Mock success
+
+    // Act
+    const result = await createFolderTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: true }); // Pass flag via options
+
+    // Assert
+    expect(result.success).toBe(true); // Should succeed as validation is skipped
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.error).toBeUndefined();
+    expect(mockMkdir).toHaveBeenCalledTimes(1);
+    expect(mockMkdir).toHaveBeenCalledWith(
+      path.resolve(WORKSPACE_ROOT, '../outside/new'), // Check resolved path
+      { recursive: true }
+    );
+  });
+
 
   // TODO: Add tests for invalid path characters if applicable on target OS
 });
