@@ -1,0 +1,185 @@
+import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
+import { readFile, stat } from 'node:fs/promises'; // Use named imports
+import path from 'node:path';
+import { Stats } from 'node:fs'; // Import Stats type
+import { readFilesTool, ReadFilesToolInput } from './readFilesTool';
+
+// Mock the specific fs/promises functions we need
+vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn(),
+  stat: vi.fn(),
+}));
+
+const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
+
+// Helper to create mock Stats objects
+const createMockStats = (isFile: boolean): Stats => ({
+    isFile: () => isFile,
+    isDirectory: () => !isFile,
+    // Add other properties if needed, or cast to Partial<Stats>
+    dev: 0, ino: 0, mode: 0, nlink: 0, uid: 0, gid: 0, rdev: 0, size: 42, blksize: 4096, blocks: 1, atimeMs: 0, mtimeMs: 0, ctimeMs: 0, birthtimeMs: 0, atime: new Date(), mtime: new Date(), ctime: new Date(), birthtime: new Date(),
+} as Stats);
+
+describe('readFilesTool', () => {
+  const mockReadFile = vi.mocked(readFile);
+  const mockStat = vi.mocked(stat);
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    // Default mocks
+    mockStat.mockResolvedValue(createMockStats(true)); // Assume path exists and is file by default
+    mockReadFile.mockResolvedValue(Buffer.from('')); // Default to empty buffer
+  });
+
+  it('should read a single file with utf-8 encoding by default', async () => {
+    const input: ReadFilesToolInput = {
+        paths: ['file.txt'],
+        encoding: 'utf-8', // Explicitly add default
+        includeStats: false, // Explicitly add default
+    };
+    const fileContent = 'Hello World!';
+    mockReadFile.mockResolvedValue(Buffer.from(fileContent, 'utf-8'));
+
+    const result = await readFilesTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(true);
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.path).toBe('file.txt');
+    expect(result.results[0]?.content).toBe(fileContent);
+    expect(result.results[0]?.stat).toBeUndefined();
+    expect(result.results[0]?.error).toBeUndefined();
+    expect(mockReadFile).toHaveBeenCalledTimes(1);
+    expect(mockReadFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'file.txt'));
+    expect(mockStat).not.toHaveBeenCalled(); // Not called if includeStats is false
+  });
+
+  it('should read a single file with base64 encoding', async () => {
+    const input: ReadFilesToolInput = {
+        paths: ['file.bin'],
+        encoding: 'base64',
+        includeStats: false, // Add missing default
+    };
+    const fileContent = 'SGVsbG8gV29ybGQh'; // "Hello World!" in base64
+    const fileBuffer = Buffer.from(fileContent, 'base64');
+    mockReadFile.mockResolvedValue(fileBuffer);
+
+    const result = await readFilesTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(true);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.content).toBe(fileContent); // Should return base64 string
+    expect(mockReadFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('should read multiple files', async () => {
+    const input: ReadFilesToolInput = {
+        paths: ['file1.txt', 'file2.txt'],
+        encoding: 'utf-8', // Add missing default
+        includeStats: false, // Add missing default
+    };
+    mockReadFile
+      .mockResolvedValueOnce(Buffer.from('Content 1'))
+      .mockResolvedValueOnce(Buffer.from('Content 2'));
+
+    const result = await readFilesTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(true);
+    expect(result.results).toHaveLength(2);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.content).toBe('Content 1');
+    expect(result.results[1]?.success).toBe(true);
+    expect(result.results[1]?.content).toBe('Content 2');
+    expect(mockReadFile).toHaveBeenCalledTimes(2);
+  });
+
+  it('should include stats when requested', async () => {
+    const input: ReadFilesToolInput = {
+        paths: ['file.txt'],
+        includeStats: true,
+        encoding: 'utf-8', // Add missing default
+    };
+    const mockFileStats = createMockStats(true);
+    mockStat.mockResolvedValue(mockFileStats); // Mock stat for the file
+    mockReadFile.mockResolvedValue(Buffer.from('content'));
+
+    const result = await readFilesTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(true);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.stat).toBeDefined();
+    expect(result.results[0]?.stat?.size).toBe(42); // Check example stat value
+    expect(mockStat).toHaveBeenCalledTimes(1); // Only called once when includeStats is true
+    expect(mockReadFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('should fail if includeStats is true and path is not a file', async () => {
+    const input: ReadFilesToolInput = {
+        paths: ['dir'],
+        includeStats: true,
+        encoding: 'utf-8', // Add missing default
+    };
+    mockStat.mockResolvedValue(createMockStats(false)); // Mock stat says it's a directory
+
+    const result = await readFilesTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(false); // Overall success is false as the only read failed
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('is not a file');
+    expect(mockStat).toHaveBeenCalledTimes(1);
+    expect(mockReadFile).not.toHaveBeenCalled();
+  });
+
+
+  it('should return validation error for empty paths array', async () => {
+    const input = { paths: [] }; // Invalid input
+    const result = await readFilesTool.execute(input as any, WORKSPACE_ROOT);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Input validation failed');
+    expect(result.error).toContain('paths array cannot be empty');
+    expect(mockReadFile).not.toHaveBeenCalled();
+  });
+
+  it('should handle path validation failure (outside workspace)', async () => {
+    const input: ReadFilesToolInput = { paths: ['../outside.txt'], encoding: 'utf-8', includeStats: false };
+    const result = await readFilesTool.execute(input, WORKSPACE_ROOT);
+    expect(result.success).toBe(false);
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('Path validation failed');
+    expect(mockReadFile).not.toHaveBeenCalled();
+  });
+
+  it('should handle non-existent file error (ENOENT)', async () => {
+    const input: ReadFilesToolInput = { paths: ['nonexistent.txt'], encoding: 'utf-8', includeStats: false };
+    const readError = new Error('ENOENT');
+    (readError as any).code = 'ENOENT';
+    mockReadFile.mockRejectedValue(readError);
+
+    const result = await readFilesTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(false);
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('File not found');
+    expect(mockReadFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('should handle path is directory error (EISDIR)', async () => {
+    const input: ReadFilesToolInput = { paths: ['directory'], encoding: 'utf-8', includeStats: false };
+    const readError = new Error('EISDIR');
+    (readError as any).code = 'EISDIR';
+    mockReadFile.mockRejectedValue(readError);
+    // Need to mock stat to say it's a directory IF includeStats was true, but here it's false,
+    // so the error comes directly from readFile
+
+    const result = await readFilesTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(false);
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('Path is a directory');
+    expect(mockReadFile).toHaveBeenCalledTimes(1);
+  });
+
+  // TODO: Add tests for stat error when includeStats is true
+  // TODO: Add tests for multiple files where some succeed and some fail
+  // TODO: Add tests for lineRange once implemented
+});

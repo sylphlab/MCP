@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ] # Or your default branch
+  pull_request:
+    branches: [ main ] # Or your default branch
+
+jobs:
+  lint_test_build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for changeset versioning
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest # Or pin to specific version like 10.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18 # Match target specified in tsup.config.ts
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      # Add linting step later if needed
+      # - name: Lint
+      #   run: pnpm run lint # Assumes a lint script exists
+
+      - name: Test
+        run: pnpm run test # Runs 'turbo run test'
+
+      - name: Build
+        run: pnpm run build # Runs 'turbo run build'

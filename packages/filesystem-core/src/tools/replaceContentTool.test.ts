@@ -1,0 +1,196 @@
+import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
+import { readFile, writeFile } from 'node:fs/promises'; // Use named imports
+import path from 'node:path';
+import glob from 'fast-glob'; // Import fast-glob
+import { replaceContentTool, ReplaceContentToolInput, ReplaceOperation } from './replaceContentTool';
+
+// Mock the specific fs/promises functions we need
+vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn(),
+  writeFile: vi.fn(),
+}));
+
+// Mock fast-glob
+vi.mock('fast-glob', () => ({
+  default: vi.fn(),
+}));
+
+const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
+
+describe('replaceContentTool', () => {
+  const mockReadFile = vi.mocked(readFile);
+  const mockWriteFile = vi.mocked(writeFile);
+  const mockGlob = vi.mocked(glob); // Use vi.mocked
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    // Default mocks
+    mockGlob.mockResolvedValue([]); // Default to no files matched
+    mockReadFile.mockResolvedValue(''); // Default to empty file
+    mockWriteFile.mockResolvedValue(undefined); // Default to successful write
+  });
+
+  // Helper
+  const createInput = (paths: string[], operations: ReplaceOperation[]): ReplaceContentToolInput => ({ paths, operations });
+
+  it('should perform simple text replacement in one file', async () => {
+    const filePath = 'file.txt';
+    const initialContent = 'hello world, hello';
+    const expectedContent = 'hi world, hi';
+    mockGlob.mockResolvedValue([filePath]);
+    mockReadFile.mockResolvedValue(initialContent);
+    const input = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }]); // Add isRegex
+
+    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(true);
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.path).toBe(filePath);
+    expect(result.results[0]?.replacementsMade).toBe(2);
+    expect(result.results[0]?.contentChanged).toBe(true);
+    expect(mockWriteFile).toHaveBeenCalledTimes(1);
+    expect(mockWriteFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, filePath), expectedContent, 'utf-8');
+  });
+
+  it('should perform regex replacement in one file', async () => {
+    const filePath = 'file.txt';
+    const initialContent = 'line 1\nline 2';
+    const expectedContent = 'L1\nL2';
+    mockGlob.mockResolvedValue([filePath]);
+    mockReadFile.mockResolvedValue(initialContent);
+    const input = createInput([filePath], [{ search: 'line (\\d)', replace: 'L$1', isRegex: true, flags: 'g' }]);
+
+    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(true);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.replacementsMade).toBeGreaterThan(0); // Simplistic check for regex
+    expect(result.results[0]?.contentChanged).toBe(true);
+    expect(mockWriteFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, filePath), expectedContent, 'utf-8');
+  });
+
+  it('should perform replacements across multiple files from glob', async () => {
+    const files = ['file1.txt', 'sub/file2.txt'];
+    mockGlob.mockResolvedValue(files);
+    mockReadFile
+      .mockResolvedValueOnce('content A')
+      .mockResolvedValueOnce('content B');
+    const input = createInput(['**/*.txt'], [{ search: 'content', replace: 'CONTENT', isRegex: false }]); // Add isRegex
+    const expectedContent1 = 'CONTENT A';
+    const expectedContent2 = 'CONTENT B';
+
+    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(true);
+    expect(result.results).toHaveLength(2);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[1]?.success).toBe(true);
+    expect(mockWriteFile).toHaveBeenCalledTimes(2);
+    expect(mockWriteFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, files[0]!), expectedContent1, 'utf-8'); // Add !
+    expect(mockWriteFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, files[1]!), expectedContent2, 'utf-8'); // Add !
+  });
+
+  it('should not write file if no replacements are made', async () => {
+    const filePath = 'file.txt';
+    const initialContent = 'no matches here';
+    mockGlob.mockResolvedValue([filePath]);
+    mockReadFile.mockResolvedValue(initialContent);
+    const input = createInput([filePath], [{ search: 'missing', replace: 'found', isRegex: false }]); // Add isRegex
+
+    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(true);
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.replacementsMade).toBe(0);
+    expect(result.results[0]?.contentChanged).toBe(false);
+    expect(mockWriteFile).not.toHaveBeenCalled();
+  });
+
+   it('should return success if no files match glob', async () => {
+    mockGlob.mockResolvedValue([]); // No files matched
+    const input = createInput(['*.nomatch'], [{ search: 'a', replace: 'b', isRegex: false }]); // Add isRegex
+
+    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(true);
+    expect(result.results).toHaveLength(0);
+    expect(mockReadFile).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+  });
+
+  it('should return validation error for invalid input', async () => {
+    const input = { paths: ['*.txt'], operations: [] }; // Empty operations array
+
+    const result = await replaceContentTool.execute(input as any, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Input validation failed');
+    expect(result.error).toContain('operations array cannot be empty');
+    expect(mockGlob).not.toHaveBeenCalled();
+  });
+
+  it('should handle glob error', async () => {
+    const globError = new Error('Invalid glob pattern');
+    mockGlob.mockRejectedValue(globError);
+    const input = createInput(['[invalid'], [{ search: 'a', replace: 'b', isRegex: false }]); // Add isRegex
+
+    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Glob pattern error');
+    expect(result.error).toContain('Invalid glob pattern');
+  });
+
+  it('should handle file read error', async () => {
+    const filePath = 'file.txt';
+    mockGlob.mockResolvedValue([filePath]);
+    const readError = new Error('Permission denied');
+    mockReadFile.mockRejectedValue(readError);
+    const input = createInput([filePath], [{ search: 'a', replace: 'b', isRegex: false }]); // Add isRegex
+
+    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(false); // Overall fails if one file fails
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('Permission denied');
+    expect(mockWriteFile).not.toHaveBeenCalled();
+  });
+
+  it('should handle file write error', async () => {
+    const filePath = 'file.txt';
+    const initialContent = 'hello';
+    mockGlob.mockResolvedValue([filePath]);
+    mockReadFile.mockResolvedValue(initialContent);
+    const writeError = new Error('Disk full');
+    mockWriteFile.mockRejectedValue(writeError);
+    const input = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }]); // Add isRegex
+
+    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT);
+
+    expect(result.success).toBe(false);
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('Disk full');
+    expect(mockWriteFile).toHaveBeenCalledTimes(1); // Write was attempted
+  });
+
+  it('should handle invalid regex error during operation', async () => {
+     const filePath = 'file.txt';
+     mockGlob.mockResolvedValue([filePath]);
+     mockReadFile.mockResolvedValue('content');
+     const input = createInput([filePath], [{ search: '(', replace: 'fail', isRegex: true }]); // Invalid regex
+
+     const result = await replaceContentTool.execute(input, WORKSPACE_ROOT);
+
+     expect(result.success).toBe(false);
+     expect(result.results[0]?.success).toBe(false);
+     expect(result.results[0]?.error).toContain('Invalid regex');
+     expect(mockWriteFile).not.toHaveBeenCalled();
+   });
+
+  // TODO: Add tests for lineRange once implemented
+  // TODO: Add tests for multiple operations on one file
+  // TODO: Add tests for more complex regex replacement counting
+});

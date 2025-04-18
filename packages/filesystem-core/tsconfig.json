@@ -1,0 +1,46 @@
+{
+  // Potentially extend a base config later: "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    /* Base Options: */
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "target": "ESNext",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+
+    /* Strictness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true, // Recommended for stricter checks
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+
+    /* If transpiling with TypeScript: */
+    "moduleResolution": "Node",
+    "module": "ESNext",
+    // "outDir": "./dist", // Handled by tsup
+    // "sourceMap": true, // Handled by tsup
+
+    /* If your code runs in the DOM: */
+    // "lib": ["esnext", "dom"],
+
+    /* If your code doesn't run in the DOM: */
+    "lib": ["esnext"],
+
+    /* Library-specific options */
+    // "declaration": true, // Handled by tsup
+    // "declarationMap": true, // Handled by tsup
+    // "rootDir": "./src", // Not needed when only type-checking
+
+    /* Type Definitions */
+    "types": ["node", "vitest/globals"] // Include node and vitest global types
+  },
+  "include": ["src/**/*"], // Include all files in src
+  "exclude": ["node_modules", "dist", "vitest.config.ts"] // Exclude build output and tests config
+}

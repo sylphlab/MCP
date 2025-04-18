@@ -1,0 +1,32 @@
+{
+  "name": "@sylphlab/mcp-core",
+  "version": "0.0.0",
+  "description": "Core types and utilities for Sylph Lab MCP packages",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "echo \"Error: no test specified\" && exit 0"
+  },
+  "keywords": [
+    "mcp",
+    "core",
+    "types"
+  ],
+  "author": "Sylph Lab <hi@sylphlab.com>",
+  "license": "MIT",
+  "packageManager": "pnpm@10.8.0",
+  "dependencies": {
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3"
+  }
+}

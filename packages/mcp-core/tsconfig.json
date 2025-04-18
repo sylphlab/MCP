@@ -1,0 +1,34 @@
+{
+  // Consider extending a base tsconfig.base.json later
+  "compilerOptions": {
+    /* Base Options */
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "composite": true, // Required for project references
+
+    /* Strictness */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    // Add other strict flags as desired
+
+    /* Build options (Handled by tsup, but needed for declaration) */
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true, // tsup uses this
+    "outDir": "./dist", // tsup uses this, but good for editor understanding
+    // "rootDir": "./src", // Remove rootDir, let composite default handle it
+
+    /* Type Checking */
+    // "noEmit": true, // Cannot use noEmit with composite projects
+    "types": ["node"] // Base node types
+  },
+  "include": ["src/**/*"], // Include all files in src
+  "exclude": ["node_modules", "dist"]
+}
