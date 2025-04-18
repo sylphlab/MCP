@@ -77,8 +77,8 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          # Publish packages to NPM
-          publish: pnpm publish -r --no-git-checks
+          # Publish packages to NPM publicly
+          publish: pnpm publish -r --access public --no-git-checks
           # Commit and Title are not needed when publishing directly
           # version: pnpm changeset version # Handled by publish command implicitly
           # commit: "chore: version packages for release"
