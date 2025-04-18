@@ -108,7 +108,7 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
 
           if (destinationExists) {
               if (overwrite) {
-                  console.log(`Overwrite enabled: Removing existing destination '${item.destinationPath}' before move.`);
+                  console.error(`Overwrite enabled: Removing existing destination '${item.destinationPath}' before move.`); // Log to stderr
                   await rm(destinationFullPath, { recursive: true, force: true }); // Remove existing destination
               } else {
                   throw new Error(`Destination path '${item.destinationPath}' already exists and overwrite is false.`);
@@ -120,7 +120,7 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
 
           itemSuccess = true;
           message = `Moved/Renamed '${item.sourcePath}' to '${item.destinationPath}' successfully.`;
-          console.log(message);
+          console.error(message); // Log success to stderr
 
         } catch (e: any) {
           itemSuccess = false;
@@ -142,7 +142,10 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
     return {
       success: overallSuccess,
       results,
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: overallSuccess
+        ? [{ type: 'text', text: `Move/Rename operation completed. Success: ${overallSuccess}` }]
+        : [],
     };
   },
 };

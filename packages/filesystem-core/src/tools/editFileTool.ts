@@ -297,9 +297,9 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
                 // Only write if content actually changed
                 if (modifiedContent !== originalContent) {
                     await writeFile(fullPath, modifiedContent, 'utf-8');
-                    console.log(`Successfully applied edits to ${filePath}.`);
+                    console.error(`Successfully applied edits to ${filePath}.`); // Log to stderr
                 } else {
-                     console.log(`No changes needed for ${filePath}.`);
+                     console.error(`No changes needed for ${filePath}.`); // Log to stderr
                      // Still mark file as success even if no write needed
                 }
             } else {
@@ -330,7 +330,10 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
     return {
       success: overallSuccess,
       results: fileResults, // Keep results for consistency
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: overallSuccess
+        ? [{ type: 'text', text: `Edit operation completed. Success: ${overallSuccess}` }]
+        : [],
     };
   },
 };

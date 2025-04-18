@@ -10,7 +10,6 @@ const ReplaceOperationSchema = z.object({
     replace: z.string(),
     isRegex: z.boolean().optional().default(false),
     flags: z.string().optional(), // e.g., 'g', 'i', 'm', 'gi'
-    // lineRange: z.object({ start: z.number().int().min(1), end: z.number().int().min(1) }).optional(), // TODO: Add later
 }).refine(data => !data.isRegex || data.flags === undefined || /^[gimyus]+$/.test(data.flags), {
     message: "Invalid regex flags provided. Only 'g', 'i', 'm', 'y', 'u', 's' are allowed.",
     path: ['flags'],
@@ -23,7 +22,6 @@ export const ReplaceContentToolInputSchema = z.object({
     )
     .min(1, 'paths array cannot be empty'),
   operations: z.array(ReplaceOperationSchema).min(1, 'operations array cannot be empty'),
-  // TODO: Add lineRange support later
 });
 
 // Infer the TypeScript type from the Zod schema
@@ -93,7 +91,7 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
         });
 
         if (resolvedFilePaths.length === 0) {
-             console.log('No files matched the provided paths/globs.');
+             console.error('No files matched the provided paths/globs.'); // Log to stderr
              // Return success=true but empty results if no files match
              return { success: true, results: [], content: [] }; // Add content
         }
@@ -163,9 +161,9 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
             if (currentContent !== originalContent) {
                 await writeFile(fullPath, currentContent, 'utf-8');
                 contentChanged = true;
-                console.log(`Applied ${totalReplacementsMade} replacement(s) to ${relativeFilePath}.`);
+                console.error(`Applied ${totalReplacementsMade} replacement(s) to ${relativeFilePath}.`); // Log to stderr
             } else {
-                 console.log(`No replacements needed for ${relativeFilePath}.`);
+                 console.error(`No replacements needed for ${relativeFilePath}.`); // Log to stderr
             }
 
         } catch (e: any) {
@@ -187,7 +185,10 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
     return {
       success: overallSuccess,
       results: fileResults,
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: overallSuccess
+        ? [{ type: 'text', text: `Replace operation completed. Success: ${overallSuccess}` }]
+        : [],
     };
   },
 };

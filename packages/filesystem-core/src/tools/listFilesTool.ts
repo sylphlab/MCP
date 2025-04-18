@@ -201,7 +201,10 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
     return {
       success: anySuccess, // True if at least one path succeeded
       results,
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: anySuccess
+        ? [{ type: 'text', text: `List operation completed. Success: ${anySuccess}` }]
+        : [],
     };
   },
 };

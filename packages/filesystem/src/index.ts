@@ -2,8 +2,8 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ZodObject, ZodRawShape } from 'zod'; // Import necessary Zod types
-import { McpTool } from '@sylphlab/mcp-core'; // Import base McpTool type
+import { ZodObject, ZodRawShape, z } from 'zod'; // Import z
+import { McpTool } from '@sylphlab/mcp-core';
 
 // Import the complete tool objects from the core library
 import {
@@ -33,9 +33,7 @@ const mcpServer = new McpServer(
     version: serverVersion,
     description: serverDescription,
   },
-  {
-    // Capabilities will be registered via mcpServer.tool()
-  },
+  {}, // No options needed here
 );
 
 // Array of imported tool objects
@@ -55,21 +53,27 @@ const definedTools: McpTool<any, any>[] = [
 
 // Register tools using the mcpServer.tool() method
 definedTools.forEach((tool) => {
-  // Assume all tools have name, execute, and inputSchema (which is a ZodObject)
   if (tool && tool.name && tool.execute && tool.inputSchema instanceof ZodObject) {
     const zodShape: ZodRawShape = tool.inputSchema.shape;
     mcpServer.tool(
       tool.name,
       tool.description || '',
-      zodShape, // Pass the .shape property
-      async (args: unknown) => { // Wrap the original execute
-          const workspaceRoot = process.cwd(); // TODO: Improve workspace root detection
+      zodShape, // Pass the .shape property for SDK validation
+      async (args: unknown) => { // Simple wrapper
+          const workspaceRoot = process.cwd();
           try {
-              // SDK validates against the shape, execute expects validated args
-              const result = await tool.execute(args as any, workspaceRoot);
+              // Parse args with the original Zod schema
+              const validatedArgs = tool.inputSchema.parse(args);
+              // Call original execute with validated args
+              const result = await tool.execute(validatedArgs, workspaceRoot);
+              // Ensure content array exists if success is true
+              if (result.success && !result.content) {
+                  result.content = [];
+              }
               return result;
           } catch (execError: any) {
                console.error(`Error during execution of ${tool.name}:`, execError);
+               // Return a standard error format
                return {
                    success: false,
                    error: `Tool execution failed: ${execError.message || 'Unknown error'}`,
@@ -86,14 +90,28 @@ definedTools.forEach((tool) => {
 
 
 // --- Server Start ---
-try {
-  const transport = new StdioServerTransport();
-  // Connect the underlying server instance from McpServer
-  // Use mcpServer.server which holds the actual rpc-server instance
-  await mcpServer.server.connect(transport);
-  console.error(`Filesystem MCP Server "${serverName}" v${serverVersion} started successfully via stdio.`);
-  console.error('Waiting for requests...');
-} catch (error: unknown) {
-  console.error('Server failed to start:', error);
-  process.exit(1);
+async function startServer() {
+    try {
+      const transport = new StdioServerTransport();
+      await mcpServer.server.connect(transport);
+      console.error(`Filesystem MCP Server "${serverName}" v${serverVersion} started successfully via stdio.`);
+      console.error('Waiting for requests...');
+    } catch (error: unknown) {
+      console.error('Server failed to start:', error);
+      process.exit(1);
+    }
 }
+
+startServer();
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+    console.error('Received SIGINT. Exiting...');
+    process.exit(0);
+});
+process.on('SIGTERM', () => {
+    console.error('Received SIGTERM. Exiting...');
+    process.exit(0);
+});
+
+// Removed keep-alive timer, assuming SDK transport handles process lifecycle

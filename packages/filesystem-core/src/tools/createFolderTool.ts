@@ -83,7 +83,7 @@ export const createFolderTool: McpTool<typeof CreateFolderToolInputSchema, Creat
           itemSuccess = true;
           anySuccess = true; // Mark overall success if at least one works
           message = `Folder created successfully at '${folderPath}'.`;
-          console.log(message);
+          console.error(message); // Log success to stderr
         } catch (e: any) {
           // mkdir with recursive: true usually only fails on permissions or invalid path chars
           error = `Failed to create folder '${folderPath}': ${e.message}`;
@@ -102,7 +102,10 @@ export const createFolderTool: McpTool<typeof CreateFolderToolInputSchema, Creat
     return {
       success: anySuccess, // True if at least one succeeded
       results,
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: anySuccess
+        ? [{ type: 'text', text: `Create folder operation completed. Success: ${anySuccess}` }]
+        : [],
     };
   },
 };

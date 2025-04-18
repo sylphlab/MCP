@@ -94,7 +94,7 @@ export const deleteItemsTool: McpTool<typeof DeleteItemsToolInputSchema, DeleteI
           }
           itemSuccess = true;
           message = `Item '${itemPath}' deleted (${deleteMethod}) successfully.`;
-          console.log(message);
+          console.error(message); // Log success to stderr
         } catch (e: any) {
           itemSuccess = false;
           overallSuccess = false;
@@ -115,7 +115,10 @@ export const deleteItemsTool: McpTool<typeof DeleteItemsToolInputSchema, DeleteI
     return {
       success: overallSuccess, // True only if all operations succeeded
       results,
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: overallSuccess
+        ? [{ type: 'text', text: `Delete operation completed. Success: ${overallSuccess}` }]
+        : [],
     };
   },
 };

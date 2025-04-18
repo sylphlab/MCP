@@ -99,7 +99,7 @@ export const writeFilesTool: McpTool<typeof WriteFilesToolInputSchema, WriteFile
           }
           itemSuccess = true;
           anySuccess = true;
-          console.log(message);
+          console.error(message); // Log success to stderr
 
         } catch (e: any) {
           itemSuccess = false;
@@ -119,7 +119,10 @@ export const writeFilesTool: McpTool<typeof WriteFilesToolInputSchema, WriteFile
     return {
       success: anySuccess, // True if at least one operation succeeded
       results,
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: anySuccess
+        ? [{ type: 'text', text: `Write operation completed. Success: ${anySuccess}` }]
+        : [],
     };
   },
 };

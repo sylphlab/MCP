@@ -88,7 +88,7 @@ export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsTo
             // Report ENOENT (Not Found) as a non-error state for stat, but itemSuccess is false
             if (e.code === 'ENOENT') {
                  error = `Path '${itemPath}' not found.`;
-                 console.log(error); // Log as info, not error
+                 console.error(error); // Log info to stderr for consistency
             } else {
                  // Report other errors as failures
                  error = `Failed to get stats for '${itemPath}': ${e.message}`;
@@ -108,7 +108,10 @@ export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsTo
     return {
       success: anySuccess, // True if at least one stat succeeded
       results,
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: anySuccess
+        ? [{ type: 'text', text: `Stat operation completed. Success: ${anySuccess}` }]
+        : [],
     };
   },
 };

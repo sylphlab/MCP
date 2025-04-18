@@ -109,7 +109,7 @@ export const copyItemsTool: McpTool<typeof CopyItemsToolInputSchema, CopyItemsTo
         });
         itemSuccess = true;
         message = `Copied '${item.sourcePath}' to '${item.destinationPath}' successfully.`;
-        console.log(message);
+        console.error(message); // Log success to stderr
       } catch (e: any) {
         itemSuccess = false;
         if (e.code === 'ENOENT') {
@@ -135,7 +135,10 @@ export const copyItemsTool: McpTool<typeof CopyItemsToolInputSchema, CopyItemsTo
     return {
       success: overallSuccess,
       results,
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: overallSuccess
+        ? [{ type: 'text', text: `Copy operation completed. Success: ${overallSuccess}` }]
+        : [],
     };
   },
 };

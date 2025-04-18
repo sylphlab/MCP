@@ -17,7 +17,6 @@ export const SearchContentToolInputSchema = z.object({
   contextLinesBefore: z.number().int().min(0).optional().default(0),
   contextLinesAfter: z.number().int().min(0).optional().default(0),
   maxResultsPerFile: z.number().int().min(1).optional(),
-  // lineRange: z.object({ start: z.number().int().min(1), end: z.number().int().min(1) }).optional(), // TODO: Add later
 });
 // Removed refine check causing issues with isRegex:true and matchCase:true
 
@@ -89,7 +88,6 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
         contextLinesBefore,
         contextLinesAfter,
         maxResultsPerFile,
-        // lineRange // TODO
     } = parsed.data;
     // --- End Zod Validation ---
 
@@ -107,7 +105,7 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
         });
 
         if (resolvedFilePaths.length === 0) {
-             console.log('No files matched the provided paths/globs.');
+             console.error('No files matched the provided paths/globs.'); // Log to stderr
              return { success: true, results: [], content: [] }; // Add content
         }
 
@@ -124,8 +122,6 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
 
         // Double-check security
         const relativeCheck = path.relative(workspaceRoot, fullPath);
-        // const isOutside = relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck); // Check condition - Remove logging
-        // console.log(`[DEBUG] Security Check: Path='${relativeFilePath}', Full='${fullPath}', Relative='${relativeCheck}', IsAbsolute=${path.isAbsolute(relativeCheck)}, IsOutside=${isOutside}`); // LOGGING
          if (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck)) {
             fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
             console.error(fileError); // Keep error log
@@ -136,7 +132,6 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
         }
 
         try {
-            // console.log(`[DEBUG] Processing file: ${relativeFilePath}`); // Remove logging
             const content = await readFile(fullPath, 'utf-8');
             const lines = content.split(/\r?\n/);
             let fileMatchCount = 0;
@@ -159,14 +154,10 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
                 searchRegex = new RegExp(searchString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
             }
 
-            // TODO: Implement lineRange filtering here
-
-            // console.log(`[DEBUG] Starting line loop for ${relativeFilePath}. Regex: ${searchRegex}`); // Remove logging
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
                 if (line === undefined) continue; // Should not happen with split, but safety
 
-                // console.log(`[DEBUG] Searching line ${i + 1}: "${line}"`); // Remove logging
                 let matchResult: RegExpExecArray | null;
                 let searchIndex = 0;
 
@@ -205,10 +196,8 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
                     break; // Stop searching lines in this file
                 }
             } // End line loop
-            // console.log(`[DEBUG] Finished line loop for ${relativeFilePath}. Matches found: ${fileMatchCount}`); // Remove logging
 
         } catch (e: any) {
-            // console.error(`[DEBUG] Caught error processing file ${relativeFilePath}:`, e); // Remove logging
             fileSuccess = false;
             overallSuccess = false;
             fileError = `Error processing file '${relativeFilePath}': ${e.message}`;
@@ -223,11 +212,13 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
         });
     } // End files loop
 
-    // console.log(`[DEBUG] Final state before return: overallSuccess=${overallSuccess}, resultsCount=${fileResults.length}`); // Remove logging
     return {
       success: overallSuccess,
       results: fileResults,
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: overallSuccess
+        ? [{ type: 'text', text: `Search operation completed. Success: ${overallSuccess}` }]
+        : [],
     };
   },
 };

@@ -12,9 +12,7 @@ export const ReadFilesToolInputSchema = z.object({
     )
     .min(1, 'paths array cannot be empty'),
   encoding: z.enum(['utf-8', 'base64']).optional().default('utf-8'),
-  // outputFormat: z.enum(['text', 'json' /* ... */]).optional().default('text'), // TODO: Add later if needed
   includeStats: z.boolean().optional().default(false),
-  // lineRange: z.object({ start: z.number().int().min(1), end: z.number().int().min(1) }).optional(), // TODO: Add later if needed
 });
 
 // Infer the TypeScript type from the Zod schema
@@ -99,9 +97,6 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
             const fileBuffer = await readFile(fullPath);
             content = fileBuffer.toString(encoding);
 
-            // TODO: Implement lineRange logic here if added later
-            // if (lineRange) { ... slice lines ... }
-
             itemSuccess = true;
             anySuccess = true; // Mark overall success if at least one works
 
@@ -131,7 +126,10 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
     return {
       success: anySuccess, // True if at least one read succeeded
       results,
-      content: [], // Add required content field
+      // Add a default success message to content if overall successful
+      content: anySuccess
+        ? [{ type: 'text', text: `Read operation completed. Success: ${anySuccess}` }]
+        : [],
     };
   },
 };
