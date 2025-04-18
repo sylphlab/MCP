@@ -1,0 +1,47 @@
+{
+  "name": "base64-mcp",
+  "version": "0.1.0",
+  "description": "MCP base64 tool (re-exports base64-core-mcp)",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write ."
+  },
+  "keywords": [
+    "mcp",
+    "tool",
+    "base64"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "@typescript-eslint/eslint-plugin": "^7.10.0",
+    "@typescript-eslint/parser": "^7.10.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "prettier": "^3.2.5",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "base64-core-mcp": "workspace:*"
+  }
+}

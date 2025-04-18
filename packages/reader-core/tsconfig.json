@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    /* Base Options */
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "composite": true,
+
+    /* Strictness */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+
+    /* Build options */
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+
+    /* Type Checking */
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

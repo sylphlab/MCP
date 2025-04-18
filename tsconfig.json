@@ -1,0 +1,32 @@
+{
+  // This is a solution-style tsconfig.json used for project references.
+  // It helps TypeScript understand the monorepo structure.
+  "files": [], // No files are compiled by this config directly
+  "references": [
+    // List all packages that should be part of the build process
+    { "path": "./packages/core" },
+    { "path": "./packages/filesystem-core" },
+    { "path": "./packages/filesystem" },
+    { "path": "./packages/wait-core" },
+    { "path": "./packages/wait" },
+    { "path": "./packages/net-core" },
+    { "path": "./packages/net" },
+    { "path": "./packages/fetch-core" },
+    { "path": "./packages/fetch" },
+    { "path": "./packages/json-core" },
+    { "path": "./packages/json" },
+    { "path": "./packages/base64-core" },
+    { "path": "./packages/base64" },
+    { "path": "./packages/hasher-core" },
+    { "path": "./packages/hasher" },
+    { "path": "./packages/xml-core" },
+    { "path": "./packages/xml" },
+    { "path": "./packages/reader-core" },
+    { "path": "./packages/reader" }
+    // Add other packages if they exist and need referencing
+  ],
+  "compilerOptions": {
+    // Prevents this config from compiling anything on its own
+    "noEmit": true
+  }
+}
