@@ -77,12 +77,12 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          # Decide whether to publish or create a PR
-          # publish: pnpm publish -r --no-git-checks # Uncomment to publish directly
-          # For creating PRs instead:
-          version: pnpm changeset version
-          commit: "chore: version packages for release"
-          title: "chore: version packages for release"
+          # Publish packages to NPM
+          publish: pnpm publish -r --no-git-checks
+          # Commit and Title are not needed when publishing directly
+          # version: pnpm changeset version # Handled by publish command implicitly
+          # commit: "chore: version packages for release"
+          # title: "chore: version packages for release"
           # Optional: If using a custom bot user for commits
           # user.name: "github-actions[bot]"
           # user.email: "github-actions[bot]@users.noreply.github.com"
