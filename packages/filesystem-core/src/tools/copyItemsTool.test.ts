@@ -115,6 +115,7 @@ describe('copyItemsTool', () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0]!.success).toBe(false);
     expect(result.results[0]!.error).toContain('Source path does not exist');
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String)); // Check suggestion exists
     expect(mockCp).toHaveBeenCalledTimes(1);
   });
 
@@ -136,6 +137,7 @@ describe('copyItemsTool', () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0]!.success).toBe(false);
     expect(result.results[0]!.error).toContain('Destination path already exists and overwrite is false');
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String)); // Check suggestion exists
     expect(mockCp).toHaveBeenCalledTimes(1);
     expect(mockCp).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, 'source.txt'),
@@ -161,6 +163,7 @@ describe('copyItemsTool', () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0]!.success).toBe(false);
     expect(result.results[0]!.error).toContain('Something went wrong');
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String)); // Check suggestion exists
     expect(mockCp).toHaveBeenCalledTimes(1);
   });
 

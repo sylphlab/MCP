@@ -1,19 +1,65 @@
-import { createHash } from 'crypto';
+import { createHash, getHashes } from 'crypto';
 
-/** Placeholder SHA256 hash function */
-export function computeHash(input: string): string {
-  console.log('Computing SHA256 hash...');
-  try {
-    return createHash('sha256').update(input).digest('hex');
-  } catch (e) {
-    console.error('Hashing failed');
-    return '';
-  }
+// Define Input and Output structures for batch processing
+// Use crypto.getHashes() for dynamic algorithm support if needed, or define explicitly
+// const supportedAlgorithms = getHashes(); // Example
+type HashAlgorithm = 'sha256' | 'sha512' | 'md5'; // Explicit list for now
+
+interface HasherInputItem {
+  id?: string;
+  algorithm: HashAlgorithm;
+  data: string; // Assuming string input for hashing
 }
 
-// Placeholder for Hashing MCP tools
-// e.g., md5, sha256, sha512
+interface HasherResultItem {
+  id?: string;
+  success: boolean;
+  result?: string; // The computed hash
+  error?: string;
+  suggestion?: string;
+}
 
-console.log('MCP Hasher Tool Package Loaded');
+/**
+ * Processes multiple hashing operations.
+ * @param items An array of HasherInputItem objects.
+ * @returns An array of HasherResultItem objects.
+ */
+export function processHashOperations(items: HasherInputItem[]): HasherResultItem[] {
+  const results: HasherResultItem[] = [];
+  const supportedAlgorithms = getHashes(); // Get available hashes on the system
 
-// export { md5Tool, sha256Tool, sha512Tool };
+  for (const item of items) {
+    const { id, algorithm, data } = item;
+    const resultItem: HasherResultItem = { id, success: false };
+
+    try {
+      if (!algorithm || typeof algorithm !== 'string') {
+        throw new Error('Missing or invalid algorithm specified.');
+      }
+      if (!supportedAlgorithms.includes(algorithm)) {
+         throw new Error(`Unsupported hash algorithm: ${algorithm}. Supported: ${supportedAlgorithms.join(', ')}`);
+      }
+      if (typeof data !== 'string') {
+         // Or handle Buffer input if needed
+         throw new Error('Input data must be a string.');
+      }
+
+      console.log(`Computing ${algorithm} hash... (ID: ${id ?? 'N/A'})`);
+      resultItem.result = createHash(algorithm).update(data).digest('hex');
+      resultItem.success = true;
+      console.log(`Hash computed successfully. (ID: ${id ?? 'N/A'})`);
+
+    } catch (e: any) {
+      resultItem.error = `Operation failed: ${e.message}`;
+      resultItem.suggestion = 'Check algorithm name and input data type.';
+    }
+    results.push(resultItem);
+  }
+
+  return results;
+}
+
+
+console.log('MCP Hasher Core Package Loaded');
+
+export type { HasherInputItem, HasherResultItem, HashAlgorithm };

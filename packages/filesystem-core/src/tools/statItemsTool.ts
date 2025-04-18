@@ -26,6 +26,8 @@ export interface StatItemResult {
   stat?: Stats;
   /** Optional error message if the operation failed for this path. */
   error?: string;
+  /** Optional suggestion for fixing the error. */
+  suggestion?: string;
 }
 
 // Extend the base output type
@@ -76,6 +78,10 @@ export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsTo
       if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
           error = `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativePath}'`;
           console.error(`Skipping stat for ${itemPath}: ${error}`);
+          // Assign suggestion directly here as we don't proceed further
+          results.push({ path: itemPath, success: false, error, suggestion: `Ensure the path '${itemPath}' is relative to the workspace root and does not attempt to go outside it.` });
+          anySuccess = false; // Ensure overall success reflects this failure if it's the only path
+          continue; // Skip to next itemPath
       } else {
         try {
             // Get stats
@@ -94,6 +100,16 @@ export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsTo
                  error = `Failed to get stats for '${itemPath}': ${e.message}`;
                  console.error(error);
             }
+            // Add suggestion based on error
+            let suggestion: string | undefined;
+            if (e.code === 'ENOENT') {
+                suggestion = `Ensure the path '${itemPath}' exists.`;
+            } else if (e.code === 'EACCES') {
+                suggestion = `Check permissions for the path '${itemPath}'.`;
+            } else {
+                suggestion = `Check the path and permissions.`;
+            }
+            // Assign suggestion to the result object later
         }
       }
 
@@ -102,6 +118,7 @@ export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsTo
         success: itemSuccess,
         stat: itemStat, // Will be undefined if error occurred or not found
         error,
+        suggestion: !itemSuccess && error !== `Path '${itemPath}' not found.` ? (results.find(r => r.path === itemPath)?.suggestion ?? `Check the path and permissions.`) : undefined, // Add suggestion only for actual errors, not ENOENT
       });
     }
 

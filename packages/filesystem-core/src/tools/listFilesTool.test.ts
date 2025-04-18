@@ -181,6 +181,7 @@ describe('listFilesTool', () => {
     expect(result.success).toBe(false); // Overall success is false
     expect(result.results['../outside']?.success).toBe(false);
     expect(result.results['../outside']?.error).toContain('Path validation failed');
+    expect(result.results['../outside']?.suggestion).toEqual(expect.any(String));
     expect(mockReaddir).not.toHaveBeenCalled();
   });
 
@@ -199,6 +200,7 @@ describe('listFilesTool', () => {
     expect(result.success).toBe(false);
     expect(result.results['nonexistent']?.success).toBe(false);
     expect(result.results['nonexistent']?.error).toContain('ENOENT');
+    expect(result.results['nonexistent']?.suggestion).toEqual(expect.any(String));
     expect(mockReaddir).not.toHaveBeenCalled();
   });
 
@@ -215,6 +217,7 @@ describe('listFilesTool', () => {
     expect(result.success).toBe(false);
     expect(result.results['file.txt']?.success).toBe(false);
     expect(result.results['file.txt']?.error).toContain('is not a directory');
+    expect(result.results['file.txt']?.suggestion).toEqual(expect.any(String));
     expect(mockReaddir).not.toHaveBeenCalled();
   });
 

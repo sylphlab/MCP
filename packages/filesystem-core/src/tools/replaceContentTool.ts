@@ -40,6 +40,8 @@ export interface FileReplaceResult {
   contentChanged: boolean;
   /** Optional error message if processing failed for this file. */
   error?: string;
+  /** Optional suggestion for fixing the error. */
+  suggestion?: string;
 }
 
 // Extend the base output type
@@ -116,7 +118,8 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
             console.error(fileError);
             fileSuccess = false;
             overallSuccess = false;
-            fileResults.push({ path: relativeFilePath, success: false, replacementsMade: 0, contentChanged: false, error: fileError });
+            const suggestion = `Ensure the path pattern '${pathPatterns.join(', ')}' does not resolve to paths outside the workspace.`;
+            fileResults.push({ path: relativeFilePath, success: false, replacementsMade: 0, contentChanged: false, error: fileError, suggestion });
             continue; // Skip this file
         }
 
@@ -171,6 +174,17 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
             overallSuccess = false;
             fileError = `Error processing file '${relativeFilePath}': ${e.message}`;
             console.error(fileError);
+            let suggestion: string | undefined;
+            if (e.code === 'ENOENT') {
+                suggestion = `Ensure the file path '${relativeFilePath}' is correct and the file exists.`;
+            } else if (e.code === 'EACCES') {
+                suggestion = `Check read/write permissions for the file '${relativeFilePath}'.`;
+            } else if (e.message.includes('Invalid regex')) {
+                 suggestion = 'Verify the regex pattern syntax in the operations.';
+            } else {
+                suggestion = `Check file path, permissions, and operation details.`;
+            }
+            // Assign suggestion to the result object later
         }
 
         fileResults.push({
@@ -179,6 +193,7 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
             replacementsMade: totalReplacementsMade,
             contentChanged: contentChanged,
             error: fileError,
+            suggestion: !fileSuccess ? (fileResults.find(r => r.path === relativeFilePath)?.suggestion ?? `Check file path, permissions, and operation details.`) : undefined,
         });
     } // End files loop
 

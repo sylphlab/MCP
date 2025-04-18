@@ -47,6 +47,8 @@ export interface FileSearchResult {
   matches?: SearchMatch[];
   /** Optional error message if processing failed for this file. */
   error?: string;
+  /** Optional suggestion for fixing the error. */
+  suggestion?: string;
 }
 
 // Extend the base output type
@@ -127,7 +129,8 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
             console.error(fileError); // Keep error log
             fileSuccess = false;
             overallSuccess = false;
-            fileResults.push({ path: relativeFilePath, success: false, error: fileError });
+            const suggestion = `Ensure the path pattern '${pathPatterns.join(', ')}' does not resolve to paths outside the workspace.`;
+            fileResults.push({ path: relativeFilePath, success: false, error: fileError, suggestion });
             continue; // Skip this file
         }
 
@@ -202,6 +205,17 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
             overallSuccess = false;
             fileError = `Error processing file '${relativeFilePath}': ${e.message}`;
             console.error(fileError); // Keep original error log too
+            let suggestion: string | undefined;
+            if (e.code === 'ENOENT') {
+                suggestion = `Ensure the file path '${relativeFilePath}' is correct and the file exists.`;
+            } else if (e.code === 'EACCES') {
+                suggestion = `Check read permissions for the file '${relativeFilePath}'.`;
+            } else if (e.message.includes('Invalid regex')) {
+                 suggestion = 'Verify the regex query syntax.';
+            } else {
+                suggestion = `Check file path and permissions.`;
+            }
+            // Assign suggestion to the result object later
         }
 
         fileResults.push({
@@ -209,6 +223,7 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
             success: fileSuccess,
             matches: matches.length > 0 ? matches : undefined, // Only include matches array if not empty
             error: fileError,
+            suggestion: !fileSuccess ? (fileResults.find(r => r.path === relativeFilePath)?.suggestion ?? `Check file path and permissions.`) : undefined,
         });
     } // End files loop
 

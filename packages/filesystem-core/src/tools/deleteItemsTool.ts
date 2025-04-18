@@ -28,6 +28,8 @@ export interface DeleteItemResult {
   message?: string;
   /** Optional error message if the operation failed for this path. */
   error?: string;
+  /** Optional suggestion for fixing the error. */
+  suggestion?: string;
 }
 
 // Extend the base output type
@@ -82,6 +84,7 @@ export const deleteItemsTool: McpTool<typeof DeleteItemsToolInputSchema, DeleteI
       if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
         error = `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativePath}'`;
         console.error(error);
+        message = `Suggestion: Ensure the path '${itemPath}' is relative to the workspace root and does not attempt to go outside it.`; // Use message for suggestion
         overallSuccess = false;
       } else {
         try {
@@ -98,17 +101,19 @@ export const deleteItemsTool: McpTool<typeof DeleteItemsToolInputSchema, DeleteI
         } catch (e: any) {
           itemSuccess = false;
           overallSuccess = false;
-          // Handle potential errors (e.g., permissions)
+          // Handle potential errors (e.g., permissions, file not found if force: false)
           error = `Failed to ${deleteMethod} '${itemPath}': ${e.message}`;
           console.error(error);
+          message = `Suggestion: Check permissions for '${itemPath}' and its parent directories. Ensure the file/folder exists if using 'rm' without 'force: true'.`; // Use message for suggestion
         }
       }
 
       results.push({
         path: itemPath,
         success: itemSuccess,
-        message,
+        message: itemSuccess ? message : undefined,
         error,
+        suggestion: !itemSuccess ? message : undefined,
       });
     }
 

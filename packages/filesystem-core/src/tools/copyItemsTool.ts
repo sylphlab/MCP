@@ -39,6 +39,8 @@ export interface CopyItemResult {
   message?: string;
   /** Optional error message if the operation failed for this item. */
   error?: string;
+  /** Optional suggestion for fixing the error. */
+  suggestion?: string;
 }
 
 // Extend the base output type
@@ -114,10 +116,13 @@ export const copyItemsTool: McpTool<typeof CopyItemsToolInputSchema, CopyItemsTo
         itemSuccess = false;
         if (e.code === 'ENOENT') {
             error = `Failed to copy '${item.sourcePath}': Source path does not exist.`;
+            message = `Suggestion: Verify the source path '${item.sourcePath}' exists and is accessible.`; // Use message for suggestion temporarily
         } else if (e.code === 'EEXIST' && !overwrite) {
             error = `Failed to copy to '${item.destinationPath}': Destination path already exists and overwrite is false.`;
+            message = `Suggestion: Enable the 'overwrite' option or choose a different destination path.`; // Use message for suggestion temporarily
         } else {
             error = `Failed to copy '${item.sourcePath}' to '${item.destinationPath}': ${e.message}`;
+            message = `Suggestion: Check file paths, permissions, and available disk space.`; // Use message for suggestion temporarily
         }
         console.error(error);
         overallSuccess = false;
@@ -127,8 +132,9 @@ export const copyItemsTool: McpTool<typeof CopyItemsToolInputSchema, CopyItemsTo
         sourcePath: item.sourcePath,
         destinationPath: item.destinationPath,
         success: itemSuccess,
-        message,
+        message: itemSuccess ? message : undefined, // Only include success message
         error,
+        suggestion: !itemSuccess ? message : undefined, // Populate suggestion on error
       });
     }
 

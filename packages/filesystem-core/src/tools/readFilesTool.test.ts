@@ -126,6 +126,7 @@ describe('readFilesTool', () => {
     expect(result.success).toBe(false); // Overall success is false as the only read failed
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('is not a file');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockStat).toHaveBeenCalledTimes(1);
     expect(mockReadFile).not.toHaveBeenCalled();
   });
@@ -146,6 +147,7 @@ describe('readFilesTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path validation failed');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockReadFile).not.toHaveBeenCalled();
   });
 
@@ -160,6 +162,7 @@ describe('readFilesTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('File not found');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockReadFile).toHaveBeenCalledTimes(1);
   });
 
@@ -176,6 +179,7 @@ describe('readFilesTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path is a directory');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockReadFile).toHaveBeenCalledTimes(1);
   });
 

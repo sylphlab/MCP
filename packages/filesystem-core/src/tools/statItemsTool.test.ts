@@ -94,6 +94,7 @@ describe('statItemsTool', () => {
     expect(result.results[0]?.stat).toBeUndefined();
     expect(result.results[0]?.error).toContain('Failed to get stats');
     expect(result.results[0]?.error).toContain('EACCES');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockStat).toHaveBeenCalledTimes(1);
   });
 
@@ -119,6 +120,7 @@ describe('statItemsTool', () => {
     expect(result.results[1]?.success).toBe(false);
     expect(result.results[1]?.stat).toBeUndefined();
     expect(result.results[1]?.error).toContain('not found');
+    expect(result.results[1]?.suggestion).toBeUndefined(); // No suggestion for ENOENT
     expect(mockStat).toHaveBeenCalledTimes(2);
   });
 
@@ -137,6 +139,7 @@ describe('statItemsTool', () => {
     expect(result.success).toBe(false); // Overall success is false
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path validation failed');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockStat).not.toHaveBeenCalled();
   });
 

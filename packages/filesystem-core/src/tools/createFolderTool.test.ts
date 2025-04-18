@@ -91,6 +91,7 @@ describe('createFolderTool', () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0]!.success).toBe(false);
     expect(result.results[0]!.error).toContain('Path validation failed');
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
     expect(mockMkdir).not.toHaveBeenCalled();
   });
 
@@ -117,6 +118,7 @@ describe('createFolderTool', () => {
     // Second item
     expect(result.results[1]!.success).toBe(false);
     expect(result.results[1]!.error).toContain('Permission denied');
+    expect(result.results[1]!.suggestion).toEqual(expect.any(String));
     expect(mockMkdir).toHaveBeenCalledTimes(2);
   });
 

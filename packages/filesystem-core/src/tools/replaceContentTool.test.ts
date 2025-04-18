@@ -140,6 +140,7 @@ describe('replaceContentTool', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('Glob pattern error');
     expect(result.error).toContain('Invalid glob pattern');
+    // Suggestions aren't added at this top level error, only per-file
   });
 
   it('should handle file read error', async () => {
@@ -155,6 +156,7 @@ describe('replaceContentTool', () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Permission denied');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
@@ -173,6 +175,7 @@ describe('replaceContentTool', () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Disk full');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockWriteFile).toHaveBeenCalledTimes(1); // Write was attempted
   });
 
@@ -187,6 +190,7 @@ describe('replaceContentTool', () => {
      expect(result.success).toBe(false);
      expect(result.results[0]?.success).toBe(false);
      expect(result.results[0]?.error).toContain('Invalid regex');
+     expect(result.results[0]?.suggestion).toEqual(expect.any(String));
      expect(mockWriteFile).not.toHaveBeenCalled();
    });
 

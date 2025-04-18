@@ -31,6 +31,8 @@ export interface WriteFileResult {
   message?: string;
   /** Optional error message if the operation failed for this file. */
   error?: string;
+  /** Optional suggestion for fixing the error. */
+  suggestion?: string;
 }
 
 // Extend the base output type
@@ -82,6 +84,10 @@ export const writeFilesTool: McpTool<typeof WriteFilesToolInputSchema, WriteFile
       if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
           error = `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativePath}'`;
           console.error(`Skipping ${operation} for ${item.path}: ${error}`);
+          // Assign suggestion directly here as we don't proceed further
+          results.push({ path: item.path, success: false, error, suggestion: `Ensure the path '${item.path}' is relative to the workspace root and does not attempt to go outside it.` });
+          anySuccess = false; // Ensure overall success reflects this failure if it's the only path
+          continue; // Skip to next item
       } else {
         try {
           // Ensure parent directory exists
@@ -105,14 +111,27 @@ export const writeFilesTool: McpTool<typeof WriteFilesToolInputSchema, WriteFile
           itemSuccess = false;
           error = `Failed to ${operation} file '${item.path}': ${e.message}`;
           console.error(error);
+          // Add suggestion based on error
+          let suggestion: string | undefined;
+          if (e.code === 'EACCES') {
+              suggestion = `Check write permissions for the directory containing '${item.path}'.`;
+          } else if (e.code === 'EISDIR') {
+              suggestion = `The path '${item.path}' points to a directory. Provide a path to a file.`;
+          } else if (e.code === 'EROFS') {
+               suggestion = `The file system at '${item.path}' is read-only.`;
+          } else {
+              suggestion = `Check the file path, permissions, and available disk space.`;
+          }
+          // Assign suggestion to the result object later
         }
       }
 
       results.push({
         path: item.path,
         success: itemSuccess,
-        message,
+        message: itemSuccess ? message : undefined,
         error,
+        suggestion: !itemSuccess ? (results.find(r => r.path === item.path)?.suggestion ?? `Check the file path, permissions, and available disk space.`) : undefined,
       });
     }
 

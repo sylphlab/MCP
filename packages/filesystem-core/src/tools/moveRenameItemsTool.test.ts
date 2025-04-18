@@ -98,6 +98,7 @@ describe('moveRenameItemsTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('already exists and overwrite is false');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockStat).toHaveBeenCalledTimes(1); // Check destination existence
     expect(mockRm).not.toHaveBeenCalled(); // Should NOT remove
@@ -122,6 +123,7 @@ describe('moveRenameItemsTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path validation failed');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockRename).not.toHaveBeenCalled();
   });
 
@@ -140,6 +142,7 @@ describe('moveRenameItemsTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('ENOENT');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockRename).toHaveBeenCalledTimes(1);
   });
 
@@ -157,6 +160,7 @@ describe('moveRenameItemsTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('EACCES');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockRename).not.toHaveBeenCalled();
   });
@@ -175,6 +179,7 @@ describe('moveRenameItemsTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('EPERM');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockRm).toHaveBeenCalledTimes(1);
     expect(mockRename).not.toHaveBeenCalled();
   });

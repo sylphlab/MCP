@@ -230,6 +230,8 @@ describe('editFileTool', () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Cannot read file');
+    // Check suggestion exists on the *edit* result when file processing fails before edits
+    expect(result.results[0]?.edit_results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
@@ -247,6 +249,7 @@ describe('editFileTool', () => {
     expect(result.results[0]?.success).toBe(false); // File operation fails
     expect(result.results[0]?.edit_results[0]?.success).toBe(false);
     expect(result.results[0]?.edit_results[0]?.error).toContain('start_line 5 is out of bounds');
+    expect(result.results[0]?.edit_results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockWriteFile).not.toHaveBeenCalled(); // Write should not happen if edit fails
   });
 
@@ -289,6 +292,7 @@ describe('editFileTool', () => {
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.edit_results[0]?.success).toBe(false);
     expect(result.results[0]?.edit_results[0]?.error).toContain('Invalid regex pattern');
+    expect(result.results[0]?.edit_results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 

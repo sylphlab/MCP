@@ -29,6 +29,8 @@ export interface MoveRenameItemResult {
   message?: string;
   /** Optional error message if the operation failed for this item. */
   error?: string;
+  /** Optional suggestion for fixing the error. */
+  suggestion?: string;
 }
 
 // Extend the base output type
@@ -83,10 +85,12 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
       {
           error = `Path validation failed: Paths must resolve within the workspace root ('${workspaceRoot}').`;
           console.error(`Skipping move ${item.sourcePath} -> ${item.destinationPath}: ${error}`);
+          message = `Suggestion: Ensure both source ('${item.sourcePath}') and destination ('${item.destinationPath}') paths are relative to the workspace root and do not attempt to go outside it.`; // Use message for suggestion
           overallSuccess = false;
       } else if (sourceFullPath === destinationFullPath) {
           error = `Source and destination paths cannot be the same: '${item.sourcePath}'`;
           console.error(error);
+          message = `Suggestion: Provide different source and destination paths.`; // Use message for suggestion
           overallSuccess = false;
       } else {
         try {
@@ -127,6 +131,16 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
           overallSuccess = false;
           error = `Failed to move/rename '${item.sourcePath}' to '${item.destinationPath}': ${e.message}`;
           console.error(error);
+          // Add suggestion based on error type if possible
+          if (e.code === 'ENOENT') {
+              message = `Suggestion: Verify the source path '${item.sourcePath}' exists.`;
+          } else if (e.message.includes('already exists and overwrite is false')) {
+              message = `Suggestion: Enable the 'overwrite' option or choose a different destination path.`;
+          } else if (e.code === 'EPERM' || e.code === 'EACCES') {
+              message = `Suggestion: Check file system permissions for both source and destination paths.`;
+          } else {
+              message = `Suggestion: Check file paths, permissions, and disk space.`;
+          }
         }
       }
 
@@ -134,8 +148,9 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
         sourcePath: item.sourcePath,
         destinationPath: item.destinationPath,
         success: itemSuccess,
-        message,
+        message: itemSuccess ? message : undefined,
         error,
+        suggestion: !itemSuccess ? message : undefined,
       });
     }
 

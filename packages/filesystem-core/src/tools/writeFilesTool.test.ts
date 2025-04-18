@@ -114,6 +114,7 @@ describe('writeFilesTool', () => {
     expect(result.success).toBe(false); // Overall success is false
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path validation failed');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockWriteFile).not.toHaveBeenCalled();
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
@@ -128,6 +129,7 @@ describe('writeFilesTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('EACCES');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockWriteFile).not.toHaveBeenCalled();
     expect(mockAppendFile).not.toHaveBeenCalled();
@@ -143,6 +145,8 @@ describe('writeFilesTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('EROFS');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockWriteFile).toHaveBeenCalledTimes(1);
     expect(mockAppendFile).not.toHaveBeenCalled();
   });

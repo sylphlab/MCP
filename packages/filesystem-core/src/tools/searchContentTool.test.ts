@@ -172,6 +172,7 @@ describe('searchContentTool', () => {
     const result = await searchContentTool.execute(input, WORKSPACE_ROOT);
     expect(result.success).toBe(false);
     expect(result.error).toContain('Glob pattern error');
+    // No suggestion at this level
   });
 
   it('should handle file read error', async () => {
@@ -184,6 +185,7 @@ describe('searchContentTool', () => {
     expect(result.success).toBe(false); // Overall fails
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Permission denied');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
   });
 
   it('should handle invalid regex error', async () => {
@@ -197,6 +199,7 @@ describe('searchContentTool', () => {
     expect(result.results).toHaveLength(1); // Should have one result for the file
     expect(result.results[0]!.success).toBe(false); // File processing failed
     expect(result.results[0]!.error).toContain('Invalid regex query'); // Error from new RegExp()
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
   });
 
   // TODO: Add tests for lineRange once implemented

@@ -88,6 +88,8 @@ export interface EditResult {
     message?: string;
     /** Optional error if this specific edit failed. */
     error?: string;
+    /** Optional suggestion for fixing the error. */
+    suggestion?: string;
 }
 
 export interface FileEditResult {
@@ -166,6 +168,7 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
                 let editSuccess = false;
                 let editMessage: string | undefined;
                 let editError: string | undefined;
+                let suggestion: string | undefined;
                 const currentLineCount = currentLines.length; // For boundary checks
 
                 try {
@@ -282,12 +285,20 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
                     editSuccess = false;
                     fileSuccess = false; // If one edit fails, the whole file change fails
                     editError = `Edit #${index} (${edit.operation}) failed: ${e.message}`;
+                    // Add suggestion based on error type if possible
+                    if (e.message.includes('out of bounds')) {
+                        suggestion = `Check line numbers (1-${currentLineCount}). Ensure start_line <= end_line.`;
+                    } else if (e.message.includes('Invalid regex')) {
+                        suggestion = 'Verify the regex pattern syntax.';
+                    } else {
+                        suggestion = 'Check edit operation parameters and file content.';
+                    }
                     console.error(`Error applying edit to ${filePath}: ${editError}`);
                     // Stop processing further edits for this file on error? Or continue? Let's stop for now.
                     // break; // Uncomment to stop on first error
                 }
 
-                editResults.push({ editIndex: index, success: editSuccess, message: editMessage, error: editError });
+                editResults.push({ editIndex: index, success: editSuccess, message: editMessage, error: editError, suggestion });
                  if (!editSuccess) break; // Stop processing edits for this file on first error
             }
 
@@ -311,10 +322,11 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
             overallSuccess = false;
             fileError = `Error processing file '${filePath}': ${e.message}`;
             console.error(fileError);
+            const suggestion = `Check if file '${filePath}' exists and if you have read/write permissions.`;
             // Ensure editResults has entries for all edits if file read failed
             if (editResults.length === 0) {
-                change.edits.forEach((_, index) => {
-                    editResults.push({ editIndex: index, success: false, error: `File processing failed: ${e.message}` });
+                change.edits.forEach((editOp, index) => {
+                    editResults.push({ editIndex: index, success: false, error: `File processing failed before edit: ${e.message}`, suggestion });
                 });
             }
         }
@@ -323,6 +335,7 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
             path: filePath,
             success: fileSuccess,
             error: fileError,
+            // Suggestion added to individual edit results in this case
             edit_results: editResults,
         });
     }

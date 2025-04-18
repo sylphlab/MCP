@@ -108,6 +108,7 @@ describe('deleteItemsTool', () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0]!.success).toBe(false);
     expect(result.results[0]!.error).toContain('Path validation failed');
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
     expect(mockTrash).not.toHaveBeenCalled();
     expect(mockRm).not.toHaveBeenCalled();
   });
@@ -131,6 +132,7 @@ describe('deleteItemsTool', () => {
     expect(result.results[0]!.success).toBe(false);
     expect(result.results[0]!.error).toContain('Failed to trash');
     expect(result.results[0]!.error).toContain('Trash failed');
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
     expect(mockTrash).toHaveBeenCalledTimes(1);
     expect(mockRm).not.toHaveBeenCalled();
   });
@@ -154,6 +156,7 @@ describe('deleteItemsTool', () => {
     expect(result.results[0]!.success).toBe(false);
     expect(result.results[0]!.error).toContain('Failed to delete permanently');
     expect(result.results[0]!.error).toContain('rm failed');
+    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
     expect(mockRm).toHaveBeenCalledTimes(1);
     expect(mockTrash).not.toHaveBeenCalled();
   });

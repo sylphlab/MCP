@@ -40,6 +40,8 @@ export interface PathListResult {
     entries?: ListEntry[];
     /** Optional error message if listing failed for this path. */
     error?: string;
+    /** Optional suggestion for fixing the error. */
+    suggestion?: string;
 }
 
 // Extend the base output type
@@ -147,6 +149,10 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
         if (relativePathCheck.startsWith('..') || path.isAbsolute(relativePathCheck)) {
             pathError = `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativePathCheck}'`;
             console.error(pathError);
+            // Assign suggestion directly here as we don't proceed further
+            results[inputPath] = { success: false, error: pathError, suggestion: `Ensure the path '${inputPath}' is relative to the workspace root and does not attempt to go outside it.` };
+            anySuccess = false; // Ensure overall success reflects this failure if it's the only path
+            continue; // Skip to next inputPath
         } else {
             try {
                 // Check if path exists and is a directory before reading
@@ -188,6 +194,16 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
                 pathSuccess = false;
                 pathError = `Error listing path '${inputPath}': ${e.message}`;
                 console.error(pathError);
+                // Add suggestion based on error
+                let suggestion: string | undefined;
+                if (e.code === 'ENOENT') {
+                    suggestion = `Ensure the path '${inputPath}' exists.`;
+                } else if (e.message.includes('is not a directory')) {
+                    suggestion = `The path '${inputPath}' points to a file, not a directory. Provide a directory path.`;
+                } else {
+                    suggestion = `Check permissions for '${inputPath}' and ensure it is a valid directory path.`;
+                }
+                // Assign suggestion to the result object later
             }
         }
 
@@ -195,6 +211,8 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
             success: pathSuccess,
             entries: pathEntries,
             error: pathError,
+            // Add suggestion if an error occurred in the try block
+            suggestion: !pathSuccess ? (results[inputPath]?.suggestion ?? `Check permissions for '${inputPath}' and ensure it is a valid directory path.`) : undefined,
         };
     }
 

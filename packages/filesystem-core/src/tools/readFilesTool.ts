@@ -30,6 +30,8 @@ export interface ReadFileResult {
   stat?: Stats;
   /** Optional error message if the operation failed for this file. */
   error?: string;
+  /** Optional suggestion for fixing the error. */
+  suggestion?: string;
   // encodingUsed?: 'utf-8' | 'base64'; // Could add if needed
 }
 
@@ -76,12 +78,17 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
       let content: string | undefined = undefined;
       let itemStat: Stats | undefined = undefined;
       let error: string | undefined;
+      let suggestionForError: string | undefined;
 
       // --- Security Check ---
       const relativePath = path.relative(workspaceRoot, fullPath);
       if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
           error = `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativePath}'`;
           console.error(`Skipping read for ${itemPath}: ${error}`);
+          // Assign suggestion directly here as we don't proceed further
+          results.push({ path: itemPath, success: false, error, suggestion: `Ensure the path '${itemPath}' is relative to the workspace root and does not attempt to go outside it.` });
+          anySuccess = false; // Ensure overall success reflects this failure if it's the only path
+          continue; // Skip to next itemPath
       } else {
         try {
             // Optionally get stats first
@@ -111,6 +118,18 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
                  error = `Failed to read '${itemPath}': ${e.message}`;
             }
             console.error(error);
+            // Add suggestion based on error
+            if (e.code === 'ENOENT') {
+                const parentDir = path.dirname(itemPath);
+                suggestionForError = `Ensure the file path '${itemPath}' is correct and the file exists. You could try listing the directory contents using listFilesTool on '${parentDir === '.' ? '.' : parentDir}' to check available files.`;
+            } else if (e.code === 'EISDIR' || e.message.includes('is not a file')) {
+                suggestionForError = `The path '${itemPath}' points to a directory. Provide a path to a file.`;
+            } else if (e.code === 'EACCES') {
+                suggestionForError = `Check read permissions for the file '${itemPath}'.`;
+            } else {
+                suggestionForError = `Check the file path and permissions.`;
+            }
+            // Assign suggestion to the result object later
         }
       }
 
@@ -120,6 +139,7 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
         content,
         stat: itemStat,
         error,
+        suggestion: !itemSuccess ? suggestionForError : undefined, // Use the suggestion calculated in the catch block
       });
     }
 

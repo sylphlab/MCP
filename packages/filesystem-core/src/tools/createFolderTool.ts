@@ -25,6 +25,8 @@ export interface CreateFolderResult {
   message?: string;
   /** Optional error message if the operation failed for this path. */
   error?: string;
+  /** Optional suggestion for fixing the error. */
+  suggestion?: string;
 }
 
 // Extend the base output type
@@ -76,6 +78,7 @@ export const createFolderTool: McpTool<typeof CreateFolderToolInputSchema, Creat
       if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
         error = `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativePath}'`;
         console.error(error);
+        message = `Suggestion: Ensure the path '${folderPath}' is relative to the workspace root and does not attempt to go outside it.`; // Use message for suggestion
       } else {
         try {
           // Perform the mkdir operation
@@ -88,14 +91,16 @@ export const createFolderTool: McpTool<typeof CreateFolderToolInputSchema, Creat
           // mkdir with recursive: true usually only fails on permissions or invalid path chars
           error = `Failed to create folder '${folderPath}': ${e.message}`;
           console.error(error);
+          message = `Suggestion: Check permissions for the directory containing '${folderPath}' and ensure the path name is valid.`; // Use message for suggestion
         }
       }
 
       results.push({
         path: folderPath,
         success: itemSuccess,
-        message,
+        message: itemSuccess ? message : undefined,
         error,
+        suggestion: !itemSuccess ? message : undefined,
       });
     }
 

@@ -3,14 +3,17 @@
  * @param ms The number of milliseconds to wait.
  */
 async function wait(ms: number): Promise<void> {
+  // Add basic validation
+  if (typeof ms !== 'number' || ms < 0) {
+    console.error('Invalid duration provided to wait function.');
+    // Or throw an error, depending on desired behavior
+    return;
+  }
   console.log(`Waiting for ${ms}ms...`);
   await new Promise(resolve => setTimeout(resolve, ms));
   console.log('Wait finished.');
 }
 
-// Placeholder for potential MCP tool definition
-// export const waitTool = ...;
+console.log('MCP Wait Core Package Loaded');
 
-console.log('MCP Wait Tool Package Loaded');
-
-export { wait }; // Exporting the function for potential direct use or testing
+export { wait };
