@@ -16,6 +16,9 @@
   "files": [
     "dist"
   ],
+  "bin": {
+    "mcp-wait": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
