@@ -1,5 +1,13 @@
-# reader-core-mcp
+# @sylphlab/mcp-pdf-core
 
-Core logic for the MCP reader tool.
+Core logic and schemas for MCP tools related to PDF processing.
 
-Provides the underlying implementation for reading/converting files (e.g., PDF). This package is typically used via the main `reader-mcp` package.
+## Tools Provided
+
+-   **`getTextTool`**: Extracts text content from a PDF file using MuPDF.
+
+## Usage
+
+This package provides the core `McpTool` definitions. The tool objects (e.g., `getTextTool`), Zod input schemas, core logic functions (e.g., `extractPdfText`), and TypeScript types are exported.
+
+These can be imported and used directly or registered with an MCP server implementation, such as `@sylphlab/mcp-pdf`.
