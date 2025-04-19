@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-fetch-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Core logic for MCP fetch tool",
   "type": "module",
   "main": "./dist/index.cjs",
