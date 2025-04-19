@@ -1,5 +1,14 @@
 # @sylphlab/mcp-pdf-core
 
+## 0.4.1
+
+### Patch Changes
+
+- edc8e3d: feat: remove Terser minification options from tsup configuration across multiple packages
+- Updated dependencies [edc8e3d]
+- Updated dependencies [902b048]
+  - @sylphlab/mcp-core@0.1.1
+
 ## 0.4.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-net-core",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Core logic for MCP network tools",
   "type": "module",
   "main": "./dist/index.cjs",
