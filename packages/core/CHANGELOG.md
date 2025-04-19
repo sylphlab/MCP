@@ -1,5 +1,12 @@
 # @sylphlab/mcp-core
 
+## 0.1.1
+
+### Patch Changes
+
+- edc8e3d: feat: remove Terser minification options from tsup configuration across multiple packages
+- 902b048: fix: minify
+
 ## 0.1.0
 
 ### Minor Changes

@@ -1,5 +1,17 @@
 # @sylphlab/mcp-filesystem
 
+## 0.4.1
+
+### Patch Changes
+
+- edc8e3d: feat: remove Terser minification options from tsup configuration across multiple packages
+- 902b048: fix: minify
+- Updated dependencies [edc8e3d]
+- Updated dependencies [902b048]
+  - @sylphlab/mcp-core@0.1.1
+  - @sylphlab/mcp-filesystem-core@0.4.1
+  - @sylphlab/mcp-utils@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes
