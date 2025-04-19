@@ -5,13 +5,17 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { ZodObject, ZodRawShape, z } from 'zod';
 import { McpTool } from '@sylphlab/mcp-core';
 
-// Import the tool object from the core library
-import { netTool } from '@sylphlab/mcp-net-core';
+// Import the tool objects from the core library
+import {
+  fetchTool,
+  getPublicIpTool,
+  getInterfacesTool
+} from '@sylphlab/mcp-net-core';
 
 // --- Server Setup ---
 
 const serverName = 'net';
-const serverDescription = 'Provides tools for network operations (get public IP, list interfaces).';
+const serverDescription = 'Provides tools for network operations (fetch, get public IP, list interfaces).';
 const serverVersion = '0.1.0'; // TODO: Update version as needed
 
 // Instantiate McpServer
@@ -26,7 +30,9 @@ const mcpServer = new McpServer(
 
 // Array of imported tool objects
 const definedTools: McpTool<any, any>[] = [
-    netTool,
+    fetchTool,
+    getPublicIpTool,
+    getInterfacesTool,
 ];
 
 // Register tools

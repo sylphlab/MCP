@@ -1,11 +1,15 @@
 // src/index.ts for @sylphlab/mcp-net-core
 
-// Export the tool implementation, Zod schema, and inferred types
-export { netTool, NetToolInputSchema, NetOperationEnum } from './tools/netTool.js';
-export type {
-  NetToolInput,
-  NetToolOutput,
-  NetOperation, // Still useful to export the operation type
-} from './tools/netTool.js';
+// --- Fetch Tool ---
+export { fetchTool, FetchToolInputSchema } from './tools/fetchTool.js';
+export type { FetchToolInput, FetchToolOutput } from './tools/fetchTool.js';
 
-console.log('MCP Net Core Package (Single Operation Tool Structure) Loaded');
+// --- Get Public IP Tool ---
+export { getPublicIpTool, GetPublicIpToolInputSchema } from './tools/getPublicIpTool.js';
+export type { GetPublicIpToolInput, GetPublicIpToolOutput } from './tools/getPublicIpTool.js';
+
+// --- Get Interfaces Tool ---
+export { getInterfacesTool, GetInterfacesToolInputSchema } from './tools/getInterfacesTool.js';
+export type { GetInterfacesToolInput, GetInterfacesToolOutput } from './tools/getInterfacesTool.js';
+
+console.log('MCP Net Core Package (fetch, getPublicIp, getInterfaces Tools) Loaded');
