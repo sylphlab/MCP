@@ -137,18 +137,23 @@ export class IndexManager {
             }
             console.log(`In-memory store size: ${inMemoryStore.size}`);
             break;
-          case VectorDbProvider.Pinecone:
+          case VectorDbProvider.Pinecone: { // Add block scope
             if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
-            if (!this.config.namespace) console.warn("Pinecone namespace not set, using default.");
-            const ns = this.pineconeIndex.namespace(this.config.namespace || '');
-            const vectorsToUpsert = items.map(item => ({
-                id: item.id,
-                values: item.vector,
-                metadata: item.metadata as RecordMetadata,
-            }));
-            await ns.upsert(vectorsToUpsert);
-            console.log(`Upserted ${items.length} items to Pinecone index '${this.config.indexName}' (namespace: ${this.config.namespace || 'default'}).`);
+            const ns = this.pineconeIndex.namespace(this.config.namespace || ''); // Use validated config
+            // Batch upsert requests for Pinecone (max 100 vectors or 2MB per request)
+            const batchSize = 100; // Pinecone recommended batch size
+            for (let i = 0; i < items.length; i += batchSize) {
+                const batchItems = items.slice(i, i + batchSize);
+                const vectorsToUpsert = batchItems.map(item => ({
+                    id: item.id,
+                    values: item.vector,
+                    metadata: item.metadata as RecordMetadata, // Ensure metadata is compatible
+                }));
+                await ns.upsert(vectorsToUpsert);
+                console.log(`Upserted batch of ${vectorsToUpsert.length} items to Pinecone index '${this.config.indexName}' (namespace: ${this.config.namespace || 'default'}).`);
+            }
             break;
+          }
           case VectorDbProvider.ChromaDB:
             if (!this.chromaCollection) {
                  throw new Error('ChromaDB collection not initialized.');
@@ -181,6 +186,49 @@ export class IndexManager {
     }
   }
 
+  // Get all item IDs from the index
+  async getAllIds(): Promise<string[]> {
+      console.log(`Getting all IDs for provider: ${this.config.provider}`);
+      try {
+          switch (this.config.provider) {
+              case VectorDbProvider.InMemory:
+                  return Array.from(inMemoryStore.keys());
+
+              case VectorDbProvider.ChromaDB:
+                  if (!this.chromaCollection) throw new Error('ChromaDB collection not initialized.');
+                  console.log(`Fetching all IDs from ChromaDB collection '${this.config.collectionName}'...`);
+                  const results = await this.chromaCollection.get({ limit: 1000000 }); // Use a large limit
+                  console.log(`Found ${results.ids.length} existing IDs in ChromaDB.`);
+                  return results.ids;
+
+              case VectorDbProvider.Pinecone:
+                  if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
+                  console.log(`Fetching all IDs from Pinecone index '${this.config.indexName}' (namespace: ${this.config.namespace || 'default'})...`);
+                  const ns = this.pineconeIndex.namespace(this.config.namespace || '');
+                  let allIds: string[] = [];
+                  let nextToken: string | undefined = undefined;
+                  const limit = 1000; // Max limit per request
+
+                  do {
+                      const listResponse = await ns.listPaginated({ limit, paginationToken: nextToken });
+                      const ids = listResponse.vectors?.flatMap(v => v.id ? [v.id] : []) || [];
+                      allIds = allIds.concat(ids);
+                      nextToken = listResponse.pagination?.next;
+                      console.log(`Fetched ${ids.length} IDs, nextToken: ${nextToken}`);
+                  } while (nextToken);
+
+                  console.log(`Found ${allIds.length} existing IDs in Pinecone.`);
+                  return allIds;
+
+              default:
+                  return [];
+          }
+      } catch (error) {
+          console.error(`Error during getAllIds with provider ${this.config.provider}:`, error);
+          throw new Error(`getAllIds failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+  }
+
   async deleteItems(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     console.log(`Deleting ${ids.length} items...`);
@@ -197,19 +245,25 @@ export class IndexManager {
             }
             console.log(`Deleted ${deletedCount} items. In-memory store size: ${inMemoryStore.size}`);
             break;
-          case VectorDbProvider.Pinecone:
+          case VectorDbProvider.Pinecone: { // Add block scope
              if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
-             if (!this.config.namespace) console.warn("Pinecone namespace not set, using default.");
-             const ns = this.pineconeIndex.namespace(this.config.namespace || '');
-             await ns.deleteMany(ids);
-             console.log(`Attempted to delete ${ids.length} items from Pinecone index '${this.config.indexName}' (namespace: ${this.config.namespace || 'default'}).`);
+             const ns = this.pineconeIndex.namespace(this.config.namespace || ''); // Use validated config
+             // Batch delete requests (max 1000 IDs per request)
+             const batchSize = 1000;
+             for (let i = 0; i < ids.length; i += batchSize) {
+                 const batch = ids.slice(i, i + batchSize);
+                 await ns.deleteMany(batch);
+                 console.log(`Attempted to delete batch of ${batch.length} items from Pinecone.`);
+             }
              break;
-          case VectorDbProvider.ChromaDB:
-             if (!this.chromaCollection) throw new Error('ChromaDB collection not initialized.');
-             await this.chromaCollection.delete({ ids });
-             console.log(`Attempted to delete ${ids.length} items from ChromaDB collection '${this.config.collectionName}'.`);
+           } // Add missing closing brace
+           case VectorDbProvider.ChromaDB: { // Add block scope for consistency
+              if (!this.chromaCollection) throw new Error('ChromaDB collection not initialized.');
+              await this.chromaCollection.delete({ ids });
+              console.log(`Attempted to delete ${ids.length} items from ChromaDB collection '${this.config.collectionName}'.`);
              break;
-          default:
+           } // Add closing brace
+           default:
             const exhaustiveCheck: never = this.config;
             throw new Error(`Unsupported vector DB provider: ${exhaustiveCheck}`);
         }
@@ -241,9 +295,18 @@ export class IndexManager {
           }
           case VectorDbProvider.Pinecone: {
              if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
-             if (!this.config.namespace) console.warn("Pinecone namespace not set, using default.");
              const ns = this.pineconeIndex.namespace(this.config.namespace || '');
-             const pineconeFilter = filter; // Placeholder for conversion
+             // Convert generic filter to Pinecone's metadata filter format
+             // Example: { genre: 'drama', year: 2020 } -> { genre: {'$eq': 'drama'}, year: {'$eq': 2020} }
+             let pineconeFilter: Record<string, any> | undefined = undefined;
+             if (filter) {
+                 pineconeFilter = {};
+                 for (const key in filter) {
+                     // Simple equality filter for now, extend as needed
+                     pineconeFilter[key] = { '$eq': filter[key] };
+                 }
+             }
+             console.log('Pinecone filter:', pineconeFilter);
              const queryResponse = await ns.query({
                  vector: queryVector,
                  topK: topK,
@@ -253,7 +316,7 @@ export class IndexManager {
              const mappedResults: QueryResult[] = (queryResponse.matches || []).map(match => ({
                  item: {
                      id: match.id,
-                     content: '',
+                     content: '', // Pinecone query doesn't return content
                      metadata: match.metadata || {},
                  } as IndexedItem,
                  score: match.score || 0,
@@ -284,7 +347,7 @@ export class IndexManager {
                    };
                    mappedResults.push({
                       item: item as IndexedItem,
-                      score: distance !== undefined ? 1 - distance : 0,
+                      score: distance !== undefined ? 1 - distance : 0, // Convert distance to similarity score
                    });
                 }
              }
@@ -303,15 +366,18 @@ export class IndexManager {
   private matchesFilter(item: IndexedItem, filter: Record<string, unknown>): boolean {
      for (const key in filter) {
         const filterValue = filter[key];
+        // Check top-level properties first (like id, content - though filtering by content is unlikely)
         if (key in item && (item as any)[key] === filterValue) {
            continue;
         }
+        // Then check metadata
         if (item.metadata?.hasOwnProperty(key) && item.metadata[key] === filterValue) {
            continue;
         }
+        // If neither matches, the filter fails for this item
         return false;
      }
-     return true;
+     return true; // All filter conditions matched
   }
 
   private cosineSimilarity(vecA: number[], vecB: number[]): number {

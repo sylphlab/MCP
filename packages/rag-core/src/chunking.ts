@@ -59,17 +59,19 @@ function createChunk(
     chunkIndex: number,
     metadata: Record<string, any> = {}
 ): Chunk {
+    // Separate base document properties from its metadata
+    const { metadata: docMetadata, ...docBase } = document;
     return {
-        ...document,
-        id: `${document.id}::chunk_${chunkIndex}`,
-        content: content,
+        ...docBase, // Spread base properties (id, content)
+        id: `${document.id}::chunk_${chunkIndex}`, // Generate unique chunk ID
+        content: content, // Use new content
         startPosition: startIndex,
         endPosition: endIndex,
-        metadata: {
-            ...document.metadata,
+        metadata: { // Correctly merge metadata
+            ...docMetadata, // Base metadata from document
             chunkIndex: chunkIndex,
             originalId: document.id,
-            ...metadata,
+            ...metadata, // Specific metadata for this chunk (like warning)
         }
     };
 }

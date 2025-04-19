@@ -124,6 +124,20 @@ async function startIndexing() {
         console.log(`Upserting ${indexedItems.length} items to index...`);
         await indexManager.upsertItems(indexedItems);
 
+        // 8. Remove stale items
+        console.log('Checking for stale items in the index...');
+        const currentIds = new Set(indexedItems.map(item => item.id));
+        const existingIds = await indexManager.getAllIds();
+        const staleIds = existingIds.filter(id => !currentIds.has(id));
+
+        if (staleIds.length > 0) {
+            console.log(`Found ${staleIds.length} stale items to remove.`);
+            await indexManager.deleteItems(staleIds);
+            console.log(`Removed ${staleIds.length} stale items.`);
+        } else {
+            console.log('No stale items found.');
+        }
+
         console.log('Initial project indexing completed.');
     } catch (error) {
         console.error('Error during initial indexing:', error);
