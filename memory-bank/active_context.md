@@ -30,15 +30,21 @@ Refactor MCP core and server packages for consistency, testability, and adherenc
     - GitHub repo description/topics update.
     - `bin` field added to server packages.
     - Changeset created, version bumps applied, commits pushed.
-- **Current State:** Codebase reflects the *incorrect* single-operation core tool structure and a potentially incorrect `registerTools` implementation due to previous misunderstandings. Build is currently passing, but the structure needs correction based on the latest design decisions.
+    - **Task 1: Refine Core Types:** Modified `McpContentPart` in `packages/core/src/index.ts`.
+    - **Task 2: Revert Core Tools to Batch Input:** Updated core tools (primarily `base64-core`) for batch input.
+    - **Task 3: Correct `registerTools` Helper:** Updated `packages/utils/src/registerTools.ts`.
+    - **Task 4: Verify Server Packages:** Verified all server packages use the updated helper.
+    - **Task 5: Build & Test:** Successfully built and tested the monorepo, resolving errors and passing all tests.
+    - **Task 6: Finalize Release:** Created changeset, versioned, committed, and pushed tags for the refactoring changes.
+    - **RAG Core Foundation:** Established package structure (`rag-core`), implemented AST/fallback chunking (`chunking.ts`), Ollama embedding via Vercel AI SDK (`embedding.ts`), ChromaDB/InMemory index management placeholders (`indexManager.ts`), language detection using `highlight.js` (`indexContentTool.ts`), and supporting modules (`parsing.ts`, `types.ts`, `copy-wasm.mjs`). Ensured the package builds successfully.
+- **Current State:** MCP core/server refactoring complete. Foundational structure and core logic (chunking, Ollama embedding, ChromaDB indexing placeholders, language detection) for `rag-core` implemented and builds successfully. Markdown AST chunking deferred.
 
-## Next Actions (To be delegated via Subtasks)
-1.  **Task 1: Refine Core Types:** Modify `McpContentPart` in `packages/core/src/index.ts` to align structurally with SDK expectations (text, image, audio, resource union).
-2.  **Task 2: Revert Core Tools to Batch Input:** Update `execute` methods and `inputSchema` in `fetch-core`, `hasher-core`, `json-core`, `net-core` (split tools), `pdf-core`, `xml-core`, `wait-core` to handle array inputs (e.g., `{ items: [...] }`). Update corresponding `index.ts` exports.
-3.  **Task 3: Correct `registerTools` Helper:** Update `packages/utils/src/registerTools.ts` to correctly validate the full input schema (expecting arrays) and pass the validated args to `tool.execute`, returning the `BaseMcpToolOutput` directly.
-4.  **Task 4: Verify Server Packages:** Ensure all server `index.ts` files correctly use the updated `registerTools` helper.
-5.  **Task 5: Build & Test:** Run `pnpm install`, `pnpm run build`, and `pnpm run test:coverage` (re-enabling skipped tests if possible). Fix any remaining issues.
-6.  **Task 6: Finalize Release:** Create a new changeset, version, commit, and push tags.
+## Next Actions
+- Add tests for the implemented `rag-core` functionality (chunking, embedding, indexing).
+- Implement remaining vector DB providers (e.g., Pinecone) in `indexManager.ts`.
+- Implement remaining embedding providers (e.g., Http) in `embedding.ts`.
+- Refine chunking combination/overlap logic.
+- Address deferred Markdown AST chunking (requires WASM compilation solution).
 
 ## Waiting For
-N/A - Ready to create subtasks.
+N/A

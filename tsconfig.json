@@ -21,8 +21,11 @@
     { "path": "./packages/hasher" },
     { "path": "./packages/xml-core" },
     { "path": "./packages/xml" },
-    { "path": "./packages/reader-core" },
-    { "path": "./packages/reader" }
+    { "path": "./packages/pdf-core" }, // Renamed from reader-core
+    { "path": "./packages/pdf" }, // Renamed from reader
+    { "path": "./packages/rag-core" }, // Add rag-core
+    { "path": "./packages/rag" }, // Add rag
+    { "path": "./packages/utils" } // Add utils
     // Add other packages if they exist and need referencing
   ],
   "compilerOptions": {

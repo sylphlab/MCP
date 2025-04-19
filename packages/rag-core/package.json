@@ -1,0 +1,73 @@
+{
+  "name": "@sylphlab/mcp-rag-core",
+  "version": "0.1.0",
+  "description": "Core RAG (Retrieval-Augmented Generation) logic for MCP",
+  "keywords": [
+    "mcp",
+    "rag",
+    "core",
+    "ai",
+    "typescript"
+  ],
+  "homepage": "https://github.com/sylphlab/mcp-plugins/tree/main/packages/rag-core#readme",
+  "bugs": {
+    "url": "https://github.com/sylphlab/mcp-plugins/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sylphlab/mcp-plugins.git",
+    "directory": "packages/rag-core"
+  },
+  "license": "MIT",
+  "author": "Sylph Lab <hi@sylphlab.com>",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && tsc --project tsconfig.json",
+    "clean": "rm -rf dist .turbo node_modules",
+    "dev": "tsup --watch",
+    "lint": "eslint . --ext .ts",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sylphlab/mcp-core": "workspace:*",
+    "ai": "^4.3.9",
+    "chromadb": "^2.2.1",
+    "highlight.js": "^11.11.1",
+    "ollama-ai-provider": "^1.2.0",
+    "web-tree-sitter": "^0.25.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.11",
+    "@vitest/coverage-v8": "^1.6.0",
+    "eslint": "^8.57.0",
+    "glob": "^11.0.1",
+    "tree-sitter-javascript": "^0.23.1",
+    "tree-sitter-python": "^0.23.6",
+    "tree-sitter-typescript": "^0.23.2",
+    "tsup": "^8.2.2",
+    "typescript": "^5.5.3",
+    "vitest": "^1.6.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
