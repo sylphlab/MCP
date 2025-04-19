@@ -1,38 +1,36 @@
 import { z } from 'zod';
 import { Chunk } from './types.js';
-import { EmbeddingVector } from './embedding.js';
-import { ChromaClient, Collection, Where, IncludeEnum, Metadata } from 'chromadb'; // Import ChromaDB types
+import { EmbeddingVector, IEmbeddingFunction } from './embedding.js'; // Import IEmbeddingFunction
+import { ChromaClient, Collection, Where, IncludeEnum, Metadata } from 'chromadb';
+import { Pinecone, Index as PineconeIndex, RecordMetadata } from '@pinecone-database/pinecone';
+import path from 'node:path';
+import { convertFilterToChromaWhere } from './chroma.js';
 
-// TODO: Define specific vector database providers (e.g., Pinecone, ChromaDB, in-memory)
+// Define specific vector database providers
 export enum VectorDbProvider {
   InMemory = 'in-memory',
-  Pinecone = 'pinecone', // Placeholder
+  Pinecone = 'pinecone',
   ChromaDB = 'chromadb',
 }
 
 // Define schemas for each provider's specific config
 const InMemoryConfigSchema = z.object({
   provider: z.literal(VectorDbProvider.InMemory),
-  // No specific config needed for basic in-memory
 });
 
 const PineconeConfigSchema = z.object({
   provider: z.literal(VectorDbProvider.Pinecone),
   apiKey: z.string().min(1, "Pinecone API key is required"),
-  environment: z.string().min(1, "Pinecone environment is required"),
   indexName: z.string().min(1, "Pinecone index name is required"),
-  // Add other Pinecone options like topK namespace etc. if needed
+  namespace: z.string().optional(),
 });
 
 const ChromaDBConfigSchema = z.object({
   provider: z.literal(VectorDbProvider.ChromaDB),
-  path: z.string().optional(), // Path for persistent storage
-  host: z.string().optional(), // Host if running client/server mode
-  port: z.number().optional(), // Port if running client/server mode
+  path: z.string().optional(),
+  host: z.string().optional(),
   collectionName: z.string().default('mcp_rag_collection'),
-  // Add auth, headers etc. if needed
 });
-
 
 // Use discriminated union for the main config schema
 export const VectorDbConfigSchema = z.discriminatedUnion("provider", [
@@ -46,80 +44,75 @@ const defaultVectorDbConfig = { provider: VectorDbProvider.InMemory } as const;
 
 export type VectorDbConfig = z.infer<typeof VectorDbConfigSchema>;
 
-/**
- * Represents an item stored in the vector database.
- */
 export interface IndexedItem extends Chunk {
-  id: string; // Unique identifier for the item
+  id: string;
   vector: EmbeddingVector;
 }
 
-/**
- * Represents the result of a similarity search.
- */
 export interface QueryResult {
   item: IndexedItem;
-  score: number; // Similarity score
+  score: number;
 }
 
-// Placeholder for the in-memory store
 let inMemoryStore: Map<string, IndexedItem> = new Map();
 
-/**
- * Manages interactions with a vector database.
- */
 export class IndexManager {
   private config: VectorDbConfig;
-  private client: ChromaClient | null = null; // Chroma client instance
-  private collection: Collection | null = null; // Chroma collection instance
+  private chromaClient: ChromaClient | null = null;
+  private chromaCollection: Collection | null = null;
+  private pineconeClient: Pinecone | null = null;
+  private pineconeIndex: PineconeIndex | null = null;
+  private embeddingFn: IEmbeddingFunction | null = null; // Store embedding function
 
-  // Constructor needs to be async to initialize client/collection
   private constructor(config: VectorDbConfig) {
-    // TODO: Add validation step? Or assume valid config is passed?
-    // const validation = VectorDbConfigSchema.safeParse(config);
-    // if (!validation.success) throw new Error(`Invalid VectorDbConfig: ${validation.error.message}`);
-    // this.config = validation.data;
     this.config = config;
     console.log(`Initializing IndexManager with provider: ${this.config.provider}`);
-    // Initialization logic moved to static create method
   }
 
-  /** @internal Used only for testing to reset the shared in-memory store */
+  /** @internal */
   public static _resetInMemoryStoreForTesting(): void {
      console.warn('[TESTING] Resetting inMemoryStore');
      inMemoryStore.clear();
   }
 
-  // Static async factory method for initialization
-  public static async create(config: VectorDbConfig): Promise<IndexManager> {
+  // Modified create to accept embedding function
+  public static async create(config: VectorDbConfig, embeddingFn?: IEmbeddingFunction): Promise<IndexManager> {
     const manager = new IndexManager(config);
-    await manager.initialize();
+    // Pass embedding function to initialize
+    await manager.initialize(embeddingFn);
     return manager;
   }
 
-  private async initialize(): Promise<void> {
+  // Modified initialize to accept and use embedding function
+  private async initialize(embeddingFn?: IEmbeddingFunction): Promise<void> {
+     this.embeddingFn = embeddingFn || null; // Store it
      try {
         switch (this.config.provider) {
           case VectorDbProvider.InMemory:
             console.log('Using In-Memory vector store.');
-            // Optionally clear: inMemoryStore.clear();
             break;
           case VectorDbProvider.Pinecone:
-            // TODO: Initialize Pinecone client
-            console.error('Pinecone initialization not implemented.');
-            throw new Error('Pinecone provider not yet implemented.');
+            console.log('Initializing Pinecone client...');
+            if (!this.config.apiKey || !this.config.indexName) {
+                 throw new Error('Pinecone config requires apiKey and indexName.');
+            }
+            this.pineconeClient = new Pinecone({ apiKey: this.config.apiKey });
+            this.pineconeIndex = this.pineconeClient.index(this.config.indexName);
+            console.log(`Pinecone client initialized. Using index: ${this.config.indexName}`);
+            break;
           case VectorDbProvider.ChromaDB:
             console.log('Initializing ChromaDB client...');
-            const chromaConfig: { path?: string; host?: string; port?: number } = {};
+            if (!this.embeddingFn) {
+                throw new Error('ChromaDB provider requires an embedding function to be provided during IndexManager creation.');
+            }
+            const chromaConfig: { path?: string; host?: string } = {};
             if (this.config.path) chromaConfig.path = this.config.path;
             if (this.config.host) chromaConfig.host = this.config.host;
-            // ChromaClient constructor doesn't take port directly, host includes it or uses default
-            this.client = new ChromaClient(chromaConfig);
-            // TODO: Add heartbeat check? client.heartbeat()
+            this.chromaClient = new ChromaClient(chromaConfig);
             console.log(`Getting or creating ChromaDB collection: ${this.config.collectionName}`);
-            this.collection = await this.client.getOrCreateCollection({
+            this.chromaCollection = await this.chromaClient.getOrCreateCollection({
               name: this.config.collectionName,
-              // TODO: Add metadata for embedding function if needed by ChromaDB?
+              embeddingFunction: this.embeddingFn, // Use the stored function
             });
             console.log('ChromaDB client and collection initialized.');
             break;
@@ -133,15 +126,9 @@ export class IndexManager {
      }
   }
 
-
-  /**
-   * Adds or updates items in the vector index.
-   * @param items An array of items containing chunks, vectors, and IDs.
-   */
   async upsertItems(items: IndexedItem[]): Promise<void> {
     if (items.length === 0) return;
     console.log(`Upserting ${items.length} items...`);
-
     try {
         switch (this.config.provider) {
           case VectorDbProvider.InMemory:
@@ -149,17 +136,25 @@ export class IndexManager {
               inMemoryStore.set(item.id, item);
             }
             console.log(`In-memory store size: ${inMemoryStore.size}`);
-            break; // Added break
+            break;
           case VectorDbProvider.Pinecone:
-            // TODO: Implement Pinecone upsert logic
-            console.error('Pinecone upsert not implemented.');
-            throw new Error('Pinecone provider not yet implemented.');
+            if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
+            if (!this.config.namespace) console.warn("Pinecone namespace not set, using default.");
+            const ns = this.pineconeIndex.namespace(this.config.namespace || '');
+            const vectorsToUpsert = items.map(item => ({
+                id: item.id,
+                values: item.vector,
+                metadata: item.metadata as RecordMetadata,
+            }));
+            await ns.upsert(vectorsToUpsert);
+            console.log(`Upserted ${items.length} items to Pinecone index '${this.config.indexName}' (namespace: ${this.config.namespace || 'default'}).`);
+            break;
           case VectorDbProvider.ChromaDB:
-            if (!this.collection) throw new Error('ChromaDB collection not initialized.');
-            // Prepare data for ChromaDB upsert
+            if (!this.chromaCollection) {
+                 throw new Error('ChromaDB collection not initialized.');
+            }
             const ids = items.map(item => item.id);
             const embeddings = items.map(item => item.vector);
-            // Filter metadata to only include primitive types allowed by ChromaDB
             const metadatas = items.map(item => {
                 const filteredMeta: Metadata = {};
                 if (item.metadata) {
@@ -167,38 +162,28 @@ export class IndexManager {
                         const value = item.metadata[key];
                         if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
                             filteredMeta[key] = value;
-                        } else {
-                            // Optionally log warning about skipped metadata
-                            // console.warn(`Skipping non-primitive metadata key '${key}' for item ID '${item.id}'`);
                         }
                     }
                 }
                 return filteredMeta;
             });
             const documents = items.map(item => item.content);
-
-            await this.collection.upsert({ ids, embeddings, metadatas, documents });
+            await this.chromaCollection.upsert({ ids, embeddings, metadatas, documents });
             console.log(`Upserted ${items.length} items to ChromaDB collection '${this.config.collectionName}'.`);
-            break; // Added break
+            break;
           default:
             const exhaustiveCheck: never = this.config;
             throw new Error(`Unsupported vector DB provider: ${exhaustiveCheck}`);
         }
     } catch (error) {
         console.error(`Error during upsertItems with provider ${this.config.provider}:`, error);
-        // TODO: Consider returning success/failure status or IDs of failed items.
         throw new Error(`Upsert failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  /**
-   * Deletes items from the vector index by their IDs.
-   * @param ids An array of item IDs to delete.
-   */
   async deleteItems(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     console.log(`Deleting ${ids.length} items...`);
-
     try {
         switch (this.config.provider) {
           case VectorDbProvider.InMemory:
@@ -211,48 +196,40 @@ export class IndexManager {
               }
             }
             console.log(`Deleted ${deletedCount} items. In-memory store size: ${inMemoryStore.size}`);
-            break; // Added break
+            break;
           case VectorDbProvider.Pinecone:
-            // TODO: Implement Pinecone delete logic
-            console.error('Pinecone delete not implemented.');
-            throw new Error('Pinecone provider not yet implemented.');
+             if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
+             if (!this.config.namespace) console.warn("Pinecone namespace not set, using default.");
+             const ns = this.pineconeIndex.namespace(this.config.namespace || '');
+             await ns.deleteMany(ids);
+             console.log(`Attempted to delete ${ids.length} items from Pinecone index '${this.config.indexName}' (namespace: ${this.config.namespace || 'default'}).`);
+             break;
           case VectorDbProvider.ChromaDB:
-             if (!this.collection) throw new Error('ChromaDB collection not initialized.');
-             // ChromaDB delete handles non-existent IDs gracefully
-             await this.collection.delete({ ids });
+             if (!this.chromaCollection) throw new Error('ChromaDB collection not initialized.');
+             await this.chromaCollection.delete({ ids });
              console.log(`Attempted to delete ${ids.length} items from ChromaDB collection '${this.config.collectionName}'.`);
-             break; // Added break
+             break;
           default:
             const exhaustiveCheck: never = this.config;
             throw new Error(`Unsupported vector DB provider: ${exhaustiveCheck}`);
         }
     } catch (error) {
         console.error(`Error during deleteItems with provider ${this.config.provider}:`, error);
-        // TODO: Handle cases where some IDs might not exist - should it throw, return status?
         throw new Error(`Delete failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  /**
-   * Queries the vector index for items similar to the query vector.
-   * @param queryVector The vector to search for.
-   * @param topK The number of top similar items to return.
-   * @param filter Optional metadata filter.
-   * @returns A promise that resolves to an array of QueryResult objects.
-   */
   async queryIndex(
     queryVector: EmbeddingVector,
     topK: number = 5,
-    filter?: Record<string, string | number | boolean> // Basic filter type
+    filter?: Record<string, string | number | boolean>
   ): Promise<QueryResult[]> {
     console.log(`Querying index for top ${topK} results...`);
-
     try {
         switch (this.config.provider) {
-          case VectorDbProvider.InMemory: { // Added block scope
+          case VectorDbProvider.InMemory: {
             const results: QueryResult[] = [];
             for (const item of inMemoryStore.values()) {
-               // Pass the whole item to matchesFilter
                if (filter && !this.matchesFilter(item, filter)) {
                   continue;
                }
@@ -261,27 +238,38 @@ export class IndexManager {
             }
             results.sort((a, b) => b.score - a.score);
             return results.slice(0, topK);
-          } // End InMemory case
-          case VectorDbProvider.Pinecone:
-            // TODO: Implement Pinecone query logic
-            console.error('Pinecone query not implemented.');
-            throw new Error('Pinecone provider not yet implemented.');
-          case VectorDbProvider.ChromaDB: { // Added block scope
-             if (!this.collection) throw new Error('ChromaDB collection not initialized.');
-
-             const whereFilter = filter ? convertFilterToChromaWhere(filter) : undefined; // Use helper
+          }
+          case VectorDbProvider.Pinecone: {
+             if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
+             if (!this.config.namespace) console.warn("Pinecone namespace not set, using default.");
+             const ns = this.pineconeIndex.namespace(this.config.namespace || '');
+             const pineconeFilter = filter; // Placeholder for conversion
+             const queryResponse = await ns.query({
+                 vector: queryVector,
+                 topK: topK,
+                 filter: pineconeFilter,
+                 includeMetadata: true,
+             });
+             const mappedResults: QueryResult[] = (queryResponse.matches || []).map(match => ({
+                 item: {
+                     id: match.id,
+                     content: '',
+                     metadata: match.metadata || {},
+                 } as IndexedItem,
+                 score: match.score || 0,
+             }));
+             return mappedResults;
+          }
+          case VectorDbProvider.ChromaDB: {
+             if (!this.chromaCollection) throw new Error('ChromaDB collection not initialized.');
+             const whereFilter = filter ? convertFilterToChromaWhere(filter) : undefined;
              console.log('ChromaDB where filter:', whereFilter);
-
-             const queryResults = await this.collection.query({
+             const queryResults = await this.chromaCollection.query({
                 queryEmbeddings: [queryVector],
                 nResults: topK,
                 where: whereFilter,
-                // Use IncludeEnum members
                 include: [IncludeEnum.Metadatas, IncludeEnum.Documents, IncludeEnum.Distances],
              });
-
-             // Map ChromaDB results to QueryResult[]
-             // Note: Chroma returns distances (lower is better), convert to similarity score (e.g., 1 - distance)
              const mappedResults: QueryResult[] = [];
              if (queryResults.ids && queryResults.ids.length > 0) {
                 for (let i = 0; i < queryResults.ids[0].length; i++) {
@@ -289,62 +277,46 @@ export class IndexManager {
                    const distance = queryResults.distances?.[0]?.[i];
                    const metadata = queryResults.metadatas?.[0]?.[i] as Record<string, unknown> | undefined;
                    const document = queryResults.documents?.[0]?.[i];
-
-                   // Reconstruct IndexedItem (vector is not returned by query)
-                   // We might need to fetch the vector separately if needed downstream,
-                   // or accept that QueryResult won't have the vector.
                    const item: Omit<IndexedItem, 'vector'> = {
                       id: id,
-                      content: document || '', // Use document as content
+                      content: document || '',
                       metadata: metadata,
                    };
-
                    mappedResults.push({
-                      item: item as IndexedItem, // Cast needed as vector is missing
-                      score: distance !== undefined ? 1 - distance : 0, // Example similarity conversion
+                      item: item as IndexedItem,
+                      score: distance !== undefined ? 1 - distance : 0,
                    });
                 }
-                
-                // Note: convertFilterToChromaWhere moved to module scope below
              }
              return mappedResults;
-          } // End ChromaDB case
+          }
           default:
             const exhaustiveCheck: never = this.config;
             throw new Error(`Unsupported vector DB provider: ${exhaustiveCheck}`);
         }
     } catch (error) {
         console.error(`Error during queryIndex with provider ${this.config.provider}:`, error);
-        // TODO: Add more specific error handling
         throw new Error(`Query failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  // Helper for in-memory filtering (basic implementation)
-  // Checks both top-level item properties (like id) and metadata properties
   private matchesFilter(item: IndexedItem, filter: Record<string, unknown>): boolean {
      for (const key in filter) {
         const filterValue = filter[key];
-        // Check top-level property first (e.g., 'id')
         if (key in item && (item as any)[key] === filterValue) {
-           continue; // Match found for this key
+           continue;
         }
-        // If not found at top-level, check metadata
         if (item.metadata?.hasOwnProperty(key) && item.metadata[key] === filterValue) {
-           continue; // Match found for this key in metadata
+           continue;
         }
-        // If key not found in either location or value doesn't match
         return false;
      }
-     // All filter keys matched
      return true;
   }
 
-
-  // Helper for cosine similarity (ensure vectors are non-zero)
   private cosineSimilarity(vecA: number[], vecB: number[]): number {
     if (vecA.length !== vecB.length || vecA.length === 0) {
-      return 0; // Or throw error
+      return 0;
     }
     let dotProduct = 0;
     let magnitudeA = 0;
@@ -357,23 +329,8 @@ export class IndexManager {
     magnitudeA = Math.sqrt(magnitudeA);
     magnitudeB = Math.sqrt(magnitudeB);
     if (magnitudeA === 0 || magnitudeB === 0) {
-      return 0; // Avoid division by zero
+      return 0;
     }
     return dotProduct / (magnitudeA * magnitudeB);
   }
-}
-
-// Helper function to convert simple filter to ChromaDB 'where' format
-// Moved to module scope
-// TODO: Expand this to support more complex operators ($ne, $gt, $in etc.) if needed
-function convertFilterToChromaWhere(filter: Record<string, string | number | boolean>): Where {
-   const where: Where = {};
-   // Simple equality check for now
-   // TODO: Add support for ChromaDB operators like $eq, $ne, etc. if needed
-   // Example: if filter key ends with '_$ne', create { key: { $ne: value } }
-   for (const key in filter) {
-      // Use type assertion to bypass strict index signature check
-      (where as any)[key] = { $eq: filter[key] }; // Default to $eq
-   }
-   return where;
 }

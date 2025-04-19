@@ -4,7 +4,8 @@ import { execSync } from 'node:child_process'; // Keep only execSync
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm', 'cjs'],
-  dts: false, // Disable tsup DTS generation, use tsc instead
+  dts: true, // Ensure DTS is true
+  tsconfig: './tsconfig.json',
   sourcemap: true,
   clean: true,
   splitting: false,

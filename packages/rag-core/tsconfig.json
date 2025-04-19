@@ -1,17 +1,16 @@
 {
-  "extends": "../../tsconfig.json", // Extend the root tsconfig
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "composite": true,
-    // Options for tsc declaration emit
-    "declaration": true,
-    "emitDeclarationOnly": true,
-    "declarationDir": "./dist", // Explicitly set declaration output dir
-    "declarationMap": true, // Match root config
-    "types": ["node", "vitest/globals"] // Add vitest globals
-    // noEmit is false by default, overridden by emitDeclarationOnly for this run
+    // "composite": false, // Remove
+    "declaration": true, // Keep for tsup dts: true
+    "declarationMap": true, // Keep for tsup dts: true
+    // "emitDeclarationOnly": false, // Remove
+    // "declarationDir": "./dist", // Remove
+    "types": ["node", "vitest/globals"] // Keep vitest types
   },
-  "include": ["src/**/*.ts"], // Only include source files for declaration emit
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*.ts"], // Keep include
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"], // Keep exclude test files
+  // Remove references
 }

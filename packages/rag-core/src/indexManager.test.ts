@@ -1,176 +1,275 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ChromaClient, Collection } from 'chromadb-client';
-import { indexProject, queryIndex } from './indexManager.js';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
+import { Collection, IEmbeddingFunction } from 'chromadb'; // Keep type imports
+import { IndexManager, VectorDbProvider, VectorDbConfig, IndexedItem, QueryResult } from './indexManager.js';
+// Import functions/modules to spy on
 import * as loader from './loader.js';
 import * as chunking from './chunking.js';
 import * as embedding from './embedding.js';
-import * as chroma from './chroma.js';
-import type { Document } from './types.js';
-import type { Chunk } from './chunking.js'; // Import Chunk type
+import * as chroma from './chroma.js'; // Import module to spy on
+import type { Document, Chunk } from './types.js';
 
 // --- Mocks ---
 
-// Mock ChromaClient methods
+// Mock collection methods
 const mockCollection = {
   name: 'mock-collection',
-  upsert: vi.fn().mockResolvedValue({ success: true }), // Adjust based on actual return type
+  upsert: vi.fn().mockResolvedValue({ success: true }),
   get: vi.fn().mockResolvedValue({ ids: [], embeddings: [], documents: [], metadatas: [] }),
-  delete: vi.fn().mockResolvedValue({ success: true }), // Adjust based on actual return type
-  query: vi.fn().mockResolvedValue({ ids: [[]], distances: [[]], metadatas: [[]], documents: [[]], embeddings: null }), // Adjusted based on potential structure
+  delete: vi.fn().mockResolvedValue({ success: true }),
+  query: vi.fn().mockResolvedValue({ ids: [[]], distances: [[]], metadatas: [[]], documents: [[]], embeddings: null }),
   count: vi.fn().mockResolvedValue(0),
-} as unknown as Collection; // Cast to Collection type
-
-vi.mock('./loader.js', () => ({
-  loadDocuments: vi.fn(),
-}));
-
-vi.mock('./chunking.js', () => ({
-  chunkDocument: vi.fn(),
-}));
-
-vi.mock('./embedding.js', () => ({
-  generateEmbeddings: vi.fn(),
-  VercelAIEmbeddingFunction: vi.fn().mockImplementation(() => ({ // Mock the class constructor
-    generate: vi.fn(), // Mock the generate method if needed by chroma mock
-  })),
-}));
-
-vi.mock('./chroma.js', () => ({
-  getRagCollection: vi.fn().mockResolvedValue(mockCollection),
-}));
+} as unknown as Collection;
 
 // --- Tests ---
 
-describe('indexManager', () => {
-  beforeEach(() => {
+describe('IndexManager', () => {
+  let manager: IndexManager;
+  const testConfigChroma: VectorDbConfig = {
+      provider: VectorDbProvider.ChromaDB,
+      collectionName: 'test-chroma-collection',
+      path: '/fake/path',
+  };
+   const testConfigInMemory: VectorDbConfig = {
+      provider: VectorDbProvider.InMemory,
+  };
+
+  // Spies
+  let initializeSpy: any;
+  let convertFilterSpy: any;
+  // Add other spies if needed for specific tests
+
+  beforeEach(async () => {
     vi.clearAllMocks();
-    // Reset mock implementations if needed
-    (loader.loadDocuments as vi.Mock).mockResolvedValue([]);
-    (chunking.chunkDocument as vi.Mock).mockResolvedValue([]);
-    (embedding.generateEmbeddings as vi.Mock).mockResolvedValue([]);
-    (chroma.getRagCollection as vi.Mock).mockResolvedValue(mockCollection);
-    (mockCollection.get as vi.Mock).mockResolvedValue({ ids: [], embeddings: [], documents: [], metadatas: [] });
-    (mockCollection.count as vi.Mock).mockResolvedValue(0);
+
+    // --- Setup Spies ---
+    initializeSpy = vi.spyOn(IndexManager.prototype as any, 'initialize').mockResolvedValue(undefined);
+    // Spy on convertFilterToChromaWhere - ensure chroma module is imported
+    convertFilterSpy = vi.spyOn(chroma, 'convertFilterToChromaWhere').mockImplementation((filter) => filter);
+
+    // Reset mock collection methods
+    (mockCollection.upsert as Mock).mockResolvedValue({ success: true });
+    (mockCollection.get as Mock).mockResolvedValue({ ids: [], embeddings: [], documents: [], metadatas: [] });
+    (mockCollection.delete as Mock).mockResolvedValue({ success: true });
+    (mockCollection.query as Mock).mockResolvedValue({ ids: [[]], distances: [[]], metadatas: [[]], documents: [[]], embeddings: null });
+    (mockCollection.count as Mock).mockResolvedValue(0);
+
+    // Reset in-memory store
+    IndexManager._resetInMemoryStoreForTesting();
+
+    // Create manager instance - initialize is now mocked
+    manager = await IndexManager.create(testConfigChroma);
+
+    // Manually assign the mocked collection for ChromaDB tests,
+    // as initialize (which normally sets it) is mocked.
+    manager['chromaCollection'] = mockCollection;
+
+    // Clear mocks called during creation if needed
+    initializeSpy.mockClear();
 
   });
 
-  describe('indexProject', () => {
-    it('should call load, chunk, embed, and upsert', async () => {
-      const docs: Document[] = [{ id: 'doc1', content: 'content1', metadata: {} }];
-      const chunks: Chunk[] = [{ id: 'doc1::chunk_0', content: 'content1', metadata: {}, startPosition: 0, endPosition: 8 }];
-      const embeddings = [[0.1, 0.2]];
+   afterEach(() => {
+       vi.restoreAllMocks(); // Restore all mocks after each test in the main suite
+   });
 
-      (loader.loadDocuments as vi.Mock).mockResolvedValue(docs);
-      (chunking.chunkDocument as vi.Mock).mockResolvedValue(chunks);
-      (embedding.generateEmbeddings as vi.Mock).mockResolvedValue(embeddings);
 
-      await indexProject({ projectRoot: '/test/project' });
+  describe('ChromaDB Provider', () => {
+    it('should call initialize during creation', async () => {
+      vi.restoreAllMocks(); // Restore any previous mocks/spies
+      initializeSpy = vi.spyOn(IndexManager.prototype as any, 'initialize').mockResolvedValue(undefined); // Re-apply spy
 
-      expect(loader.loadDocuments).toHaveBeenCalledWith('/test/project');
-      expect(chunking.chunkDocument).toHaveBeenCalledWith(docs[0]);
-      expect(embedding.generateEmbeddings).toHaveBeenCalledWith([chunks[0].content]);
-      expect(chroma.getRagCollection).toHaveBeenCalled();
+      const localManager = await IndexManager.create(testConfigChroma);
+
+      expect(initializeSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should upsert items correctly mapping data and filtering metadata', async () => {
+      const items: IndexedItem[] = [
+        { id: 'c1', content: 'doc1', vector: [0.1], metadata: { source: 's1', num: 1, bool: true, obj: {a:1} } },
+        { id: 'c2', content: 'doc2', vector: [0.2], metadata: { source: 's2', valid: 'yes' } },
+        { id: 'c3', content: 'doc3', vector: [0.3], metadata: {} },
+      ];
+      await manager.upsertItems(items);
+
+      expect(mockCollection.upsert).toHaveBeenCalledOnce();
       expect(mockCollection.upsert).toHaveBeenCalledWith({
-        ids: [chunks[0].id],
-        embeddings: embeddings,
-        metadatas: [chunks[0].metadata],
-        documents: [chunks[0].content],
+        ids: ['c1', 'c2', 'c3'],
+        embeddings: [[0.1], [0.2], [0.3]],
+        metadatas: [
+          { source: 's1', num: 1, bool: true },
+          { source: 's2', valid: 'yes' },
+          {},
+        ],
+        documents: ['doc1', 'doc2', 'doc3'],
       });
     });
 
-    it('should handle empty documents', async () => {
-      (loader.loadDocuments as vi.Mock).mockResolvedValue([]);
-      await indexProject({ projectRoot: '/test/project' });
-      expect(chunking.chunkDocument).not.toHaveBeenCalled();
-      expect(embedding.generateEmbeddings).not.toHaveBeenCalled();
-      expect(mockCollection.upsert).not.toHaveBeenCalled();
+    it('should delete items', async () => {
+      const idsToDelete = ['c1', 'c3'];
+      await manager.deleteItems(idsToDelete);
+      expect(mockCollection.delete).toHaveBeenCalledWith({ ids: idsToDelete });
     });
 
-     it('should handle empty chunks', async () => {
-      const docs: Document[] = [{ id: 'doc1', content: 'content1', metadata: {} }];
-      (loader.loadDocuments as vi.Mock).mockResolvedValue(docs);
-      (chunking.chunkDocument as vi.Mock).mockResolvedValue([]); // No chunks generated
+    it('should query items and map results correctly', async () => {
+        const queryVector = [0.5];
+        const topK = 2;
+        const mockQueryResults = {
+            ids: [['c2', 'c1']],
+            distances: [[0.1, 0.2]],
+            metadatas: [[{ source: 's2' }, { source: 's1' }]],
+            documents: [['doc2', 'doc1']],
+            embeddings: null,
+        };
+        (mockCollection.query as Mock).mockResolvedValue(mockQueryResults);
 
-      await indexProject({ projectRoot: '/test/project' });
+        const results = await manager.queryIndex(queryVector, topK);
 
-      expect(loader.loadDocuments).toHaveBeenCalled();
-      expect(chunking.chunkDocument).toHaveBeenCalled();
-      expect(embedding.generateEmbeddings).not.toHaveBeenCalled();
-      expect(mockCollection.upsert).not.toHaveBeenCalled();
-    });
-
-    it('should call delete for stale documents', async () => {
-      const currentDocs: Document[] = [{ id: 'doc1', content: 'content1', metadata: {} }];
-      const currentChunks: Chunk[] = [{ id: 'doc1::chunk_0', content: 'content1', metadata: {}, startPosition: 0, endPosition: 8 }];
-      const currentEmbeddings = [[0.1, 0.2]];
-      const existingIdsInDb = ['doc1::chunk_0', 'stale_doc::chunk_0'];
-
-      (loader.loadDocuments as vi.Mock).mockResolvedValue(currentDocs);
-      (chunking.chunkDocument as vi.Mock).mockResolvedValue(currentChunks);
-      (embedding.generateEmbeddings as vi.Mock).mockResolvedValue(currentEmbeddings);
-      (mockCollection.get as vi.Mock).mockResolvedValue({ ids: existingIdsInDb }); // Simulate existing IDs
-
-      await indexProject({ projectRoot: '/test/project' });
-
-      expect(mockCollection.upsert).toHaveBeenCalled();
-      expect(mockCollection.get).toHaveBeenCalled();
-      expect(mockCollection.delete).toHaveBeenCalledWith({ ids: ['stale_doc::chunk_0'] });
-    });
-
-     it('should not call delete if no stale documents found', async () => {
-      const currentDocs: Document[] = [{ id: 'doc1', content: 'content1', metadata: {} }];
-      const currentChunks: Chunk[] = [{ id: 'doc1::chunk_0', content: 'content1', metadata: {}, startPosition: 0, endPosition: 8 }];
-      const currentEmbeddings = [[0.1, 0.2]];
-      const existingIdsInDb = ['doc1::chunk_0']; // Only current IDs
-
-      (loader.loadDocuments as vi.Mock).mockResolvedValue(currentDocs);
-      (chunking.chunkDocument as vi.Mock).mockResolvedValue(currentChunks);
-      (embedding.generateEmbeddings as vi.Mock).mockResolvedValue(currentEmbeddings);
-      (mockCollection.get as vi.Mock).mockResolvedValue({ ids: existingIdsInDb });
-
-      await indexProject({ projectRoot: '/test/project' });
-
-      expect(mockCollection.upsert).toHaveBeenCalled();
-      expect(mockCollection.get).toHaveBeenCalled();
-      expect(mockCollection.delete).not.toHaveBeenCalled();
-    });
-
-    // TODO: Add tests for error handling in each step
-  });
-
-  describe('queryIndex', () => {
-     it('should generate query embedding and call collection.query', async () => {
-        const queryText = 'test query';
-        const queryEmbedding = [[0.5, 0.6]];
-        const queryResults = { ids: [['res1']], distances: [[0.1]], metadatas: [[{}]], documents: [['result doc']] };
-
-        (embedding.generateEmbeddings as vi.Mock).mockResolvedValue(queryEmbedding);
-        (mockCollection.query as vi.Mock).mockResolvedValue(queryResults);
-
-        const results = await queryIndex(queryText, 1, '/test/db');
-
-        expect(embedding.generateEmbeddings).toHaveBeenCalledWith([queryText]);
-        expect(chroma.getRagCollection).toHaveBeenCalledWith(expect.any(embedding.VercelAIEmbeddingFunction), '/test/db');
         expect(mockCollection.query).toHaveBeenCalledWith({
-            queryEmbeddings: queryEmbedding,
-            nResults: 1,
+            queryEmbeddings: [queryVector],
+            nResults: topK,
+            where: undefined,
+            include: ["metadatas", "documents", "distances"],
         });
-        expect(results).toEqual(queryResults);
-     });
+        expect(results).toHaveLength(2);
+        expect(results[0].item.id).toBe('c2');
+        expect(results[0].item.content).toBe('doc2');
+        expect(results[0].item.metadata?.source).toBe('s2');
+        expect(results[0].score).toBeCloseTo(1 - 0.1);
+        expect(results[1].item.id).toBe('c1');
+        expect(results[1].item.content).toBe('doc1');
+        expect(results[1].item.metadata?.source).toBe('s1');
+        expect(results[1].score).toBeCloseTo(1 - 0.2);
+    });
 
-     it('should throw if query embedding fails', async () => {
-        (embedding.generateEmbeddings as vi.Mock).mockResolvedValue([]); // Simulate failure
-        await expect(queryIndex('test', 1)).rejects.toThrow('Failed to generate query embedding.');
-     });
+     it('should query items with filter conversion', async () => {
+        const queryVector = [0.5];
+        const topK = 1;
+        const filter = { type: 'report', year: 2024 };
+        // Spy is set up in beforeEach
+        convertFilterSpy.mockReturnValue({ type: { '$eq': 'report' }, year: { '$eq': 2024 } });
 
-     it('should re-throw error from collection.query', async () => {
+        await manager.queryIndex(queryVector, topK, filter);
+
+        expect(convertFilterSpy).toHaveBeenCalledWith(filter); // Check spy was called
+        expect(mockCollection.query).toHaveBeenCalledWith(expect.objectContaining({
+            where: { type: { '$eq': 'report' }, year: { '$eq': 2024 } },
+            nResults: topK,
+        }));
+    });
+
+    it('should handle query errors', async () => {
         const queryError = new Error('Chroma query failed');
-        (embedding.generateEmbeddings as vi.Mock).mockResolvedValue([[0.1]]);
-        (mockCollection.query as vi.Mock).mockRejectedValue(queryError);
+        (mockCollection.query as Mock).mockRejectedValue(queryError);
+        await expect(manager.queryIndex([0.1], 1)).rejects.toThrow(`Query failed: ${queryError.message}`);
+    });
 
-        await expect(queryIndex('test', 1)).rejects.toThrow(queryError);
-     });
+     it('should handle upsert errors', async () => {
+        const upsertError = new Error('Chroma upsert failed');
+        (mockCollection.upsert as Mock).mockRejectedValue(upsertError);
+        await expect(manager.upsertItems([{id: 'e1', content: 'err', vector: [0]}])).rejects.toThrow(`Upsert failed: ${upsertError.message}`);
+    });
 
-     // TODO: Add tests for different nResults and options
+     it('should handle delete errors', async () => {
+        const deleteError = new Error('Chroma delete failed');
+        (mockCollection.delete as Mock).mockRejectedValue(deleteError);
+        await expect(manager.deleteItems(['e1'])).rejects.toThrow(`Delete failed: ${deleteError.message}`);
+    });
+
   });
+
+  describe('InMemory Provider', () => {
+      let inMemoryManager: IndexManager;
+
+      beforeEach(async () => {
+          // DO NOT restore mocks here, outer afterEach handles it.
+          // vi.restoreAllMocks();
+          initializeSpy = vi.spyOn(IndexManager.prototype as any, 'initialize').mockResolvedValue(undefined); // Mock initialize for InMemory too
+          inMemoryManager = await IndexManager.create(testConfigInMemory);
+          IndexManager._resetInMemoryStoreForTesting();
+      });
+
+       // No need for afterEach here if outer one restores mocks
+
+      it('should upsert items', async () => {
+          const items: IndexedItem[] = [
+              { id: 'mem1', content: 'mem doc 1', vector: [0.1, 0.9], metadata: { type: 'A' } },
+              { id: 'mem2', content: 'mem doc 2', vector: [0.9, 0.1], metadata: { type: 'B' } },
+          ];
+          await inMemoryManager.upsertItems(items);
+          const results = await inMemoryManager.queryIndex([0,1], 10);
+          expect(results.length).toBe(2);
+      });
+
+      it('should update existing items on upsert', async () => {
+          const item1: IndexedItem = { id: 'mem-upd', content: 'v1', vector: [1, 0], metadata: { v: 1 } };
+          const item2: IndexedItem = { id: 'mem-upd', content: 'v2', vector: [0, 1], metadata: { v: 2 } };
+          await inMemoryManager.upsertItems([item1]);
+          let results = await inMemoryManager.queryIndex([1,0], 1);
+          expect(results[0].item.content).toBe('v1');
+          expect(results[0].item.metadata?.v).toBe(1);
+
+          await inMemoryManager.upsertItems([item2]);
+          results = await inMemoryManager.queryIndex([0,1], 1);
+          expect(results[0].item.content).toBe('v2');
+          expect(results[0].item.metadata?.v).toBe(2);
+
+          results = await inMemoryManager.queryIndex([0,0], 10);
+          expect(results.length).toBe(1);
+      });
+
+      it('should delete items', async () => {
+          const items: IndexedItem[] = [
+              { id: 'mem-del-1', content: 'del 1', vector: [1, 0] },
+              { id: 'mem-del-2', content: 'del 2', vector: [0, 1] },
+          ];
+          await inMemoryManager.upsertItems(items);
+          await inMemoryManager.deleteItems(['mem-del-1', 'non-existent']);
+          let results = await inMemoryManager.queryIndex([0,0], 10);
+          expect(results.length).toBe(1);
+          expect(results[0].item.id).toBe('mem-del-2');
+
+          await inMemoryManager.deleteItems(['mem-del-2']);
+          results = await inMemoryManager.queryIndex([0,0], 10);
+          expect(results.length).toBe(0);
+      });
+
+      it('should query items and return top K results sorted by similarity', async () => {
+          const items: IndexedItem[] = [
+              { id: 'mem-q-1', content: 'close', vector: [0.9, 0.1] },
+              { id: 'mem-q-2', content: 'far', vector: [-1, 0] },
+              { id: 'mem-q-3', content: 'closer', vector: [1, 0] },
+          ];
+          await inMemoryManager.upsertItems(items);
+          const results = await inMemoryManager.queryIndex([1, 0], 2);
+          expect(results).toHaveLength(2);
+          expect(results[0].item.id).toBe('mem-q-3');
+          expect(results[0].score).toBeCloseTo(1.0);
+          expect(results[1].item.id).toBe('mem-q-1');
+          expect(results[1].score).toBeCloseTo(0.9 / Math.sqrt(0.82));
+      });
+
+       it('should filter items during query', async () => {
+          const items: IndexedItem[] = [
+              { id: 'mem-f-1', content: 'A', vector: [1, 0], metadata: { type: 'X', year: 2023 } },
+              { id: 'mem-f-2', content: 'B', vector: [0, 1], metadata: { type: 'Y', year: 2024 } },
+              { id: 'mem-f-3', content: 'C', vector: [0.9, 0.1], metadata: { type: 'X', year: 2024 } },
+          ];
+          await inMemoryManager.upsertItems(items);
+          let results = await inMemoryManager.queryIndex([1, 0], 3, { type: 'X' });
+          expect(results).toHaveLength(2);
+          expect(results.map((r: QueryResult) => r.item.id)).toEqual(expect.arrayContaining(['mem-f-1', 'mem-f-3']));
+
+          results = await inMemoryManager.queryIndex([0, 1], 3, { year: 2024 });
+          expect(results).toHaveLength(2);
+          expect(results.map((r: QueryResult) => r.item.id)).toEqual(expect.arrayContaining(['mem-f-2', 'mem-f-3']));
+
+          results = await inMemoryManager.queryIndex([1, 0], 3, { type: 'X', year: 2024 });
+          expect(results).toHaveLength(1);
+          expect(results[0].item.id).toBe('mem-f-3');
+
+          results = await inMemoryManager.queryIndex([1, 0], 3, { category: 'Z' });
+          expect(results).toHaveLength(0);
+      });
+  });
+
 });

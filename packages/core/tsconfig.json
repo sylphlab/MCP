@@ -16,14 +16,16 @@
     "strictNullChecks": true,
 
     /* Build options */
-    "declaration": true,
-    "declarationMap": true,
+    "declaration": true, // Keep for tsup dts: true
+    "declarationMap": true, // Keep for tsup dts: true
     "sourceMap": true,
     "outDir": "./dist",
+    // "composite": false, // REMOVE composite
 
     /* Type Checking */
     "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
+  // REMOVE references
 }

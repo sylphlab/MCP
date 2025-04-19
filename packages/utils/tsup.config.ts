@@ -3,9 +3,10 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['cjs', 'esm'],
-  dts: true, // Generate .d.ts files
+  dts: true, // Ensure DTS is true
+  tsconfig: './tsconfig.json',
   splitting: false,
   sourcemap: true,
-  clean: true, // Clean output directory before build
+  clean: true,
   target: 'node18', // Specify target environment
 });
