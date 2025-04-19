@@ -478,6 +478,9 @@ importers:
       '@sylphlab/mcp-core':
         specifier: workspace:*
         version: link:../core
+      '@sylphlab/mcp-fetch-core':
+        specifier: workspace:*
+        version: link:../fetch-core
       '@sylphlab/mcp-net-core':
         specifier: workspace:*
         version: link:../net-core

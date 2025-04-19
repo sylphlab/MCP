@@ -5,18 +5,18 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { McpTool } from '@sylphlab/mcp-core';
 import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
 
-// Import the tool objects from the core library
+// Import tool objects from the core libraries
 import {
-  // fetchTool, // Removed - fetch is now separate
   getPublicIpTool,
   getInterfacesTool
 } from '@sylphlab/mcp-net-core';
+import { fetchTool } from '@sylphlab/mcp-fetch-core'; // Import fetchTool
 
 // --- Server Setup ---
 
 const serverName = 'net';
 // Updated description to reflect available tools
-const serverDescription = 'Provides tools for network operations (get public IP, list interfaces).';
+const serverDescription = 'Provides tools for network operations (fetch, get public IP, list interfaces).';
 const serverVersion = '0.1.0'; // TODO: Update version as needed
 
 // Instantiate McpServer
@@ -31,9 +31,9 @@ const mcpServer = new McpServer(
 
 // Array of imported tool objects
 const definedTools: McpTool<any, any>[] = [
-    // fetchTool, // Removed
     getPublicIpTool,
     getInterfacesTool,
+    fetchTool, // Added fetchTool
 ];
 
 // Register tools using the helper function
