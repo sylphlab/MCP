@@ -1,7 +1,7 @@
 {
-  "name": "json-mcp",
+  "name": "@sylphlab/mcp-json",
   "version": "0.1.0",
-  "description": "MCP json tool (re-exports json-core-mcp)",
+  "description": "MCP server providing JSON tools",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

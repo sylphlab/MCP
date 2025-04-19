@@ -1,7 +1,7 @@
 {
-  "name": "hasher-mcp",
+  "name": "@sylphlab/mcp-hasher",
   "version": "0.1.0",
-  "description": "MCP hasher tool (re-exports hasher-core-mcp)",
+  "description": "MCP server providing hasher tool",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

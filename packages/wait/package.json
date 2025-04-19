@@ -1,7 +1,7 @@
 {
-  "name": "wait-mcp",
+  "name": "@sylphlab/mcp-wait",
   "version": "0.1.0",
-  "description": "MCP wait tool (re-exports @mcp/wait-core)",
+  "description": "MCP server providing wait tool",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

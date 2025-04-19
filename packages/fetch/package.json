@@ -1,7 +1,7 @@
 {
-  "name": "fetch-mcp",
+  "name": "@sylphlab/mcp-fetch",
   "version": "0.1.0",
-  "description": "MCP fetch tool (re-exports fetch-core-mcp)",
+  "description": "MCP server providing fetch tool",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

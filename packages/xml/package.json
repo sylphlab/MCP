@@ -1,7 +1,7 @@
 {
-  "name": "xml-mcp",
+  "name": "@sylphlab/mcp-xml",
   "version": "0.1.0",
-  "description": "MCP xml tool (re-exports xml-core-mcp)",
+  "description": "MCP server providing XML tools",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

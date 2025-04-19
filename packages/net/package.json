@@ -1,7 +1,7 @@
 {
-  "name": "net-mcp",
+  "name": "@sylphlab/mcp-net",
   "version": "0.1.0",
-  "description": "MCP net tool (re-exports net-core-mcp)",
+  "description": "MCP server providing network tools",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

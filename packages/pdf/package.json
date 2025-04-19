@@ -1,5 +1,5 @@
 {
-  "name": "pdf-mcp",
+  "name": "@sylphlab/mcp-pdf",
   "version": "0.1.0",
   "description": "MCP server providing PDF tools (text extraction, etc.)",
   "type": "module",

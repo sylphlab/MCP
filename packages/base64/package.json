@@ -1,7 +1,7 @@
 {
-  "name": "base64-mcp",
+  "name": "@sylphlab/mcp-base64",
   "version": "0.1.0",
-  "description": "MCP base64 tool (re-exports base64-core-mcp)",
+  "description": "MCP server providing Base64 tools",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
