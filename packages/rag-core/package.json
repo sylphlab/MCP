@@ -37,7 +37,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup && tsc --project tsconfig.json",
+    "build": "tsup && tsc --project tsconfig.json && node ../../scripts/copy-wasm.mjs",
     "clean": "rm -rf dist .turbo node_modules",
     "dev": "tsup --watch",
     "lint": "eslint . --ext .ts",

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { McpTool, McpToolInput, BaseMcpToolOutput, McpContentPart } from '@sylphlab/mcp-core'; // Corrected imports
-import { ChunkingOptionsSchema, chunkCodeAst } from '../chunking.js';
+import { type ChunkingOptions, chunkCodeAst } from '../chunking.js'; // Import interface type
 import { EmbeddingModelConfigSchema, generateEmbeddings, EmbeddingModelProvider, defaultEmbeddingConfig } from '../embedding.js'; // Import default config
 import { IndexManager, VectorDbConfigSchema, IndexedItem, VectorDbProvider } from '../indexManager.js';
 import { SupportedLanguage } from '../parsing.js';
@@ -17,11 +17,17 @@ export const IndexContentInputItemSchema = z.object({
   // Add optional metadata field?
 });
 
+// Define Zod schema for ChunkingOptions locally for input validation
+const ChunkingOptionsSchema = z.object({
+    maxChunkSize: z.number().int().positive().optional(),
+    chunkOverlap: z.number().int().nonnegative().optional(),
+}).optional(); // Make the whole options object optional
+
 // McpToolInput is a type, not a Zod schema object.
 // We define the schema based on the expected structure.
 export const IndexContentInputSchema = z.object({
   items: z.array(IndexContentInputItemSchema),
-  chunkingOptions: ChunkingOptionsSchema.optional(),
+  chunkingOptions: ChunkingOptionsSchema, // Use the locally defined schema
   embeddingConfig: EmbeddingModelConfigSchema.optional(),
   vectorDbConfig: VectorDbConfigSchema.optional(),
 });

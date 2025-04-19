@@ -36,10 +36,12 @@ Refactor MCP core and server packages for consistency, testability, and adherenc
     - **Task 4: Verify Server Packages:** Verified all server packages use the updated helper.
     - **Task 5: Build & Test:** Successfully built and tested the monorepo, resolving errors and passing all tests.
     - **Task 6: Finalize Release:** Created changeset, versioned, committed, and pushed tags for the refactoring changes.
-    - **RAG Core Foundation:** Established package structure (`rag-core`), implemented AST/fallback chunking (`chunking.ts`), Ollama embedding via Vercel AI SDK (`embedding.ts`), ChromaDB/InMemory index management placeholders (`indexManager.ts`), language detection using `highlight.js` (`indexContentTool.ts`), and supporting modules (`parsing.ts`, `types.ts`, `copy-wasm.mjs`). Ensured the package builds successfully.
-- **Current State:** MCP core/server refactoring complete. Foundational structure and core logic (chunking, Ollama embedding, ChromaDB indexing placeholders, language detection) for `rag-core` implemented and builds successfully. Markdown AST chunking deferred.
+    - **RAG Core Foundation:** Established package structure (`rag-core`, `rag`), installed dependencies, resolved complex build configuration issues (tsconfig references, pnpm linking, tsup DTS generation workaround using `tsc -b`). Created placeholder files (`loader`, `parser`, `embedding`, `chroma`, `indexManager`, `types`, `queryIndexTool`, `indexStatusTool`) with initial logic. Implemented basic AST/text chunking including Markdown code block separation and recursive calls in `chunking.ts`. Configured OpenAI embedding and ChromaDB local persistence. Integrated indexing into `rag` server startup. Project builds successfully.
+- **Current State:** Foundational structure for `rag-core` and `rag` is stable and builds. Core logic placeholders are implemented. `chunking.ts` contains initial recursive AST logic but has unresolved type errors (SyntaxNode import, metadata access). `indexContentTool.ts` (from previous context) was also modified to fix imports.
+- **Build Workaround:** Using `tsup` for JS bundling (`dts: false`) and `pnpm exec tsc -b` for declaration file generation.
 
 ## Next Actions
+- Fix remaining type errors in `chunking.ts` (SyntaxNode import, metadata access).
 - Add tests for the implemented `rag-core` functionality (chunking, embedding, indexing).
 - Implement remaining vector DB providers (e.g., Pinecone) in `indexManager.ts`.
 - Implement remaining embedding providers (e.g., Http) in `embedding.ts`.

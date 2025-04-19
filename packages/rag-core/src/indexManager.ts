@@ -84,6 +84,12 @@ export class IndexManager {
     // Initialization logic moved to static create method
   }
 
+  /** @internal Used only for testing to reset the shared in-memory store */
+  public static _resetInMemoryStoreForTesting(): void {
+     console.warn('[TESTING] Resetting inMemoryStore');
+     inMemoryStore.clear();
+  }
+
   // Static async factory method for initialization
   public static async create(config: VectorDbConfig): Promise<IndexManager> {
     const manager = new IndexManager(config);
@@ -246,7 +252,8 @@ export class IndexManager {
           case VectorDbProvider.InMemory: { // Added block scope
             const results: QueryResult[] = [];
             for (const item of inMemoryStore.values()) {
-               if (filter && !this.matchesFilter(item.metadata, filter)) {
+               // Pass the whole item to matchesFilter
+               if (filter && !this.matchesFilter(item, filter)) {
                   continue;
                }
                const score = this.cosineSimilarity(queryVector, item.vector);
@@ -314,13 +321,22 @@ export class IndexManager {
   }
 
   // Helper for in-memory filtering (basic implementation)
-  private matchesFilter(metadata: Record<string, unknown> | undefined, filter: Record<string, unknown>): boolean {
-     if (!metadata) return false;
+  // Checks both top-level item properties (like id) and metadata properties
+  private matchesFilter(item: IndexedItem, filter: Record<string, unknown>): boolean {
      for (const key in filter) {
-        if (!metadata.hasOwnProperty(key) || metadata[key] !== filter[key]) {
-           return false;
+        const filterValue = filter[key];
+        // Check top-level property first (e.g., 'id')
+        if (key in item && (item as any)[key] === filterValue) {
+           continue; // Match found for this key
         }
+        // If not found at top-level, check metadata
+        if (item.metadata?.hasOwnProperty(key) && item.metadata[key] === filterValue) {
+           continue; // Match found for this key in metadata
+        }
+        // If key not found in either location or value doesn't match
+        return false;
      }
+     // All filter keys matched
      return true;
   }
 

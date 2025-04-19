@@ -1,6 +1,7 @@
 import { Parser, Language, Tree } from 'web-tree-sitter';
-import path from 'node:path'; // Use node:path for clarity
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises'; // Import readFile
 
 // Define supported languages - align keys with grammar package names/wasm files
 export enum SupportedLanguage {
@@ -8,7 +9,7 @@ export enum SupportedLanguage {
   TypeScript = 'typescript',
   TSX = 'tsx', // TSX often needs a separate grammar or configuration
   Python = 'python',
-  // Markdown = 'markdown', // Removed again
+  Markdown = 'markdown', // Add Markdown back
 }
 
 // Map language enum to the expected WASM file names
@@ -18,7 +19,7 @@ const languageWasmPaths: Partial<Record<SupportedLanguage, string>> = { // Make 
   [SupportedLanguage.TypeScript]: 'tree-sitter-typescript.wasm',
   [SupportedLanguage.TSX]: 'tree-sitter-tsx.wasm', // Assumes a tsx wasm file exists
   [SupportedLanguage.Python]: 'tree-sitter-python.wasm',
-  // [SupportedLanguage.Markdown]: 'tree-sitter-markdown.wasm', // Removed again
+  [SupportedLanguage.Markdown]: 'tree-sitter-markdown.wasm', // Add Markdown WASM path back
 };
 
 let parser: Parser | null = null;
@@ -27,8 +28,9 @@ const loadedLanguages: Partial<Record<SupportedLanguage, Language>> = {};
 // Determine the directory where WASM files are located (relative to dist)
 // Using import.meta.url is the standard way in ES Modules
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const wasmDir = path.resolve(__dirname); // Assumes WASM files are alongside the built JS
+const __dirname = path.dirname(__filename); // This points to src when running tests via ts-node/vitest
+// Calculate path relative to src -> package root -> dist
+const wasmDir = path.resolve(__dirname, '..', 'dist');
 
 /**
  * Initializes the Tree-sitter parser. Must be called before parsing.
@@ -58,10 +60,14 @@ async function loadLanguage(language: SupportedLanguage): Promise<Language> {
       throw new Error(`[loadLanguage] Unsupported language or missing WASM path for: ${language}`);
   }
 
-  const wasmPath = path.join(wasmDir, wasmFileName); // wasmFileName is string here
+  // Construct path relative to the built file's directory (wasmDir)
+  const wasmPath = path.join(wasmDir, wasmFileName);
   console.log(`Loading grammar for ${language} from ${wasmPath}`);
   try {
-    const lang = await Language.load(wasmPath);
+    // Read the WASM file content as a buffer
+    const wasmBuffer = await readFile(wasmPath);
+    // Pass the Buffer (which is a Uint8Array) directly to Language.load
+    const lang = await Language.load(wasmBuffer);
     loadedLanguages[language] = lang;
     console.log(`Grammar for ${language} loaded successfully.`);
     return lang;
@@ -102,3 +108,11 @@ export async function parseCode(code: string, language: SupportedLanguage): Prom
 //   loadLanguage(SupportedLanguage.TypeScript);
 //   loadLanguage(SupportedLanguage.Markdown);
 // });
+/** @internal Exported only for testing purposes */
+export function _resetParsingState(): void {
+  console.warn('[TESTING] Resetting parsing state (parser and loaded languages)');
+  parser = null;
+  for (const lang in loadedLanguages) {
+     delete loadedLanguages[lang as keyof typeof loadedLanguages];
+  }
+}

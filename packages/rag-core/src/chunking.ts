@@ -1,290 +1,369 @@
-import { z } from 'zod';
-import { parseCode, SupportedLanguage } from './parsing.js'; // Add .js
-import { Parser, Language, Tree } from 'web-tree-sitter';
-import { Chunk } from './types.js'; // Add .js (Re-applying)
+import Parser, { Tree, Language } from 'web-tree-sitter'; // Revert import
+import { Document, Chunk } from './types.js';
+import { parseCode, SupportedLanguage } from './parsing.js';
+import path from 'node:path';
 
-// TODO: Define specific AST node types if needed for different languages
+// --- Constants ---
+const DEFAULT_MAX_CHUNK_SIZE = 1000;
+const DEFAULT_CHUNK_OVERLAP = 100;
 
-export const ChunkingOptionsSchema = z.object({
-  maxChunkSize: z.number().int().positive().default(1000), // Max characters or tokens? Define clearly.
-  chunkOverlap: z.number().int().nonnegative().default(100), // Overlap in characters or tokens?
-  // Add language-specific options if necessary
-});
+// --- Types ---
+export interface ChunkingOptions {
+  maxChunkSize?: number;
+  chunkOverlap?: number;
+  // metadata removed from options, should be part of the Document
+}
 
-export type ChunkingOptions = z.infer<typeof ChunkingOptionsSchema>;
+// Node types that represent good chunk boundaries per language
+const CHUNK_BOUNDARY_TYPES: Partial<Record<SupportedLanguage, string[]>> = {
+  [SupportedLanguage.JavaScript]: ['function_declaration', 'class_declaration', 'method_definition', 'lexical_declaration', 'variable_declaration', 'export_statement', 'comment'],
+  [SupportedLanguage.TypeScript]: ['function_declaration', 'class_declaration', 'method_definition', 'lexical_declaration', 'variable_declaration', 'export_statement', 'interface_declaration', 'type_alias_declaration', 'comment'],
+  [SupportedLanguage.TSX]: ['function_declaration', 'class_declaration', 'method_definition', 'lexical_declaration', 'variable_declaration', 'export_statement', 'interface_declaration', 'type_alias_declaration', 'jsx_element', 'jsx_self_closing_element', 'comment'],
+  [SupportedLanguage.Python]: ['function_definition', 'class_definition', 'comment'],
+  // Markdown is handled separately in chunkCodeAst
+};
 
-// Helper function for basic text splitting with overlap
+// --- Helper Functions ---
+
+/** Moved from test file */
 function splitTextWithOverlap(text: string, maxSize: number, overlap: number): string[] {
-  if (text.length <= maxSize) {
-    return [text];
-  }
-
-  const chunks: string[] = [];
-  let start = 0;
-  while (start < text.length) {
-    const end = Math.min(start + maxSize, text.length);
-    // Adjust start for overlap, ensuring it doesn't go below 0
-    const chunkStart = start > 0 ? Math.max(0, start - overlap) : start;
-    chunks.push(text.substring(chunkStart, end));
-
-    // Move start for the next chunk
-    start = end;
-    // If the next theoretical start point (end - overlap) is beyond the text length, we're done.
-    // This prevents creating an unnecessary tiny chunk at the very end just for overlap.
-    if (end === text.length || end - overlap >= text.length) {
-         break;
+    if (text.length <= maxSize) {
+        return [text];
     }
-     // Prepare next chunk's ideal start, considering overlap, but don't modify 'start' directly here
-     // as the loop condition uses 'start'. The overlap is handled by 'chunkStart' above.
-     // Let the next iteration calculate the correct chunkStart based on the new 'start' (which is 'end').
-  }
-   // Final check: If the loop finished but didn't capture the very end due to overlap logic, add the last piece.
-   // This scenario is less likely with the refined loop break condition but kept as a safeguard.
-   // Re-evaluate if this is truly needed after testing.
-   // const lastChunkEnd = chunks.length > 0 ? text.indexOf(chunks[chunks.length - 1]) + chunks[chunks.length - 1].length : 0;
-   // if (lastChunkEnd < text.length) {
-   //    chunks.push(text.substring(lastChunkEnd));
-   // }
+    const chunks: string[] = [];
+    let start = 0;
+    const step = Math.max(1, maxSize - overlap); // Ensure progress
+
+    while (start < text.length) {
+        const end = Math.min(start + maxSize, text.length);
+        chunks.push(text.substring(start, end));
+        start += step;
+    }
+
+    // Remove potential duplicate last chunk if step is small
+    if (chunks.length > 1 && text.endsWith(chunks[chunks.length-1]) && chunks[chunks.length-2].endsWith(chunks[chunks.length-1])) {
+       // This condition is complex, let's simplify or remove for now.
+       // The core issue was the loop logic.
+    }
+
+    // Re-check for simple duplicate last chunk caused by final step
+     if (chunks.length > 1) {
+        const lastChunk = chunks[chunks.length - 1];
+        const secondLastChunk = chunks[chunks.length - 2];
+        // If the second last chunk *ends with* the entire last chunk (due to overlap)
+        // and the last chunk isn't the *only* content remaining.
+        if (start - step + maxSize > text.length && secondLastChunk.endsWith(lastChunk)) {
+             // This check is also complex. Let's rely on the simpler loop first.
+             // A better check might be needed later if duplicates appear.
+        }
+     }
 
 
-  return chunks;
+    // Original duplicate check - might still be relevant depending on step/overlap
+    if (chunks.length > 1) {
+        const lastChunk = chunks[chunks.length - 1];
+        const secondLastChunk = chunks[chunks.length - 2];
+        if (secondLastChunk.endsWith(lastChunk)) {
+            chunks.pop();
+        }
+    }
+    return chunks;
+}
+
+
+function createChunk(
+    document: Document,
+    content: string,
+    startIndex: number,
+    endIndex: number,
+    chunkIndex: number,
+    metadata: Record<string, any> = {}
+): Chunk {
+    return {
+        ...document,
+        id: `${document.id}::chunk_${chunkIndex}`,
+        content: content,
+        startPosition: startIndex,
+        endPosition: endIndex,
+        metadata: {
+            ...document.metadata,
+            chunkIndex: chunkIndex,
+            originalId: document.id,
+            ...metadata,
+        }
+    };
+}
+
+/** Re-add detectLanguage function */
+function detectLanguage(filePath: string): SupportedLanguage | null {
+    const extension = path.extname(filePath).toLowerCase().substring(1); // Use path.extname and remove leading dot
+    switch (extension) {
+        case 'js':
+        case 'jsx':
+            return SupportedLanguage.JavaScript;
+        case 'ts':
+            return SupportedLanguage.TypeScript;
+        case 'tsx':
+             return SupportedLanguage.TSX;
+        case 'py':
+            return SupportedLanguage.Python;
+        // case 'go': // Add Go if/when parser/wasm is handled
+        //     return SupportedLanguage.Go;
+        // case 'rs': // Add Rust if/when parser/wasm is handled
+        //     return SupportedLanguage.Rust;
+        // case 'html': // Add HTML if/when parser/wasm is handled
+        // case 'htm':
+        //     return SupportedLanguage.HTML;
+        // case 'css': // Add CSS if/when parser/wasm is handled
+        //     return SupportedLanguage.CSS;
+        // case 'json': // Add JSON if/when parser/wasm is handled
+        //     return SupportedLanguage.JSON;
+        // case 'md': // Add Markdown if/when parser/wasm is handled
+        // case 'markdown':
+        //     return SupportedLanguage.Markdown;
+        default:
+            console.log(`No specific parser found for extension ".${extension}", will use text chunking.`);
+            return null; // Treat as plain text
+    }
 }
 
 
 /**
- * Chunks source code based on its Abstract Syntax Tree (AST).
- * Aims to keep related code blocks (functions, classes, etc.) together.
- *
- * @param code The source code content.
- * @param language The programming language of the code.
- * @param options Chunking parameters.
- * @returns An array of code chunks.
+ * Recursive function to traverse the AST and create chunks.
+ * Prioritizes splitting based on meaningful children.
  */
-export async function chunkCodeAst(
-  code: string,
-  language: SupportedLanguage | null, // Allow null for fallback/text
-  options: ChunkingOptions = ChunkingOptionsSchema.parse({})
+async function traverseAndChunk(
+    node: any, // Use any for node type
+    document: Document,
+    options: Required<Omit<ChunkingOptions, 'metadata'>>,
+    language: SupportedLanguage,
+    chunkCounter: { index: number }
 ): Promise<Chunk[]> {
-  console.log(`Chunking code for language: ${language} with options:`, options);
-  // TODO: 1. Parse the code into an AST using a suitable parser (e.g., tree-sitter via a 'parsing.ts' module).
-  // const ast = await parse(code, language);
-
-  // TODO: 2. Traverse the AST. Identify meaningful top-level nodes (functions, classes, interfaces, etc.).
-  //          For Markdown, identify code blocks (` ``` `).
-
-  // TODO: 3. Implement recursive chunking:
-  //          - Start with top-level nodes.
-  //          - If a node's content exceeds maxChunkSize, recursively chunk its children.
-  //          - For Markdown code blocks:
-  //              - Extract the language identifier (e.g., ```typescript).
-  //              - Recursively call chunkCodeAst for the code block content and its language.
-  //              - Treat the results as sub-chunks within the Markdown chunk.
-  //          - Handle nested structures in other languages appropriately.
-
-  // TODO: 4. Apply chunkOverlap logic during chunk creation/concatenation.
-
-  // TODO: 5. Format the output chunks (potentially adding metadata later - line numbers, node type).
-
-  // 1. Parse the code into an AST *if* language is supported
-  let rootNode: any; // Use any temporarily due to conditional parsing
-  if (language) {
-      try {
-          const tree = await parseCode(code, language);
-          rootNode = tree.rootNode;
-      } catch (parseError) {
-          console.warn(`AST parsing failed for language ${language}:`, parseError, 'Falling back to text splitting.');
-          rootNode = null; // Indicate fallback needed
-      }
-  } else {
-      rootNode = null; // Fallback if no language provided/detected
-  }
-
-  // If AST parsing failed or wasn't attempted, use fallback
-  if (!rootNode) {
-      console.log('Applying fallback text splitting.');
-      const fallbackContentChunks = splitTextWithOverlap(code, options.maxChunkSize, options.chunkOverlap);
-      return fallbackContentChunks.map(content => ({
-         content: content,
-         metadata: {
-            warning: 'Fallback text split applied',
-            // We don't know the language for sure here
-         }
-      }));
-  }
-
-  // Recursive async chunking function
-  // TODO: Resolve type for 'node'. Using 'any' as explicit SyntaxNode/Parser.SyntaxNode failed.
-  const traverseAndChunk = async (node: any): Promise<Chunk[]> => {
-    if (!node) {
-      return []; // Base case: null node
-    }
-
+    const chunks: Chunk[] = [];
     const nodeText = node.text;
+    const boundaryTypes = CHUNK_BOUNDARY_TYPES[language] || [];
 
-    // Base case: Node text fits within the max chunk size
-    // TODO: Refine this condition, consider overlap allowance
-    if (nodeText.length <= options.maxChunkSize) {
-      // TODO: Add check for minimum chunk size? Avoid tiny chunks?
+    // Base Case 1: Node is small enough AND is a preferred boundary type
+    const isBoundary = boundaryTypes.includes(node.type);
+    const fits = nodeText.length <= options.maxChunkSize;
 
-      // If base case applies (node fits max size):
-      // Markdown block handling removed as Markdown parsing is deferred
-      return [{ // Return node text as a single Chunk object
-         content: nodeText,
-         metadata: {
-            nodeType: node.type,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            language: language ?? undefined, // Assign language or undefined if null
-        }
-      }];
+    if (fits && isBoundary) {
+        chunks.push(createChunk(
+            document, nodeText, node.startIndex, node.endIndex, chunkCounter.index++,
+            { nodeType: node.type, startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1, language: language }
+        ));
+        return chunks;
     }
 
-    // Recursive step: Node is too large, chunk its children
-    let currentChunks: Chunk[] = []; // Store Chunk objects
-    for (const child of node.children) {
-      // Skip children already handled within special blocks (like code content)?
-      // For now, process all children. Refine if needed based on grammar.
-      const childChunks = await traverseAndChunk(child); // Await the recursive async call
+    // Check for meaningful children to guide splitting
+    const meaningfulChildren = node.children?.filter((child: any) => boundaryTypes.includes(child.type)) || [];
 
-      // --- Intelligent Combination Logic ---
-      if (childChunks.length === 0) continue; // Skip if child yielded no chunks
+    if (meaningfulChildren.length > 0) {
+        // Recursive Case: Split based on meaningful children
+        let lastMeaningfulChildEnd = node.startIndex;
+        let accumulatedPrefix = ""; // Accumulate text between meaningful children
 
-      let remainingChildChunks = [...childChunks];
+        for (const meaningfulChild of meaningfulChildren) {
+            // Capture text between the last meaningful node and this one
+            const prefixText = document.content.substring(lastMeaningfulChildEnd, meaningfulChild.startIndex).trim();
+            accumulatedPrefix += (accumulatedPrefix ? "\n\n" : "") + prefixText; // Add separator if needed
 
-      while (remainingChildChunks.length > 0) {
-        const subChunk = remainingChildChunks.shift()!; // Take the next chunk from the child
+            // Recurse on the meaningful child
+            const childChunks = await traverseAndChunk(meaningfulChild, document, options, language, chunkCounter);
 
-        if (currentChunks.length === 0) {
-          // If this is the very first chunk being added, just add it.
-           currentChunks.push(subChunk);
-           continue;
-        }
-
-        let lastCurrentChunk = currentChunks[currentChunks.length - 1];
-        const overlapText = lastCurrentChunk.content.slice(-options.chunkOverlap); // Use .content
-        const textToAppend = subChunk.content.startsWith(overlapText) // Use .content
-                             ? subChunk.content.slice(overlapText.length) // Use .content
-                             : subChunk.content; // Use .content
-
-        const combinedLength = lastCurrentChunk.content.length + textToAppend.length; // Use .content
-
-        if (combinedLength <= options.maxChunkSize) {
-          // Append content and merge metadata
-          currentChunks[currentChunks.length - 1].content += textToAppend; // Modify .content
-          currentChunks[currentChunks.length - 1].metadata = { // Merge metadata
-             ...lastCurrentChunk.metadata,
-             ...subChunk.metadata,
-             endLine: subChunk.metadata?.endLine ?? lastCurrentChunk.metadata?.endLine,
-          };
-        } else {
-          // Start a new chunk with overlap
-          const newChunkStartText = lastCurrentChunk.content.slice(-options.chunkOverlap); // Use .content
-          const newChunkText = newChunkStartText + (subChunk.content.startsWith(newChunkStartText) ? subChunk.content.slice(newChunkStartText.length) : subChunk.content); // Use .content
-
-          if (newChunkText.length > options.maxChunkSize) {
-             console.warn(`Sub-chunk (type: ${child?.type}, length: ${subChunk.content.length}) combined with overlap still exceeds max size. Splitting sub-chunk content.`); // Use .content
-             // Split the problematic subChunk *content*
-             const splitSubChunkContents = splitTextWithOverlap(subChunk.content, options.maxChunkSize - newChunkStartText.length, options.chunkOverlap); // Use .content
-
-             // Create new Chunk for the first part
-             currentChunks.push({ // Push Chunk object
-                content: newChunkStartText + splitSubChunkContents[0],
-                metadata: {
-                   ...lastCurrentChunk.metadata,
-                   ...subChunk.metadata,
-                   startLine: lastCurrentChunk.metadata?.endLine ? lastCurrentChunk.metadata.endLine - Math.min(options.chunkOverlap, (lastCurrentChunk.metadata.endLine - (lastCurrentChunk.metadata.startLine ?? 0))) : subChunk.metadata?.startLine,
+            // Try to prepend the accumulated prefix to the first chunk from the child recursion
+            if (childChunks.length > 0 && accumulatedPrefix.length > 0) {
+                const combinedPrefixContent = accumulatedPrefix + "\n\n" + childChunks[0].content;
+                if (combinedPrefixContent.length <= options.maxChunkSize) {
+                    childChunks[0].content = combinedPrefixContent;
+                    childChunks[0].startPosition = lastMeaningfulChildEnd; // Adjust start position
+                    childChunks[0].metadata = {
+                        ...(childChunks[0].metadata || {}),
+                        nodeType: `text_before+${childChunks[0].metadata?.nodeType || 'unknown'}`,
+                    };
+                    accumulatedPrefix = ""; // Reset prefix
+                } else {
+                    // Prefix is too large, create a separate chunk for it
+                     chunks.push(createChunk(
+                        document, accumulatedPrefix, lastMeaningfulChildEnd, meaningfulChild.startIndex, chunkCounter.index++,
+                        { nodeType: 'text_between_nodes', language: language }
+                    ));
+                    accumulatedPrefix = ""; // Reset prefix
                 }
-             });
+            } else if (accumulatedPrefix.length > 0) {
+                 // Child recursion yielded no chunks, but we have a prefix
+                 chunks.push(createChunk(
+                    document, accumulatedPrefix, lastMeaningfulChildEnd, meaningfulChild.startIndex, chunkCounter.index++,
+                    { nodeType: 'text_between_nodes', language: language }
+                ));
+                accumulatedPrefix = ""; // Reset prefix
+            }
 
-             // Create remaining chunks from the split and put them back in the queue
-             const remainingSplitChunks: Chunk[] = splitSubChunkContents.slice(1).map(splitContent => ({ // Map string[] to Chunk[]
-                content: splitContent,
-                metadata: { ...subChunk.metadata }
-             }));
-             remainingChildChunks.unshift(...remainingSplitChunks); // Unshift Chunk[]
-
-          } else {
-             // Create a new chunk with overlap
-             currentChunks.push({ // Push Chunk object
-                content: newChunkText,
-                metadata: {
-                   ...lastCurrentChunk.metadata,
-                   ...subChunk.metadata,
-                   startLine: lastCurrentChunk.metadata?.endLine ? lastCurrentChunk.metadata.endLine - Math.min(options.chunkOverlap, (lastCurrentChunk.metadata.endLine - (lastCurrentChunk.metadata.startLine ?? 0))) : subChunk.metadata?.startLine,
-                   endLine: subChunk.metadata?.endLine,
-                }
-             });
-          }
+            chunks.push(...childChunks); // Add chunks from the meaningful child
+            lastMeaningfulChildEnd = meaningfulChild.endIndex;
         }
-      }
-      // --- End Intelligent Combination Logic ---
+
+        // Handle any remaining text after the last meaningful child
+        const suffixText = document.content.substring(lastMeaningfulChildEnd, node.endIndex).trim();
+        if (suffixText.length > 0) {
+            // Try appending to the last chunk if possible, otherwise create new
+            const lastChunk = chunks[chunks.length - 1];
+            if (lastChunk) {
+                 const combinedSuffixContent = lastChunk.content + "\n\n" + suffixText;
+                 if (combinedSuffixContent.length <= options.maxChunkSize) {
+                     lastChunk.content = combinedSuffixContent;
+                     lastChunk.endPosition = node.endIndex;
+                     lastChunk.metadata = {
+                         ...(lastChunk.metadata || {}),
+                         nodeType: `${lastChunk.metadata?.nodeType || 'unknown'}+text_after`,
+                         endLine: node.endPosition.row + 1, // Update end line
+                     };
+                 } else {
+                     chunks.push(createChunk(
+                        document, suffixText, lastMeaningfulChildEnd, node.endIndex, chunkCounter.index++,
+                        { nodeType: 'text_after_last_meaningful', language: language }
+                    ));
+                 }
+            } else {
+                 chunks.push(createChunk(
+                    document, suffixText, lastMeaningfulChildEnd, node.endIndex, chunkCounter.index++,
+                    { nodeType: 'text_after_last_meaningful', language: language }
+                ));
+            }
+        }
+
+    } else if (!fits) {
+        // Base Case 2 (Revised): Node is too large AND has NO meaningful children
+        console.warn(`Node type '${node.type}' exceeded maxSize (${options.maxChunkSize}) and has no meaningful children. Applying fallback text splitting.`, { nodeId: document.id, nodeTextLength: nodeText.length });
+        const textChunks = splitTextWithOverlap(nodeText, options.maxChunkSize, options.chunkOverlap);
+        textChunks.forEach((textChunk: string, idx: number) => {
+            chunks.push(createChunk(
+                document, textChunk, node.startIndex, node.endIndex, chunkCounter.index++,
+                { nodeType: node.type, startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1, language: language, warning: `Fallback split applied to large node without meaningful children (${idx + 1}/${textChunks.length})` }
+            ));
+        });
+    } else {
+         // Base Case 3: Node fits but is not a boundary type (and has no meaningful children)
+         // Treat it as a single chunk.
+         chunks.push(createChunk(
+            document, nodeText, node.startIndex, node.endIndex, chunkCounter.index++,
+            { nodeType: node.type, startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1, language: language, note: 'Node fits but is not a boundary type' }
+        ));
     }
 
-    // If chunking children resulted in no chunks (e.g., only comments/whitespace),
-    // but the node itself has text, we might need a fallback for this node.
-    // TODO: Implement fallback splitting (e.g., character-based) for large nodes
-    //       that cannot be meaningfully subdivided by children.
-    if (currentChunks.length === 0 && nodeText.length > 0) {
-       // Apply fallback splitting for large nodes that couldn't be subdivided
-       console.warn(`Node type ${node.type} too large (${nodeText.length}) and yielded no child chunks. Applying fallback split.`);
-       const fallbackContentChunks = splitTextWithOverlap(nodeText, options.maxChunkSize, options.chunkOverlap);
-       currentChunks = fallbackContentChunks.map(content => ({
-          content: content,
-          metadata: {
-             nodeType: node.type,
-             startLine: node.startPosition.row + 1, // Approximate
-             endLine: node.endPosition.row + 1,   // Approximate
-             language: language ?? undefined, // Assign language or undefined
-             warning: 'Fallback split applied',
-          }
-       }));
+
+    // Final fallback if recursion somehow yielded no chunks for a large node
+    // This condition should ideally not be hit with the new logic, but kept as a safeguard
+    if (chunks.length === 0 && !fits && meaningfulChildren.length === 0) {
+        console.warn(`Node type '${node.type}' exceeded maxSize (${options.maxChunkSize}) and recursion yielded no chunks. Applying fallback text splitting to original node.`, { nodeId: document.id });
+        const textChunks = splitTextWithOverlap(nodeText, options.maxChunkSize, options.chunkOverlap);
+        textChunks.forEach((textChunk: string, idx: number) => {
+            chunks.push(createChunk(
+                document, textChunk, node.startIndex, node.endIndex, chunkCounter.index++,
+                { nodeType: node.type, startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1, language: language, warning: `Fallback split applied to large node after recursion (${idx + 1}/${textChunks.length})` }
+            ));
+        });
     }
 
-
-    return currentChunks;
-  };
-
-  // Start traversal from the root node
-  let chunks = await traverseAndChunk(rootNode); // Await the initial async call
-
-  // Final fallback if AST traversal yielded nothing but the code isn't empty
-  if (chunks.length === 0 && rootNode.text.length > 0) {
-    console.warn("AST traversal yielded no chunks. Applying root fallback split.");
-    const fallbackContentChunks = splitTextWithOverlap(rootNode.text, options.maxChunkSize, options.chunkOverlap);
-    chunks = fallbackContentChunks.map(content => ({
-       content: content,
-       metadata: {
-          startLine: rootNode.startPosition.row + 1, // Approximate
-          endLine: rootNode.endPosition.row + 1,   // Approximate
-          language: language ?? undefined, // Assign language or undefined
-          warning: 'Root fallback split applied',
-       }
-    }));
-  }
-
-  // TODO: Post-process chunks? Apply overlap more consistently? Merge small adjacent chunks?
-
-  return chunks;
+    return chunks;
 }
 
-// Example usage (for testing/dev):
-// async function run() {
-//   const sampleCode = `
-// function hello() {
-//   console.log("Hello");
+
+/**
+ * Chunks code based on its AST or falls back to text splitting.
+ */
+export async function chunkCodeAst(
+    code: string,
+    language: SupportedLanguage | null,
+    options?: ChunkingOptions,
+    // Pass optional base metadata separately
+    baseMetadata: Record<string, any> = {}
+): Promise<Chunk[]> {
+    // Merge options, excluding metadata
+    const mergedOptions: Required<Omit<ChunkingOptions, 'metadata'>> = {
+        maxChunkSize: options?.maxChunkSize ?? DEFAULT_MAX_CHUNK_SIZE,
+        chunkOverlap: options?.chunkOverlap ?? DEFAULT_CHUNK_OVERLAP,
+    };
+    // Create document with base metadata
+    const document: Document = {
+        id: baseMetadata?.source || 'code_snippet', // Use source from metadata if available
+        content: code,
+        metadata: { language, ...baseMetadata }
+    };
+    const chunkCounter = { index: 0 };
+
+    // --- Markdown Handling ---
+    // Note: Markdown AST chunking is complex due to inline/block distinction and potential recursion.
+    // Deferring full Markdown AST implementation for now. Fallback to text chunking for Markdown.
+    if (language === SupportedLanguage.Markdown) {
+        console.warn('Markdown AST chunking deferred. Applying fallback text splitting.');
+        const textChunks = splitTextWithOverlap(code, mergedOptions.maxChunkSize, mergedOptions.chunkOverlap);
+        return textChunks.map((textChunk: string, idx: number) => createChunk(document, textChunk, -1, -1, chunkCounter.index++, { language: language, warning: `Fallback text splitting applied (Markdown AST deferred)` }));
+    }
+
+    // --- Generic Language Handling ---
+    if (!language) {
+        console.warn('Language not provided or detected, applying fallback text splitting.');
+        const textChunks = splitTextWithOverlap(code, mergedOptions.maxChunkSize, mergedOptions.chunkOverlap);
+        return textChunks.map((textChunk: string, idx: number) => createChunk(document, textChunk, -1, -1, chunkCounter.index++, { language: null, warning: 'Fallback text splitting applied (no language)' }));
+    }
+
+    try {
+        const tree = await parseCode(code, language);
+        if (!tree) throw new Error('Parsing returned null tree');
+
+        const chunks = await traverseAndChunk(tree.rootNode, document, mergedOptions, language, chunkCounter);
+
+        if (chunks.length === 0 && code.length > 0) {
+             console.warn(`AST chunking for ${language} yielded no chunks, applying fallback text splitting.`);
+             const textChunks = splitTextWithOverlap(code, mergedOptions.maxChunkSize, mergedOptions.chunkOverlap);
+             return textChunks.map((textChunk: string, idx: number) => createChunk(document, textChunk, -1, -1, chunkCounter.index++, { language: language, warning: 'Fallback text splitting applied (no AST chunks)' }));
+        }
+        return chunks;
+
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn(`AST parsing failed for language ${language}. Applying fallback text splitting.`, error, { codeSnippet: code.substring(0, 100) });
+        const textChunks = splitTextWithOverlap(code, mergedOptions.maxChunkSize, mergedOptions.chunkOverlap);
+        // Ensure the warning is included in the metadata here
+        return textChunks.map((textChunk: string, idx: number) => createChunk(
+            document,
+            textChunk,
+            -1, -1, // Positions are inaccurate in fallback
+            chunkCounter.index++,
+            {
+                language: language, // Keep original language if known
+                warning: `Fallback text splitting applied (parsing error: ${errorMessage})`,
+                fallbackIndex: idx + 1,
+                fallbackTotal: textChunks.length
+            }
+        ));
+    }
+}
+
+// Remove original chunkDocument if chunkCodeAst is the main entry point now.
+// export async function chunkDocument(doc: Document, options?: ChunkingOptions): Promise<Chunk[]> {
+//     const language = detectLanguage(doc.id); // Detect language from document ID/path
+//     // Pass document metadata (including ID) into chunkCodeAst options
+//     const combinedOptions = { ...(options || {}), metadata: { source: doc.id, ...(doc.metadata || {}) } };
+//     return chunkCodeAst(doc.content, language, combinedOptions);
 // }
-//
-// class Greeter {
-//   greeting: string;
-//   constructor(message: string) {
-//     this.greeting = message;
-//   }
-//   greet() {
-//     return "Hello, " + this.greeting;
-//   }
-// }
-//   `;
-//   const chunks = await chunkCodeAst(sampleCode, 'typescript', { maxChunkSize: 50, chunkOverlap: 10 });
-//   console.log("Chunks:", chunks);
-// }
-// run();
+
+/**
+ * Simple text chunking with fixed size and overlap, creating Chunk objects.
+ */
+function chunkByText( // Keep this as it's used by chunkCodeAst fallback
+    document: Document,
+    maxSize: number = DEFAULT_MAX_CHUNK_SIZE,
+    overlap: number = DEFAULT_CHUNK_OVERLAP
+): Chunk[] {
+   const textChunks = splitTextWithOverlap(document.content, maxSize, overlap); // Use local function
+   let chunkIndex = document.metadata?.chunkIndex ?? 0; // Start index if provided
+   return textChunks.map((textChunk: string) => createChunk( // Add type
+       document,
+       textChunk,
+       -1, -1, // Positions are not accurate here
+       chunkIndex++,
+       { ...(document.metadata || {}), originalId: document.id } // Ensure originalId is preserved
+   ));
+}

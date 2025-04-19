@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json", // Extend the root tsconfig
+  "compilerOptions": {
+    "outDir": "./dist", // Specify output directory for this package
+    "rootDir": "./src", // Specify root directory of source files
+    "composite": true // Enable project references
+    // Add any package-specific overrides here if needed
+  },
+  "include": ["src/**/*.ts"], // Include all TS files in the src directory
+  "exclude": ["node_modules", "dist"] // Exclude node_modules and dist
+}
