@@ -2,8 +2,8 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ZodObject, ZodRawShape, z } from 'zod'; // Import z
 import { McpTool } from '@sylphlab/mcp-core';
+import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
 
 // Import the tool object from the core library
 import { waitTool } from '@sylphlab/mcp-wait-core';
@@ -29,42 +29,8 @@ const definedTools: McpTool<any, any>[] = [
     waitTool,
 ];
 
-// Register tools using the mcpServer.tool() method
-definedTools.forEach((tool) => {
-  if (tool && tool.name && tool.execute && tool.inputSchema instanceof ZodObject) {
-    const zodShape: ZodRawShape = tool.inputSchema.shape;
-    mcpServer.tool(
-      tool.name,
-      tool.description || '',
-      zodShape, // Pass the .shape property for SDK validation
-      async (args: unknown) => { // Simple wrapper
-          const workspaceRoot = process.cwd(); // workspaceRoot might not be relevant for wait, but keep consistent
-          try {
-              // Parse args with the original Zod schema
-              const validatedArgs = tool.inputSchema.parse(args);
-              // Call original execute with validated args
-              const result = await tool.execute(validatedArgs, workspaceRoot);
-              // Ensure content array exists if success is true
-              if (result.success && !result.content) {
-                  result.content = [];
-              }
-              return result;
-          } catch (execError: any) {
-               console.error(`Error during execution of ${tool.name}:`, execError);
-               // Return a standard error format
-               return {
-                   success: false,
-                   error: `Tool execution failed: ${execError.message || 'Unknown error'}`,
-                   content: [{ type: 'text', text: `Tool execution failed: ${execError.message || 'Unknown error'}` }]
-               };
-          }
-      }
-    );
-    console.error(`Registered tool: ${tool.name}`);
-  } else {
-    console.warn('Skipping invalid tool definition during registration:', tool);
-  }
-});
+// Register tools using the helper function
+registerTools(mcpServer, definedTools);
 
 
 // --- Server Start ---

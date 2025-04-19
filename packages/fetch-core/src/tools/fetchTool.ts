@@ -57,7 +57,10 @@ export const fetchTool: McpTool<typeof FetchToolInputSchema, FetchToolOutput> = 
 
       const response = await fetch(url, requestOptions);
 
-      const responseHeaders = Object.fromEntries(response.headers.entries());
+      const responseHeaders: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
       let responseBody: any = null;
 
       // Process response body based on requested type *before* checking response.ok

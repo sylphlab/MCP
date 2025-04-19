@@ -2,12 +2,12 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ZodObject, ZodRawShape, z } from 'zod';
 import { McpTool } from '@sylphlab/mcp-core';
+import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
 
 // Import the tool objects from the core library
 import {
-  fetchTool,
+  // fetchTool, // Removed - fetch is now separate
   getPublicIpTool,
   getInterfacesTool
 } from '@sylphlab/mcp-net-core';
@@ -15,7 +15,8 @@ import {
 // --- Server Setup ---
 
 const serverName = 'net';
-const serverDescription = 'Provides tools for network operations (fetch, get public IP, list interfaces).';
+// Updated description to reflect available tools
+const serverDescription = 'Provides tools for network operations (get public IP, list interfaces).';
 const serverVersion = '0.1.0'; // TODO: Update version as needed
 
 // Instantiate McpServer
@@ -30,43 +31,13 @@ const mcpServer = new McpServer(
 
 // Array of imported tool objects
 const definedTools: McpTool<any, any>[] = [
-    fetchTool,
+    // fetchTool, // Removed
     getPublicIpTool,
     getInterfacesTool,
 ];
 
-// Register tools
-definedTools.forEach((tool) => {
-  if (tool && tool.name && tool.execute && tool.inputSchema instanceof ZodObject) {
-    const zodShape: ZodRawShape = tool.inputSchema.shape;
-    mcpServer.tool(
-      tool.name,
-      tool.description || '',
-      zodShape,
-      async (args: unknown) => {
-          const workspaceRoot = process.cwd();
-          try {
-              const validatedArgs = tool.inputSchema.parse(args);
-              const result = await tool.execute(validatedArgs, workspaceRoot);
-              if (result.success && !result.content) {
-                  result.content = [];
-              }
-              return result;
-          } catch (execError: any) {
-               console.error(`Error during execution of ${tool.name}:`, execError);
-               return {
-                   success: false,
-                   error: `Tool execution failed: ${execError.message || 'Unknown error'}`,
-                   content: [{ type: 'text', text: `Tool execution failed: ${execError.message || 'Unknown error'}` }]
-               };
-          }
-      }
-    );
-    console.error(`Registered tool: ${tool.name}`);
-  } else {
-    console.warn('Skipping invalid tool definition during registration:', tool);
-  }
-});
+// Register tools using the helper function
+registerTools(mcpServer, definedTools);
 
 // --- Server Start ---
 async function startServer() {

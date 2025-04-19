@@ -1,7 +1,7 @@
 {
-  "name": "@sylphlab/mcp-reader-core",
+  "name": "@sylphlab/mcp-pdf-core",
   "version": "0.1.0",
-  "description": "Core logic for MCP reader/converter tools",
+  "description": "Core logic for MCP PDF tools (text extraction, etc.)",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

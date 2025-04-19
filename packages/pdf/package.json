@@ -1,7 +1,7 @@
 {
-  "name": "reader-mcp",
+  "name": "pdf-mcp",
   "version": "0.1.0",
-  "description": "MCP tool for reading content from files (PDF text extraction, etc.)",
+  "description": "MCP server providing PDF tools (text extraction, etc.)",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -26,8 +26,8 @@
   "keywords": [
     "mcp",
     "tool",
-    "reader",
-    "pdf"
+    "pdf",
+    "text"
   ],
   "author": "",
   "license": "ISC",
@@ -43,9 +43,10 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "@sylphlab/mcp-reader-core": "workspace:*",
+    "@sylphlab/mcp-pdf-core": "workspace:*",
     "@sylphlab/mcp-core": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.10.1",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@sylphlab/mcp-utils": "workspace:*"
   }
 }

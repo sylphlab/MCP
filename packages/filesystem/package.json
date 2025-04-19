@@ -22,11 +22,12 @@
   "license": "MIT",
   "packageManager": "pnpm@10.8.0",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.10.0",
+    "@modelcontextprotocol/sdk": "^1.10.1",
     "@sylphlab/mcp-core": "workspace:*",
     "@sylphlab/mcp-filesystem-core": "workspace:*",
     "zod": "^3.24.3",
-    "zod-to-json-schema": "^3.24.5"
+    "zod-to-json-schema": "^3.24.5",
+    "@sylphlab/mcp-utils": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",

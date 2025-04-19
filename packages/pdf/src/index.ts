@@ -2,16 +2,16 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ZodObject, ZodRawShape, z } from 'zod';
 import { McpTool } from '@sylphlab/mcp-core';
+import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
 
 // Import the tool object from the core library
-import { readerTool } from '@sylphlab/mcp-reader-core';
+import { getTextTool } from '@sylphlab/mcp-pdf-core';
 
 // --- Server Setup ---
 
-const serverName = 'reader';
-const serverDescription = 'Provides tools for reading and extracting content from files (e.g., PDF text).';
+const serverName = 'pdf';
+const serverDescription = 'Provides tools for interacting with PDF files (e.g., text extraction).';
 const serverVersion = '0.1.0'; // TODO: Update version as needed
 
 // Instantiate McpServer
@@ -26,52 +26,18 @@ const mcpServer = new McpServer(
 
 // Array of imported tool objects
 const definedTools: McpTool<any, any>[] = [
-    readerTool,
+    getTextTool,
 ];
 
-// Register tools
-definedTools.forEach((tool) => {
-  if (tool && tool.name && tool.execute && tool.inputSchema instanceof ZodObject) {
-    const zodShape: ZodRawShape = tool.inputSchema.shape;
-    mcpServer.tool(
-      tool.name,
-      tool.description || '',
-      zodShape,
-      async (args: unknown) => {
-          const workspaceRoot = process.cwd();
-          // Pass allowOutsideWorkspace option if needed by the tool
-          // For reader, it's handled internally by the core tool based on McpToolExecuteOptions
-          const options = { allowOutsideWorkspace: true }; // Example: Defaulting to allow for reader server? Or make configurable?
-          try {
-              const validatedArgs = tool.inputSchema.parse(args);
-              // Pass options to execute
-              const result = await tool.execute(validatedArgs, workspaceRoot, options);
-              if (result.success && !result.content) {
-                  result.content = [];
-              }
-              return result;
-          } catch (execError: any) {
-               console.error(`Error during execution of ${tool.name}:`, execError);
-               return {
-                   success: false,
-                   error: `Tool execution failed: ${execError.message || 'Unknown error'}`,
-                   content: [{ type: 'text', text: `Tool execution failed: ${execError.message || 'Unknown error'}` }]
-               };
-          }
-      }
-    );
-    console.error(`Registered tool: ${tool.name}`);
-  } else {
-    console.warn('Skipping invalid tool definition during registration:', tool);
-  }
-});
+// Register tools using the helper function
+registerTools(mcpServer, definedTools);
 
 // --- Server Start ---
 async function startServer() {
     try {
       const transport = new StdioServerTransport();
       await mcpServer.server.connect(transport);
-      console.error(`Reader MCP Server "${serverName}" v${serverVersion} started successfully via stdio.`);
+      console.error(`PDF MCP Server "${serverName}" v${serverVersion} started successfully via stdio.`);
       console.error('Waiting for requests...');
     } catch (error: unknown) {
       console.error('Server failed to start:', error);

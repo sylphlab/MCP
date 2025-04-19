@@ -1,11 +1,9 @@
-// src/index.ts for @sylphlab/mcp-reader-core
+// src/index.ts for @sylphlab/mcp-pdf-core
 
-// Export the tool implementation, Zod schema, and inferred types
-export { readerTool, ReaderToolInputSchema, ReadOperationEnum } from './tools/readerTool.js';
-export type {
-  ReaderToolInput,
-  ReaderToolOutput,
-  ReadOperation, // Still useful to export the operation type
-} from './tools/readerTool.js';
+// Export the tool implementation, Zod schema, core function, and inferred types
+export { getTextTool, GetTextToolInputSchema, extractPdfText } from './tools/getTextTool.js';
+export type { GetTextToolInput, GetTextToolOutput } from './tools/getTextTool.js';
 
-console.log('MCP Reader Core Package (Single Operation Tool Structure) Loaded');
+// Add exports for future PDF tools here (e.g., getImageTool)
+
+console.log('MCP PDF Core Package (getTextTool) Loaded');

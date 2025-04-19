@@ -1,7 +1,7 @@
 {
-  "name": "@sylphlab/mcp-fetch-core",
+  "name": "@sylphlab/mcp-utils",
   "version": "0.1.0",
-  "description": "Core logic for MCP fetch tool",
+  "description": "Shared utilities for MCP server packages",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -19,37 +19,31 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write ."
   },
   "keywords": [
     "mcp",
-    "core",
-    "fetch",
-    "http",
-    "request"
+    "utils",
+    "server"
   ],
   "author": "Sylph Lab <hi@sylphlab.com>",
   "license": "MIT",
-  "dependencies": {
-    "@sylphlab/mcp-core": "workspace:*",
-    "zod": "^3.23.8"
-  },
   "devDependencies": {
     "@types/node": "^20.12.12",
     "@typescript-eslint/eslint-plugin": "^7.10.0",
     "@typescript-eslint/parser": "^7.10.0",
-    "@vitest/coverage-v8": "^3.1.1",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",
     "prettier": "^3.2.5",
     "tsup": "^8.0.2",
-    "typescript": "^5.4.5",
-    "vitest": "^3.1.1"
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.1",
+    "@sylphlab/mcp-core": "workspace:*",
+    "zod": "^3.23.8"
   }
 }

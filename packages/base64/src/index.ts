@@ -2,8 +2,8 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ZodObject, ZodRawShape, z } from 'zod';
 import { McpTool } from '@sylphlab/mcp-core';
+import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
 
 // Import tool objects from the core library
 import { encodeBase64Tool, decodeBase64Tool } from '@sylphlab/mcp-base64-core';
@@ -30,38 +30,8 @@ const definedTools: McpTool<any, any>[] = [
     decodeBase64Tool,
 ];
 
-// Register tools
-definedTools.forEach((tool) => {
-  if (tool && tool.name && tool.execute && tool.inputSchema instanceof ZodObject) {
-    const zodShape: ZodRawShape = tool.inputSchema.shape;
-    mcpServer.tool(
-      tool.name,
-      tool.description || '',
-      zodShape,
-      async (args: unknown) => {
-          const workspaceRoot = process.cwd();
-          try {
-              const validatedArgs = tool.inputSchema.parse(args);
-              const result = await tool.execute(validatedArgs, workspaceRoot);
-              if (result.success && !result.content) {
-                  result.content = [];
-              }
-              return result;
-          } catch (execError: any) {
-               console.error(`Error during execution of ${tool.name}:`, execError);
-               return {
-                   success: false,
-                   error: `Tool execution failed: ${execError.message || 'Unknown error'}`,
-                   content: [{ type: 'text', text: `Tool execution failed: ${execError.message || 'Unknown error'}` }]
-               };
-          }
-      }
-    );
-    console.error(`Registered tool: ${tool.name}`);
-  } else {
-    console.warn('Skipping invalid tool definition during registration:', tool);
-  }
-});
+// Register tools using the helper function
+registerTools(mcpServer, definedTools);
 
 // --- Server Start ---
 async function startServer() {

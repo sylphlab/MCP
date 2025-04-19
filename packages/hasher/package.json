@@ -46,6 +46,7 @@
     "@modelcontextprotocol/sdk": "^1.10.1",
     "@sylphlab/mcp-core": "workspace:*",
     "@sylphlab/mcp-hasher-core": "workspace:*",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@sylphlab/mcp-utils": "workspace:*"
   }
 }
