@@ -209,5 +209,76 @@ describe('searchContentTool', () => {
     expect(result.results[0]!.suggestion).toEqual(expect.any(String));
   });
 
+  it('should handle zero-length regex matches correctly', async () => {
+    const filePath = 'file.txt';
+    const fileContent = 'word1 word2';
+    mockGlob.mockResolvedValue([filePath]); // Add glob mock
+    mockReadFile.mockResolvedValue(fileContent);
+
+    const input: SearchContentToolInput = {
+      paths: [filePath],
+      query: '\\b', // Match word boundaries (zero-length)
+      isRegex: true,
+      matchCase: true, // Add missing properties with defaults
+      contextLinesBefore: 0,
+      contextLinesAfter: 0,
+    };
+
+    const output = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+
+    expect(output.success).toBe(true);
+    expect(output.results[0]?.success).toBe(true); // Check file success
+    expect(output.results[0]?.matches).toHaveLength(4); // Boundaries before/after each word
+    expect(output.results[0]?.matches?.[0]?.matchText).toBe('');
+  });
+
+  it('should provide suggestion for ENOENT error', async () => {
+    const filePath = 'nonexistent.txt';
+    const enoentError: NodeJS.ErrnoException = new Error('File not found');
+    enoentError.code = 'ENOENT';
+    mockGlob.mockResolvedValue([filePath]); // Add glob mock
+    mockReadFile.mockRejectedValue(enoentError);
+
+    const input: SearchContentToolInput = {
+      paths: [filePath],
+      query: 'test',
+      isRegex: false, // Add missing properties with defaults
+      matchCase: true,
+      contextLinesBefore: 0,
+      contextLinesAfter: 0,
+    };
+
+    const output = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+
+    expect(output.success).toBe(false); // Check overall success is false
+    expect(output.results[0]?.success).toBe(false);
+    expect(output.results[0]?.error).toContain('File not found'); // Check generic error message
+    expect(output.results[0]?.suggestion).toContain(`Ensure the file path '${filePath}' is correct`); // Check suggestion for specific code
+  });
+
+  it('should provide suggestion for EACCES error', async () => {
+    const filePath = 'no_access.txt';
+    const eaccesError: NodeJS.ErrnoException = new Error('Permission denied');
+    eaccesError.code = 'EACCES';
+    mockGlob.mockResolvedValue([filePath]); // Add glob mock
+    mockReadFile.mockRejectedValue(eaccesError);
+
+    const input: SearchContentToolInput = {
+      paths: [filePath],
+      query: 'test',
+      isRegex: false, // Add missing properties with defaults
+      matchCase: true,
+      contextLinesBefore: 0,
+      contextLinesAfter: 0,
+    };
+
+    const output = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+
+    expect(output.success).toBe(false); // Check overall success is false
+    expect(output.results[0]?.success).toBe(false);
+    expect(output.results[0]?.error).toContain('Permission denied'); // Check generic error message
+    expect(output.results[0]?.suggestion).toContain(`Check read permissions for the file '${filePath}'`); // Check suggestion for specific code
+  });
+
   // TODO: Add tests for lineRange once implemented
 });

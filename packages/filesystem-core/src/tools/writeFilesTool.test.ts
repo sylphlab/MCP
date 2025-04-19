@@ -171,6 +171,53 @@ describe('writeFilesTool', () => {
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
+
+
+  it('should handle mkdir ENOENT error during append', async () => {
+    const input = createInput([{ path: 'nonexistent/log.txt', content: 'test' }], { append: true });
+    const mkdirError: NodeJS.ErrnoException = new Error('ENOENT: no such file or directory');
+    mkdirError.code = 'ENOENT';
+    mockMkdir.mockRejectedValue(mkdirError);
+
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+
+    expect(result.success).toBe(false);
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('ENOENT');
+    expect(result.results[0]?.suggestion).toContain('Check the file path, permissions, and available disk space.'); // Correct suggestion
+    expect(mockAppendFile).not.toHaveBeenCalled();
+  });
+
+  it('should handle mkdir EACCES error during write', async () => {
+    const input = createInput([{ path: 'no_access/file.txt', content: 'test' }]);
+    const mkdirError: NodeJS.ErrnoException = new Error('EACCES: permission denied');
+    mkdirError.code = 'EACCES';
+    mockMkdir.mockRejectedValue(mkdirError);
+
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+
+    expect(result.success).toBe(false);
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('EACCES');
+    expect(result.results[0]?.suggestion).toContain('Check write permissions for the directory'); // Match actual suggestion
+    expect(mockWriteFile).not.toHaveBeenCalled();
+  });
+
+  it('should handle appendFile EACCES error', async () => {
+    const input = createInput([{ path: 'read_only/file.txt', content: 'test' }], { append: true });
+    const appendError: NodeJS.ErrnoException = new Error('EACCES: permission denied');
+    appendError.code = 'EACCES';
+    mockAppendFile.mockRejectedValue(appendError);
+
+    const result = await writeFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+
+    expect(result.success).toBe(false);
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('EACCES');
+    expect(result.results[0]?.suggestion).toContain('Check write permissions'); // Specific suggestion for EACCES on append
+    expect(mockAppendFile).toHaveBeenCalledTimes(1);
+  });
+
   // TODO: Add tests for multiple items with mixed results
 
   it('should allow writing outside workspace when allowOutsideWorkspace is true', async () => {

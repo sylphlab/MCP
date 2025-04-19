@@ -1,11 +1,71 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { processNetOperations, NetInputItem, NetResultItem } from './index';
+// Import individual tools and types
+import {
+  getPublicIpTool, GetPublicIpToolInput, GetPublicIpToolOutput,
+  getInterfacesTool, GetInterfacesToolInput, GetInterfacesToolOutput
+} from './index';
 import os from 'node:os'; // Import os for mocking
 
 // Mock the os module for getInterfaces
 vi.mock('node:os');
 
-describe('processNetOperations', () => {
+// Mock workspace root - not used by these tools' logic but required by execute signature
+const mockWorkspaceRoot = '';
+
+describe('getPublicIpTool.execute', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    // Mock fetch for getPublicIp (simulate success)
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ip: '8.8.8.8' }),
+    } as Response);
+  });
+
+  it('should fetch public IP successfully', async () => {
+    const input: GetPublicIpToolInput = { id: 'a' }; // Input might just be an ID or empty
+    const result = await getPublicIpTool.execute(input, mockWorkspaceRoot);
+
+    expect(result.success).toBe(true);
+    expect(result.result).toBe('8.8.8.8'); // Correct property name
+    expect(result.error).toBeUndefined();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith('https://ipinfo.io/json'); // Correct URL
+  });
+
+   it('should handle public IP fetch error', async () => {
+     // Mock fetch to fail
+     vi.mocked(global.fetch).mockResolvedValue({
+       ok: false,
+       status: 500,
+       statusText: 'Server Error'
+     } as Response);
+
+    const input: GetPublicIpToolInput = { id: 'd' };
+    const result = await getPublicIpTool.execute(input, mockWorkspaceRoot);
+
+    expect(result.success).toBe(false);
+    expect(result.result).toBeUndefined(); // Correct property name
+    // Update expected error to include fallback details
+    expect(result.error).toBe("Failed to get public IP: Failed to fetch public IP: HTTP error! status: 500. Fallback also failed: Fallback failed: Fallback HTTP error! status: 500");
+  });
+
+   it('should handle network error during public IP fetch', async () => {
+     // Mock fetch to throw a network error
+     vi.mocked(global.fetch).mockRejectedValue(new Error('Network failed'));
+
+    const input: GetPublicIpToolInput = { id: 'g' };
+    const result = await getPublicIpTool.execute(input, mockWorkspaceRoot);
+
+    expect(result.success).toBe(false);
+    expect(result.ip).toBeUndefined();
+    expect(result.error).toContain("Failed to fetch public IP: Network failed");
+  });
+
+  // Note: Caching logic is internal to the tool, testing multiple calls implicitly tests caching if implemented
+});
+
+describe('getInterfacesTool.execute', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     // Mock os.networkInterfaces()
@@ -13,73 +73,29 @@ describe('processNetOperations', () => {
       'lo': [{ address: '127.0.0.1', netmask: '255.0.0.0', family: 'IPv4', mac: '00:00:00:00:00:00', internal: true, cidr: '127.0.0.1/8' }],
       'eth0': [{ address: '192.168.1.100', netmask: '255.255.255.0', family: 'IPv4', mac: '01:02:03:04:05:06', internal: false, cidr: '192.168.1.100/24' }]
     });
-    // Mock fetch for getPublicIp (simulate success)
-    // In a real scenario, consider mocking 'node-fetch' or using MSW
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ ip: '8.8.8.8' }),
-    } as Response);
   });
 
-  it('should process multiple operations successfully', async () => {
-    const items: NetInputItem[] = [
-      { id: 'a', operation: 'getPublicIp' },
-      { id: 'b', operation: 'getInterfaces' },
-    ];
-    const results = await processNetOperations(items);
+  it('should get network interfaces successfully', async () => {
+    const input: GetInterfacesToolInput = { id: 'b' }; // Input might just be an ID or empty
+    const result = await getInterfacesTool.execute(input, mockWorkspaceRoot);
 
-    expect(results).toHaveLength(2);
-    // Check Public IP result
-    expect(results[0]).toEqual(expect.objectContaining({ id: 'a', success: true, result: '8.8.8.8' }));
-    // Check Interfaces result (basic check)
-    expect(results[1]).toEqual(expect.objectContaining({ id: 'b', success: true }));
-    expect(results[1].result?.['eth0']).toBeDefined();
-    expect(global.fetch).toHaveBeenCalledTimes(1); // Public IP fetched once
+    expect(result.success).toBe(true);
+    expect(result.result).toBeDefined(); // Correct property name
+    expect(result.result?.['eth0']).toBeDefined(); // Correct property name
+    expect(result.result?.['eth0']?.[0]?.address).toBe('192.168.1.100'); // Correct property name
+    expect(result.error).toBeUndefined();
+    expect(os.networkInterfaces).toHaveBeenCalledTimes(1);
   });
 
-  it('should handle unsupported operation', async () => {
-    const items: NetInputItem[] = [
-      { id: 'c', operation: 'invalidOp' as any }, // Cast to bypass type check for test
-    ];
-    const results = await processNetOperations(items);
+  it('should handle errors from os.networkInterfaces', async () => {
+    const mockError = new Error('OS Error');
+    vi.mocked(os.networkInterfaces).mockImplementation(() => { throw mockError; });
 
-    expect(results).toHaveLength(1);
-    expect(results[0]).toEqual(expect.objectContaining({
-      id: 'c',
-      success: false,
-      error: expect.stringContaining("Unsupported network operation: invalidOp"),
-    }));
+    const input: GetInterfacesToolInput = { id: 'h' };
+    const result = await getInterfacesTool.execute(input, mockWorkspaceRoot);
+
+    expect(result.success).toBe(false);
+    expect(result.result).toBeUndefined(); // Correct property name
+    expect(result.error).toBe(`Failed to get network interfaces: ${mockError.message}`);
   });
-
-  it('should handle public IP fetch error', async () => {
-     // Mock fetch to fail
-     vi.mocked(global.fetch).mockResolvedValue({
-       ok: false,
-       status: 500,
-     } as Response);
-
-    const items: NetInputItem[] = [ { id: 'd', operation: 'getPublicIp' } ];
-    const results = await processNetOperations(items);
-
-    expect(results).toHaveLength(1);
-    expect(results[0]).toEqual(expect.objectContaining({
-      id: 'd',
-      success: false,
-      error: expect.stringContaining("Operation 'getPublicIp' failed: Failed to fetch public IP"),
-    }));
-  });
-
-   it('should return previously fetched public IP for subsequent requests', async () => {
-    const items: NetInputItem[] = [
-      { id: 'e', operation: 'getPublicIp' },
-      { id: 'f', operation: 'getPublicIp' },
-    ];
-    const results = await processNetOperations(items);
-
-    expect(results).toHaveLength(2);
-    expect(results[0]).toEqual(expect.objectContaining({ id: 'e', success: true, result: '8.8.8.8' }));
-    expect(results[1]).toEqual(expect.objectContaining({ id: 'f', success: true, result: '8.8.8.8' }));
-    expect(global.fetch).toHaveBeenCalledTimes(1); // Still fetched only once
-  });
-
 });

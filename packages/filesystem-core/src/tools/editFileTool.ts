@@ -133,227 +133,221 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
       return {
         success: false,
         error: `Input validation failed: ${errorMessages}`,
-        results: [], // Keep results for consistency, even though EditFileToolOutput doesn't define it
-        content: [], // Add required content field
+        results: [],
+        content: [],
       };
     }
-    const { changes } = parsed.data; // allowOutsideWorkspace comes from options
+    const { changes } = parsed.data;
     // --- End Zod Validation ---
 
     const fileResults: FileEditResult[] = [];
     let overallSuccess = true;
 
-    for (const change of changes) {
-        const filePath = change.path;
-        const editResults: EditResult[] = [];
-        let fileSuccess = true;
-        let fileError: string | undefined;
-        let fileSuggestion: string | undefined; // For path validation error
+    try { // Add top-level try block
 
-        // --- Validate and Resolve Path ---
-        const validationResult = validateAndResolvePath(filePath, workspaceRoot, options?.allowOutsideWorkspace);
-        if (typeof validationResult !== 'string') {
-            fileError = validationResult.error;
-            fileSuggestion = validationResult.suggestion;
-            console.error(`Skipping file ${filePath}: ${fileError}`);
-            fileSuccess = false;
-            overallSuccess = false;
-            // Add a single FileEditResult indicating path failure
-            fileResults.push({ path: filePath, success: false, error: fileError, suggestion: fileSuggestion, edit_results: [] });
-            continue; // Skip this file change
-        }
-        const fullPath = validationResult;
-        // --- End Path Validation ---
+      for (const change of changes) {
+          const filePath = change.path;
+          const editResults: EditResult[] = [];
+          let fileSuccess = true;
+          let fileError: string | undefined;
+          let fileSuggestion: string | undefined;
 
-        try {
-            // Read the file content
-            const originalContent = await readFile(fullPath, 'utf-8');
-            let lines = originalContent.split(/\r?\n/); // Handle different line endings
-            let currentLines = [...lines]; // Work on a copy to handle potential failures per edit
+          // --- Validate and Resolve Path ---
+          const validationResult = validateAndResolvePath(filePath, workspaceRoot, options?.allowOutsideWorkspace);
+          if (typeof validationResult !== 'string') {
+              fileError = validationResult.error;
+              fileSuggestion = validationResult.suggestion;
+              console.error(`Skipping file ${filePath}: ${fileError}`);
+              fileSuccess = false;
+              overallSuccess = false;
+              fileResults.push({ path: filePath, success: false, error: fileError, suggestion: fileSuggestion, edit_results: [] });
+              continue;
+          }
+          const fullPath = validationResult;
+          // --- End Path Validation ---
 
-            for (const [index, edit] of change.edits.entries()) {
-                let editSuccess = false;
-                let editMessage: string | undefined;
-                let editError: string | undefined;
-                let suggestion: string | undefined;
-                const currentLineCount = currentLines.length; // For boundary checks
+          try {
+              // Read the file content
+              const originalContent = await readFile(fullPath, 'utf-8');
+              let lines = originalContent.split(/\r?\n/);
+              let currentLines = [...lines];
 
-                try {
-                    // Adjust line numbers to be 0-based indices
-                    const startLineIndex = edit.start_line ? edit.start_line - 1 : 0;
-                    // endLineIndex calculation moved inside relevant cases
+              for (const [index, edit] of change.edits.entries()) {
+                  let editSuccess = false;
+                  let editMessage: string | undefined;
+                  let editError: string | undefined;
+                  let suggestion: string | undefined;
+                  const currentLineCount = currentLines.length;
 
-                    // --- Start Line Boundary Check (Common) ---
-                    // Allow inserting at end (index == length) only for insert
-                    const maxStartIndex = (edit.operation === 'insert') ? currentLineCount : currentLineCount -1;
-                    const maxStartLine = (edit.operation === 'insert') ? currentLineCount + 1 : currentLineCount;
-                    if (edit.start_line && (startLineIndex < 0 || startLineIndex > maxStartIndex)) {
-                         throw new Error(`start_line ${edit.start_line} is out of bounds (1-${maxStartLine}).`);
-                    }
-                    // --- End Start Line Boundary Check ---
+                  try {
+                      const startLineIndex = edit.start_line ? edit.start_line - 1 : 0;
 
+                      // --- Start Line Boundary Check ---
+                      const maxStartIndex = (edit.operation === 'insert') ? currentLineCount : currentLineCount -1;
+                      const maxStartLine = (edit.operation === 'insert') ? currentLineCount + 1 : currentLineCount;
+                      if (edit.start_line && (startLineIndex < 0 || startLineIndex > maxStartIndex)) {
+                           throw new Error(`start_line ${edit.start_line} is out of bounds (1-${maxStartLine}).`);
+                      }
+                      // --- End Start Line Boundary Check ---
 
-                    switch (edit.operation) {
-                        case 'insert': {
-                            const contentLines = edit.content.split(/\r?\n/);
-                            // Allow inserting at the very end (index === length)
-                            const insertIndex = Math.min(startLineIndex, currentLineCount);
-                            currentLines.splice(insertIndex, 0, ...contentLines);
-                            editMessage = `Inserted ${contentLines.length} line(s) at line ${edit.start_line}.`;
-                            editSuccess = true;
-                            break;
-                        }
-                        case 'delete_lines': {
-                            // --- End Line Boundary Check (Specific to delete_lines) ---
-                            const endLineIndex = edit.end_line - 1; // end_line is required here
-                            if (endLineIndex < 0 || endLineIndex >= currentLineCount) {
-                                throw new Error(`end_line ${edit.end_line} is out of bounds (1-${currentLineCount}).`);
-                            }
-                             if (endLineIndex < startLineIndex) {
-                                throw new Error(`end_line ${edit.end_line} cannot be less than start_line ${edit.start_line}.`);
-                            }
-                            // --- End End Line Boundary Check ---
-                            const deleteCount = endLineIndex - startLineIndex + 1;
-                            if (startLineIndex >= currentLineCount) throw new Error(`start_line ${edit.start_line} is out of bounds.`); // Should be caught above, but safety check
-                            currentLines.splice(startLineIndex, deleteCount);
-                            editMessage = `Deleted ${deleteCount} line(s) from line ${edit.start_line}.`;
-                            editSuccess = true;
-                            break;
-                        }
-                        case 'replace_lines': {
-                             // --- End Line Boundary Check (Specific to replace_lines) ---
-                             const endLineIndex = edit.end_line - 1; // end_line is required here
-                             if (endLineIndex < 0 || endLineIndex >= currentLineCount) {
-                                 throw new Error(`end_line ${edit.end_line} is out of bounds (1-${currentLineCount}).`);
-                             }
-                              if (endLineIndex < startLineIndex) {
-                                 throw new Error(`end_line ${edit.end_line} cannot be less than start_line ${edit.start_line}.`);
-                             }
-                             // --- End End Line Boundary Check ---
-                            const deleteCount = endLineIndex - startLineIndex + 1;
-                             if (startLineIndex >= currentLineCount) throw new Error(`start_line ${edit.start_line} is out of bounds.`); // Safety check
-                            const contentLines = edit.content.split(/\r?\n/);
-                            currentLines.splice(startLineIndex, deleteCount, ...contentLines);
-                            editMessage = `Replaced ${deleteCount} line(s) starting at line ${edit.start_line} with ${contentLines.length} line(s).`;
-                            editSuccess = true;
-                            break;
-                        }
-                        case 'search_replace_text':
-                        case 'search_replace_regex': {
-                             // --- End Line Boundary Check (Optional for search/replace) ---
-                             const endLineIndex = edit.end_line ? edit.end_line - 1 : currentLineCount - 1; // Default to end
-                             if (edit.end_line && (endLineIndex < 0 || endLineIndex >= currentLineCount)) {
-                                 throw new Error(`end_line ${edit.end_line} is out of bounds (1-${currentLineCount}).`);
-                             }
-                              if (edit.start_line && edit.end_line && endLineIndex < startLineIndex) {
-                                 throw new Error(`end_line ${edit.end_line} cannot be less than start_line ${edit.start_line}.`);
-                             }
-                             // --- End End Line Boundary Check ---
-                            let replacementsMade = 0;
-                            const effectiveStart = startLineIndex;
-                            const effectiveEnd = Math.min(endLineIndex, currentLineCount - 1); // Ensure end is within bounds
-                            let regex: RegExp | null = null;
+                      switch (edit.operation) {
+                          case 'insert': {
+                              const contentLines = edit.content.split(/\r?\n/);
+                              const insertIndex = Math.min(startLineIndex, currentLineCount);
+                              currentLines.splice(insertIndex, 0, ...contentLines);
+                              editMessage = `Inserted ${contentLines.length} line(s) at line ${edit.start_line}.`;
+                              editSuccess = true;
+                              break;
+                          }
+                          case 'delete_lines': {
+                              const endLineIndex = edit.end_line - 1;
+                              if (endLineIndex < 0 || endLineIndex >= currentLineCount) {
+                                  throw new Error(`end_line ${edit.end_line} is out of bounds (1-${currentLineCount}).`);
+                              }
+                               if (endLineIndex < startLineIndex) {
+                                  throw new Error(`end_line ${edit.end_line} cannot be less than start_line ${edit.start_line}.`);
+                              }
+                              const deleteCount = endLineIndex - startLineIndex + 1;
+                              if (startLineIndex >= currentLineCount) throw new Error(`start_line ${edit.start_line} is out of bounds.`);
+                              currentLines.splice(startLineIndex, deleteCount);
+                              editMessage = `Deleted ${deleteCount} line(s) from line ${edit.start_line}.`;
+                              editSuccess = true;
+                              break;
+                          }
+                          case 'replace_lines': {
+                               const endLineIndex = edit.end_line - 1;
+                               if (endLineIndex < 0 || endLineIndex >= currentLineCount) {
+                                   throw new Error(`end_line ${edit.end_line} is out of bounds (1-${currentLineCount}).`);
+                               }
+                                if (endLineIndex < startLineIndex) {
+                                   throw new Error(`end_line ${edit.end_line} cannot be less than start_line ${edit.start_line}.`);
+                               }
+                              const deleteCount = endLineIndex - startLineIndex + 1;
+                               if (startLineIndex >= currentLineCount) throw new Error(`start_line ${edit.start_line} is out of bounds.`);
+                              const contentLines = edit.content.split(/\r?\n/);
+                              currentLines.splice(startLineIndex, deleteCount, ...contentLines);
+                              editMessage = `Replaced ${deleteCount} line(s) starting at line ${edit.start_line} with ${contentLines.length} line(s).`;
+                              editSuccess = true;
+                              break;
+                          }
+                          case 'search_replace_text':
+                          case 'search_replace_regex': {
+                               const endLineIndex = edit.end_line ? edit.end_line - 1 : currentLineCount - 1;
+                               if (edit.end_line && (endLineIndex < 0 || endLineIndex >= currentLineCount)) {
+                                   throw new Error(`end_line ${edit.end_line} is out of bounds (1-${currentLineCount}).`);
+                               }
+                                if (edit.start_line && edit.end_line && endLineIndex < startLineIndex) {
+                                   throw new Error(`end_line ${edit.end_line} cannot be less than start_line ${edit.start_line}.`);
+                               }
+                              let replacementsMade = 0;
+                              const effectiveStart = startLineIndex;
+                              const effectiveEnd = Math.min(endLineIndex, currentLineCount - 1);
+                              let regex: RegExp | null = null;
 
-                            if (edit.operation === 'search_replace_regex') {
-                                try {
-                                    regex = new RegExp(edit.regex, edit.flags ?? '');
-                                } catch (e: any) {
-                                    throw new Error(`Invalid regex pattern: ${e.message}`);
-                                }
-                            }
+                              if (edit.operation === 'search_replace_regex') {
+                                  try {
+                                      regex = new RegExp(edit.regex, edit.flags ?? '');
+                                  } catch (e: any) {
+                                      throw new Error(`Invalid regex pattern: ${e.message}`);
+                                  }
+                              }
 
-                            for (let i = effectiveStart; i <= effectiveEnd; i++) {
-                                const originalLine = currentLines[i];
-                                // Add check for undefined line
-                                if (originalLine === undefined) continue;
+                              for (let i = effectiveStart; i <= effectiveEnd; i++) {
+                                  const originalLine = currentLines[i];
+                                  if (originalLine === undefined) continue;
 
-                                let modifiedLine: string;
-                                if (regex) {
-                                    modifiedLine = originalLine.replace(regex, edit.replace);
-                                } else if (edit.operation === 'search_replace_text') { // Explicit check for text replace
-                                    // Simple text replaceAll
-                                    modifiedLine = originalLine.replaceAll(edit.search, edit.replace);
-                                } else {
-                                    // Should not happen due to switch, but satisfy TS
-                                    modifiedLine = originalLine;
-                                }
+                                  let modifiedLine: string;
+                                  if (regex) {
+                                      modifiedLine = originalLine.replace(regex, edit.replace);
+                                  } else if (edit.operation === 'search_replace_text') {
+                                      modifiedLine = originalLine.replaceAll(edit.search, edit.replace);
+                                  } else {
+                                      modifiedLine = originalLine;
+                                  }
 
-                                if (originalLine !== modifiedLine) {
-                                    currentLines[i] = modifiedLine;
-                                    replacementsMade++;
-                                }
-                            }
-                            editMessage = `Made ${replacementsMade} replacement(s) between lines ${edit.start_line ?? 1} and ${edit.end_line ?? currentLineCount}.`;
-                            editSuccess = true;
-                            break;
-                        }
-                    }
-                } catch (e: any) {
-                    editSuccess = false;
-                    fileSuccess = false; // If one edit fails, the whole file change fails
-                    editError = `Edit #${index} (${edit.operation}) failed: ${e.message}`;
-                    // Add suggestion based on error type if possible
-                    if (e.message.includes('out of bounds')) {
-                        suggestion = `Check line numbers (1-${currentLineCount}). Ensure start_line <= end_line.`;
-                    } else if (e.message.includes('Invalid regex')) {
-                        suggestion = 'Verify the regex pattern syntax.';
-                    } else {
-                        suggestion = 'Check edit operation parameters and file content.';
-                    }
-                    console.error(`Error applying edit to ${filePath}: ${editError}`);
-                    // Stop processing further edits for this file on error? Or continue? Let's stop for now.
-                    // break; // Uncomment to stop on first error
-                }
+                                  if (originalLine !== modifiedLine) {
+                                      currentLines[i] = modifiedLine;
+                                      replacementsMade++;
+                                  }
+                              }
+                              editMessage = `Made ${replacementsMade} replacement(s) between lines ${edit.start_line ?? 1} and ${edit.end_line ?? currentLineCount}.`;
+                              editSuccess = true;
+                              break;
+                          }
+                      }
+                  } catch (e: any) {
+                      editSuccess = false;
+                      fileSuccess = false;
+                      editError = `Edit #${index} (${edit.operation}) failed: ${e.message}`;
+                      if (e.message.includes('out of bounds')) {
+                          suggestion = `Check line numbers (1-${currentLineCount}). Ensure start_line <= end_line.`;
+                      } else if (e.message.includes('Invalid regex')) {
+                          suggestion = 'Verify the regex pattern syntax.';
+                      } else {
+                          suggestion = 'Check edit operation parameters and file content.';
+                      }
+                      console.error(`Error applying edit to ${filePath}: ${editError}`);
+                  }
 
-                editResults.push({ editIndex: index, success: editSuccess, message: editMessage, error: editError, suggestion });
-                 if (!editSuccess) break; // Stop processing edits for this file on first error
-            }
+                  editResults.push({ editIndex: index, success: editSuccess, message: editMessage, error: editError, suggestion });
+                  // if (!editSuccess) break; // Temporarily remove break
+              }
 
-            // If all edits for the file were successful, write back
-            if (fileSuccess) {
-                const modifiedContent = currentLines.join('\n');
-                // Only write if content actually changed
-                if (modifiedContent !== originalContent) {
-                    await writeFile(fullPath, modifiedContent, 'utf-8');
-                    console.error(`Successfully applied edits to ${filePath}.`); // Log to stderr
-                } else {
-                     console.error(`No changes needed for ${filePath}.`); // Log to stderr
-                     // Still mark file as success even if no write needed
-                }
-            } else {
-                overallSuccess = false; // If any file failed, overall is false
-            }
+              // If all edits for the file were successful, write back
+              if (fileSuccess) {
+                  const modifiedContent = currentLines.join('\n');
+                  if (modifiedContent !== originalContent) {
+                      await writeFile(fullPath, modifiedContent, 'utf-8');
+                      console.error(`Successfully applied edits to ${filePath}.`);
+                  } else {
+                       console.error(`No changes needed for ${filePath}.`);
+                  }
+              } else {
+                  overallSuccess = false;
+              }
 
-        } catch (e: any) {
-            fileSuccess = false;
-            overallSuccess = false;
-            fileError = `Error processing file '${filePath}': ${e.message}`;
-            console.error(fileError);
-            const suggestion = `Check if file '${filePath}' exists and if you have read/write permissions.`;
-            // Ensure editResults has entries for all edits if file read failed
-            if (editResults.length === 0) {
-                change.edits.forEach((editOp, index) => {
-                    editResults.push({ editIndex: index, success: false, error: `File processing failed before edit: ${e.message}`, suggestion });
-                });
-            }
-        }
+          } catch (e: any) { // Catch errors during file read or edit loop
+              fileSuccess = false;
+              overallSuccess = false; // Mark overall as failed
+              fileError = `Error processing file '${filePath}': ${e.message}`;
+              console.error(fileError);
+              const suggestion = `Check if file '${filePath}' exists and if you have read/write permissions.`;
+              if (editResults.length === 0) {
+                  change.edits.forEach((editOp, index) => {
+                      editResults.push({ editIndex: index, success: false, error: `File processing failed before edit: ${e.message}`, suggestion });
+                  });
+              }
+          }
 
-        fileResults.push({
-            path: filePath,
-            success: fileSuccess,
-            error: fileError,
-            suggestion: fileSuggestion, // Add suggestion if path validation failed initially
-            edit_results: editResults,
-        });
+          fileResults.push({
+              path: filePath,
+              success: fileSuccess,
+              error: fileError,
+              suggestion: fileSuggestion,
+              edit_results: editResults,
+            });
+      } // End for loop
+
+      // Return results after processing all changes
+      console.log(`[Debug] Returning from try. fileResults length: ${fileResults.length}`); // Log before return
+      return {
+        success: overallSuccess,
+        results: fileResults,
+        content: overallSuccess
+          ? [{ type: 'text', text: `Edit operation completed. Success: ${overallSuccess}` }]
+          : [],
+      };
+
+    } catch (unexpectedError: any) { // Catch unexpected errors during the main loop/setup
+        console.error(`Unexpected error during editFileTool execution: ${unexpectedError.message}`);
+        console.log(`[Debug] Returning from catch. fileResults length: ${fileResults.length}`); // Log before return
+        // Return minimal error structure on unexpected failure
+        return {
+            success: false,
+            error: `Unexpected tool error: ${unexpectedError.message}`,
+            results: [], // Return empty results on unexpected error
+            content: [],
+        };
     }
-
-    return {
-      success: overallSuccess,
-      results: fileResults, // Keep results for consistency
-      // Add a default success message to content if overall successful
-      content: overallSuccess
-        ? [{ type: 'text', text: `Edit operation completed. Success: ${overallSuccess}` }]
-        : [],
-    };
-  },
-};
+  }, // Closing brace for execute method
+}; // Closing brace for tool object

@@ -221,14 +221,25 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
             }
         }
 
-        fileResults.push({
-            path: relativeFilePath,
-            success: fileSuccess,
-            matches: matches.length > 0 ? matches : undefined, // Only include matches array if not empty
-            error: fileError,
-            // Use suggestion populated during validation or catch block
-            suggestion: !fileSuccess ? suggestion : undefined,
-        });
+        // Always push a result if the file was processed, regardless of matches
+        if (fileSuccess) {
+             fileResults.push({
+                path: relativeFilePath,
+                success: true,
+                matches: matches.length > 0 ? matches : undefined, // Include matches only if found
+                error: undefined,
+                suggestion: undefined,
+            });
+        } else {
+            // Push the error result if processing failed
+             fileResults.push({
+                path: relativeFilePath,
+                success: false,
+                matches: undefined,
+                error: fileError,
+                suggestion: suggestion, // Use suggestion populated during validation or catch block
+            });
+        }
     } // End files loop
 
     return {
