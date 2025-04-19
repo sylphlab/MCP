@@ -16,6 +16,9 @@
   "files": [
     "dist"
   ],
+  "bin": {
+    "mcp-hasher": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",

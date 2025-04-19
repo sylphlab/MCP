@@ -8,6 +8,9 @@
   "files": [
     "dist"
   ],
+  "bin": {
+    "mcp-filesystem": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
