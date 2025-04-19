@@ -8,7 +8,6 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   clean: true,
-  minify: 'terser', // Use Terser for minification
   target: 'node18',
   outDir: 'dist',
 });
