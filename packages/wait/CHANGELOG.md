@@ -1,5 +1,15 @@
 # @sylphlab/mcp-wait
 
+## 0.3.1
+
+### Patch Changes
+
+- aa87680: fix executable path
+- Updated dependencies
+  - @sylphlab/mcp-core@0.1.0
+  - @sylphlab/mcp-utils@0.4.0
+  - @sylphlab/mcp-wait-core@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes

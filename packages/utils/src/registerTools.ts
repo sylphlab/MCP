@@ -18,7 +18,7 @@ export function registerTools(server: McpServer, tools: McpTool<any, any>[]) {
       const zodShape: ZodRawShape = tool.inputSchema.shape;
 
       // Use simpler handler signature, return Promise<any> to bypass strict SDK type check for now
-      const handler = async (args: unknown): Promise<any> => { // Return any
+      const handler = async (args: unknown): Promise<BaseMcpToolOutput> => { // Return BaseMcpToolOutput
             const workspaceRoot = process.cwd();
             let result: BaseMcpToolOutput; // Use BaseMcpToolOutput internally
 
@@ -29,22 +29,6 @@ export function registerTools(server: McpServer, tools: McpTool<any, any>[]) {
                 // Call the original tool's execute function
                 const executeOptions = {}; // Pass empty options for now
                 result = await tool.execute(validatedArgs, workspaceRoot, executeOptions);
-
-                // Ensure standard output format (success + content array)
-                if (result.success && !Array.isArray(result.content)) {
-                    console.warn(`Tool '${tool.name}' succeeded but returned invalid or missing 'content' array. Defaulting to empty array.`);
-                    result.content = [];
-                } else if (!result.success) {
-                     if (!result.error) {
-                        console.warn(`Tool '${tool.name}' failed but returned no 'error' message.`);
-                        result.error = 'Tool execution failed with unspecified error.';
-                     }
-                     // Ensure content is empty on failure if not provided
-                     if (!Array.isArray(result.content)) {
-                        result.content = [];
-                     }
-                }
-
             } catch (execError: any) {
                  // Catch errors during validation (parse) or execution
                  console.error(`Error during registration wrapper for ${tool.name}:`, execError);
@@ -56,7 +40,7 @@ export function registerTools(server: McpServer, tools: McpTool<any, any>[]) {
                      content: [{ type: 'text', text: `Tool execution failed: ${errorMessage}` }]
                  };
             }
-            // Return the result object - SDK should accept it if structurally compatible
+            // Return the result object - relies on BaseMcpToolOutput being structurally compatible
             return result;
       };
 
@@ -66,7 +50,7 @@ export function registerTools(server: McpServer, tools: McpTool<any, any>[]) {
         zodShape,
         handler // Pass the handler
       );
-      console.error(`Registered tool via helper: ${tool.name}`);
+      console.info(`Registered tool via helper: ${tool.name}`); // Use info for success
     } else {
       console.warn('Skipping invalid tool definition during registration via helper:', tool);
     }

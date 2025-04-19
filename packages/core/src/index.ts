@@ -2,8 +2,63 @@
 import { z } from 'zod';
 import path from 'node:path';
 
-// Base type for content parts returned by tools
-export type McpContentPart = { type: 'text', text: string } | { type: string, [key: string]: any };
+// --- Content Part Types ---
+
+/** Represents a text content part. */
+export type TextPart = { type: 'text', text: string };
+
+/** Represents an image content part (base64 encoded). */
+export type ImagePart = {
+  type: 'image';
+  /** Base64 encoded image data. */
+  data: string;
+  /** The IANA media type (e.g., 'image/jpeg', 'image/png'). */
+  mimeType: string; // Renamed from media_type for SDK compatibility
+};
+
+/** Represents an audio content part (base64 encoded). */
+export type AudioPart = {
+  type: 'audio';
+  /** Base64 encoded audio data. */
+  data: string;
+  /** The IANA media type (e.g., 'audio/mpeg', 'audio/wav'). */
+  mimeType: string; // Renamed from media_type for SDK compatibility
+};
+
+/** Represents a reference to an MCP resource via its URI. */
+export type ResourcePart = {
+  type: 'resource';
+  /** Nested resource object containing details. */
+  /** Nested resource object containing details - Union Type */
+  /** Nested resource object containing details - Union Type */
+  resource:
+    | {
+        /** The unique URI identifying the MCP resource. */
+        uri: string;
+        /** The IANA media type of the resource, if known. */
+        mimeType?: string;
+        /** Text content of the resource. */
+        text: string;
+        blob?: never; // Ensure blob is not present when text is
+      }
+    | {
+        /** The unique URI identifying the MCP resource. */
+        uri: string;
+        /** The IANA media type of the resource, if known. */
+        mimeType?: string;
+        /** Base64 encoded content of the resource. */
+        blob: string;
+        text?: never; // Ensure text is not present when blob is
+      };
+};
+
+/**
+ * Represents a distinct part of the content returned by an MCP tool.
+ * This is a discriminated union based on the 'type' property.
+ */
+export type McpContentPart = TextPart | ImagePart | AudioPart | ResourcePart;
+
+// --- Tool Output ---
 
 /**
  * Base interface for the output of all MCP tools.

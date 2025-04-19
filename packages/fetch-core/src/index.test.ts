@@ -6,24 +6,42 @@ import { fetchTool, FetchToolInput } from './index.js'; // Add .js extension
 const mockWorkspaceRoot = '';
 
 describe('fetchTool.execute', () => {
+  // Define a reusable clone function for mocks
+  function mockClone(this: any) {
+    // Return a new object with the same properties and *independent* mocked methods
+    return {
+      ok: this.ok,
+      status: this.status,
+      statusText: this.statusText,
+      headers: new Headers(this.headers), // Create a new Headers object
+      text: vi.fn().mockImplementation(this.text), // Re-use the mock implementation logic
+      json: vi.fn().mockImplementation(this.json), // Re-use the mock implementation logic
+      clone: mockClone, // Assign the external function
+    };
+  }
+
   beforeEach(() => {
     vi.resetAllMocks();
     // Default successful mock for fetch
-    global.fetch = vi.fn().mockResolvedValue({
+    const mockSuccessResponse = {
       ok: true,
       status: 200,
       statusText: 'OK',
       headers: new Headers({ 'Content-Type': 'text/plain' }),
-      text: async () => 'Success response',
-      json: async () => ({ message: 'Success response' }),
-    } as Response);
+      text: vi.fn().mockResolvedValue('Success response'),
+      json: vi.fn().mockResolvedValue({ message: 'Success response' }),
+      clone: mockClone, // Assign the external function
+    };
+    global.fetch = vi.fn().mockResolvedValue(mockSuccessResponse as unknown as Response);
   });
 
   it('should process a single GET request (text)', async () => {
-    const input: FetchToolInput = { id: 'a', url: 'http://test.com/text', method: 'GET', responseType: 'text' }; // Add defaults
-    const result = await fetchTool.execute(input, mockWorkspaceRoot);
+    const input: FetchToolInput = { items: [{ id: 'a', url: 'http://test.com/text', method: 'GET', responseType: 'text' }] };
+    const output = await fetchTool.execute(input, mockWorkspaceRoot);
 
-    expect(result.success).toBe(true);
+    expect(output.success).toBe(true);
+    expect(output.results).toHaveLength(1);
+    const result = output.results[0];
     expect(result.id).toBe('a');
     expect(result.status).toBe(200);
     expect(result.body).toBe('Success response');
@@ -32,10 +50,12 @@ describe('fetchTool.execute', () => {
   });
 
   it('should process a single GET request (json)', async () => {
-    const input: FetchToolInput = { id: 'b', url: 'http://test.com/json', method: 'GET', responseType: 'json' }; // Add method default
-    const result = await fetchTool.execute(input, mockWorkspaceRoot);
+    const input: FetchToolInput = { items: [{ id: 'b', url: 'http://test.com/json', method: 'GET', responseType: 'json' }] };
+    const output = await fetchTool.execute(input, mockWorkspaceRoot);
 
-    expect(result.success).toBe(true);
+    expect(output.success).toBe(true);
+    expect(output.results).toHaveLength(1);
+    const result = output.results[0];
     expect(result.id).toBe('b');
     expect(result.status).toBe(200);
     expect(result.body).toEqual({ message: 'Success response' });
@@ -44,17 +64,19 @@ describe('fetchTool.execute', () => {
   });
 
    it('should process a single POST request with body', async () => {
-    const input: FetchToolInput = {
+    const input: FetchToolInput = { items: [{
       id: 'c',
       url: 'http://test.com/post',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: 'value' }),
       responseType: 'json'
-    };
-    const result = await fetchTool.execute(input, mockWorkspaceRoot);
+    }]};
+    const output = await fetchTool.execute(input, mockWorkspaceRoot);
 
-    expect(result.success).toBe(true);
+    expect(output.success).toBe(true);
+    expect(output.results).toHaveLength(1);
+    const result = output.results[0];
     expect(result.id).toBe('c');
     expect(result.status).toBe(200);
     // Body might be mocked differently, just check success/status
@@ -66,14 +88,14 @@ describe('fetchTool.execute', () => {
   });
 
    it('should default Content-Type for POST if body present and header missing', async () => {
-    const input: FetchToolInput = {
-      id: 'c2',
-      url: 'http://test.com/post',
+     const input: FetchToolInput = { items: [{
+       id: 'c2',
+       url: 'http://test.com/post',
       method: 'POST',
       // No Content-Type header
       body: JSON.stringify({ data: 'value' }),
       responseType: 'json'
-    };
+    }]};
     await fetchTool.execute(input, mockWorkspaceRoot); // Don't need result, just check mock call
 
     expect(global.fetch).toHaveBeenCalledWith('http://test.com/post', {
@@ -87,9 +109,12 @@ describe('fetchTool.execute', () => {
 
   it('should handle fetch error (e.g., network error)', async () => {
     vi.mocked(global.fetch).mockRejectedValue(new Error('Network failed'));
-    const input: FetchToolInput = { id: 'f', url: 'http://test.com/fail', method: 'GET', responseType: 'text' }; // Add defaults
-    const result = await fetchTool.execute(input, mockWorkspaceRoot);
+    const input: FetchToolInput = { items: [{ id: 'f', url: 'http://test.com/fail', method: 'GET', responseType: 'text' }] };
+    const output = await fetchTool.execute(input, mockWorkspaceRoot);
 
+    expect(output.success).toBe(false); // Overall success is false
+    expect(output.results).toHaveLength(1);
+    const result = output.results[0];
     expect(result.success).toBe(false);
     expect(result.id).toBe('f');
     expect(result.status).toBeUndefined();
@@ -98,17 +123,22 @@ describe('fetchTool.execute', () => {
   });
 
   it('should handle HTTP error response', async () => {
-    vi.mocked(global.fetch).mockResolvedValue({
+    const mockErrorResponse = {
       ok: false,
       status: 404,
       statusText: 'Not Found',
       headers: new Headers(),
-      text: async () => 'Resource not found', // Simulate error body
-      json: async () => ({ error: 'Resource not found' }),
-    } as Response);
-    const input: FetchToolInput = { id: 'g', url: 'http://test.com/notfound', method: 'GET', responseType: 'text' }; // Add defaults
-    const result = await fetchTool.execute(input, mockWorkspaceRoot);
+      text: vi.fn().mockResolvedValue('Resource not found'), // Simulate error body
+      json: vi.fn().mockResolvedValue({ error: 'Resource not found' }),
+      clone: mockClone, // Assign the external function
+    };
+    vi.mocked(global.fetch).mockResolvedValue(mockErrorResponse as unknown as Response);
+    const input: FetchToolInput = { items: [{ id: 'g', url: 'http://test.com/notfound', method: 'GET', responseType: 'text' }] };
+    const output = await fetchTool.execute(input, mockWorkspaceRoot);
 
+    expect(output.success).toBe(false);
+    expect(output.results).toHaveLength(1);
+    const result = output.results[0];
     expect(result.success).toBe(false);
     expect(result.id).toBe('g');
     // Status and statusText might not be present if fetch itself throws before response object is created
@@ -120,10 +150,12 @@ describe('fetchTool.execute', () => {
   });
 
   it('should handle responseType ignore', async () => {
-    const input: FetchToolInput = { id: 'i', url: 'http://test.com/ignore', method: 'GET', responseType: 'ignore' }; // Add method default
-    const result = await fetchTool.execute(input, mockWorkspaceRoot);
+    const input: FetchToolInput = { items: [{ id: 'i', url: 'http://test.com/ignore', method: 'GET', responseType: 'ignore' }] };
+    const output = await fetchTool.execute(input, mockWorkspaceRoot);
 
-    expect(result.success).toBe(true);
+    expect(output.success).toBe(true);
+    expect(output.results).toHaveLength(1);
+    const result = output.results[0];
     expect(result.id).toBe('i');
     expect(result.status).toBe(200);
     expect(result.body).toBeNull(); // Body should be null when ignored
@@ -132,19 +164,24 @@ describe('fetchTool.execute', () => {
   });
 
   it('should handle JSON parsing error for responseType json', async () => {
-     vi.mocked(global.fetch).mockResolvedValue({
+    const mockBadJsonResponse = {
       ok: true,
       status: 200,
       statusText: 'OK',
       headers: new Headers({ 'Content-Type': 'application/json' }), // Correct header
-      text: async () => 'invalid json', // But invalid body
-      json: async () => { throw new SyntaxError('Unexpected token i in JSON at position 0'); }, // Simulate json parse error
-    } as any as Response); // Use less strict cast
-     const input: FetchToolInput = { id: 'h', url: 'http://test.com/badjson', method: 'GET', responseType: 'json' }; // Add method default
-     const result = await fetchTool.execute(input, mockWorkspaceRoot);
+      text: vi.fn().mockResolvedValue('invalid json'), // But invalid body
+      json: vi.fn().mockRejectedValue(new SyntaxError('Unexpected token i in JSON at position 0')), // Simulate json parse error
+      clone: mockClone, // Assign the external function
+    };
+    vi.mocked(global.fetch).mockResolvedValue(mockBadJsonResponse as unknown as Response);
+    const input: FetchToolInput = { items: [{ id: 'h', url: 'http://test.com/badjson', method: 'GET', responseType: 'json' }] };
+    const output = await fetchTool.execute(input, mockWorkspaceRoot);
 
-     expect(result.success).toBe(false);
-     expect(result.id).toBe('h');
+    expect(output.success).toBe(false);
+    expect(output.results).toHaveLength(1);
+    const result = output.results[0];
+    expect(result.success).toBe(false);
+    expect(result.id).toBe('h');
      // Status might not be present if caught in the final catch block after parsing fails
      // expect(result.status).toBe(200); // Request was ok, parsing failed
      expect(result.body).toBeUndefined();

@@ -1,5 +1,12 @@
 # @sylphlab/mcp-net-core
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @sylphlab/mcp-core@0.1.0
+
 ## 0.3.0
 
 ### Minor Changes

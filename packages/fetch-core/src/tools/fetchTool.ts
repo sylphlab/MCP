@@ -3,9 +3,9 @@ import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from 
 
 // --- Zod Schemas ---
 
-// Input schema for a SINGLE fetch request
-export const FetchToolInputSchema = z.object({
-  id: z.string().optional(), // Keep id for correlation if used in batch by server
+// Schema for a single fetch request item
+const FetchInputItemSchema = z.object({
+  id: z.string().optional(),
   url: z.string().url('Invalid URL format'),
   method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']).default('GET'),
   headers: z.record(z.string()).optional(),
@@ -13,13 +13,19 @@ export const FetchToolInputSchema = z.object({
   responseType: z.enum(['text', 'json', 'ignore']).default('text'),
 });
 
+// Main input schema: an array of fetch items
+export const FetchToolInputSchema = z.object({
+  items: z.array(FetchInputItemSchema).min(1, 'At least one fetch item is required.'),
+});
+
 // --- TypeScript Types ---
+export type FetchInputItem = z.infer<typeof FetchInputItemSchema>;
 export type FetchToolInput = z.infer<typeof FetchToolInputSchema>;
 
-// Output interface for a SINGLE fetch result
-export interface FetchToolOutput extends BaseMcpToolOutput {
-  // BaseMcpToolOutput provides 'success' and 'content'
-  id?: string; // Corresponds to input id if provided
+// Interface for a single fetch result item
+export interface FetchResultItem {
+  id?: string;
+  success: boolean;
   status?: number;
   statusText?: string;
   headers?: Record<string, string>;
@@ -28,101 +34,132 @@ export interface FetchToolOutput extends BaseMcpToolOutput {
   suggestion?: string;
 }
 
+// Output interface for the tool (includes multiple results)
+export interface FetchToolOutput extends BaseMcpToolOutput {
+  results: FetchResultItem[];
+  error?: string; // Optional overall error if the tool itself fails unexpectedly
+}
+
 // --- Tool Definition ---
+
+// Helper function to process a single fetch item
+async function processSingleFetch(item: FetchInputItem): Promise<FetchResultItem> {
+  const { id, url, method = 'GET', headers = {}, body, responseType = 'text' } = item;
+  const resultItem: FetchResultItem = { id, success: false }; // Initialize success to false
+
+  try {
+    console.log(`Fetching ${method} ${url}... (ID: ${id ?? 'N/A'})`);
+
+    const requestOptions: RequestInit = {
+      method,
+      headers,
+    };
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      requestOptions.body = body;
+      if (!headers['Content-Type'] && !headers['content-type']) {
+         console.warn(`Request body provided for ${url} but Content-Type header is missing. Defaulting to application/json.`);
+         headers['Content-Type'] = 'application/json';
+         requestOptions.headers = headers;
+      }
+    }
+
+    const response = await fetch(url, requestOptions);
+
+    resultItem.status = response.status;
+    resultItem.statusText = response.statusText;
+    const responseHeaders: Record<string, string> = {};
+    response.headers.forEach((value, key) => { responseHeaders[key] = value; });
+    resultItem.headers = responseHeaders;
+
+    let responseBody: any = null;
+    let bodyForError: string | null = null;
+
+    // Try to read body regardless of status first, to capture error details
+    try {
+        // Clone response to read body multiple times if needed (e.g., text for error, json for success)
+        const resClone = response.clone();
+        if (responseType === 'json') {
+            responseBody = await response.json();
+            // Also get text for potential error message inclusion
+            try { bodyForError = await resClone.text(); } catch { /* ignore */ }
+        } else { // 'text' or 'ignore'
+            responseBody = await response.text();
+            bodyForError = responseBody; // Use the same text
+            if (responseType === 'ignore') {
+                responseBody = null; // Discard if ignoring
+            }
+        }
+    } catch (bodyError: any) {
+        // Handle body reading/parsing errors
+        if (response.ok) { // If status was OK, this is a content error
+            throw new Error(`Failed to read/parse response body: ${bodyError.message}`);
+        } else {
+            // If status was not OK, try to get text for error message, but prioritize HTTP error
+            try { bodyForError = await response.text(); } catch { /* ignore */ }
+        }
+    }
+
+    if (!response.ok) {
+      let errorDetail = '';
+      if (typeof bodyForError === 'string' && bodyForError.length > 0) {
+          errorDetail = ` - ${bodyForError.substring(0, 150)}`;
+      }
+      throw new Error(`HTTP error! status: ${response.status}${errorDetail}`);
+    }
+
+    // If we reached here, the request was successful (status ok)
+    resultItem.body = responseBody;
+    resultItem.success = true;
+    console.log(`Fetch successful for ${url}. (ID: ${id ?? 'N/A'})`);
+
+  } catch (e: any) {
+    resultItem.error = `Fetch failed for ${url}: ${e.message}`;
+    resultItem.suggestion = 'Check URL, network connection, method, headers, and body. Ensure CORS is handled if running in a browser context.';
+    console.error(resultItem.error);
+    // Ensure success is false if an error occurred
+    resultItem.success = false;
+  }
+  return resultItem;
+}
+
+
 export const fetchTool: McpTool<typeof FetchToolInputSchema, FetchToolOutput> = {
-  name: 'fetch',
-  description: 'Performs a single HTTP fetch request.',
-  inputSchema: FetchToolInputSchema, // Schema for single item
+  name: 'fetch', // Keep tool name simple
+  description: 'Performs one or more HTTP fetch requests sequentially.',
+  inputSchema: FetchToolInputSchema, // Schema expects { items: [...] }
 
   async execute(input: FetchToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<FetchToolOutput> {
-    // Logic now directly processes the single 'input' object.
-    const { id, url, method = 'GET', headers = {}, body, responseType = 'text' } = input;
+    // Input validation happens before execute in the registerTools helper
+    const { items } = input;
+    const results: FetchResultItem[] = [];
+    let overallSuccess = true;
 
     try {
-      console.log(`Fetching ${method} ${url}... (ID: ${id ?? 'N/A'})`);
-
-      const requestOptions: RequestInit = {
-        method,
-        headers,
-      };
-      if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-        requestOptions.body = body;
-        // Ensure Content-Type is set if body exists (common practice)
-        if (!headers['Content-Type'] && !headers['content-type']) {
-           console.warn(`Request body provided for ${url} but Content-Type header is missing. Defaulting to application/json.`);
-           headers['Content-Type'] = 'application/json'; // Default assumption
-           requestOptions.headers = headers; // Update options
+      // Process requests sequentially
+      for (const item of items) {
+        const result = await processSingleFetch(item); // Process each item
+        results.push(result);
+        if (!result.success) {
+          overallSuccess = false;
         }
       }
-
-      const response = await fetch(url, requestOptions);
-
-      const responseHeaders: Record<string, string> = {};
-      response.headers.forEach((value, key) => {
-        responseHeaders[key] = value;
-      });
-      let responseBody: any = null;
-
-      // Process response body based on requested type *before* checking response.ok
-      // to potentially capture error bodies
-      if (responseType === 'json') {
-        try {
-            responseBody = await response.json();
-        } catch (jsonError: any) {
-            // If JSON parsing fails on a non-ok response, try to get text body for error message
-            if (!response.ok) {
-                try { responseBody = await response.text(); } catch { /* ignore secondary read error */ }
-            }
-            // If JSON parsing fails on an ok response, it's a content error
-            if (response.ok) {
-                throw new Error(`Failed to parse JSON response: ${jsonError.message}`);
-            }
-            // Otherwise, the original HTTP error will be thrown below
-        }
-      } else if (responseType === 'text') {
-        try {
-            responseBody = await response.text();
-        } catch (textError: any) {
-             // Less likely to fail than JSON, but handle just in case
-             if (!response.ok) { /* Allow HTTP error to be primary */ }
-             else { throw new Error(`Failed to read text response: ${textError.message}`); }
-        }
-      } else { // 'ignore'
-        try { await response.text(); } catch { /* Consume body safely */ }
-      }
-
-      if (!response.ok) {
-        let errorDetail = '';
-        if (typeof responseBody === 'string' && responseBody.length > 0) {
-            errorDetail = ` - ${responseBody.substring(0, 150)}`; // Include part of the error body
-        }
-        throw new Error(`HTTP error! status: ${response.status}${errorDetail}`);
-      }
-
-      console.log(`Fetch successful for ${url}. (ID: ${id ?? 'N/A'})`);
 
       return {
-        success: true,
-        id: id,
-        status: response.status,
-        statusText: response.statusText,
-        headers: responseHeaders,
-        body: responseBody,
-        content: [{ type: 'text', text: `Fetch successful for ${url}. Status: ${response.status}` }],
+        success: overallSuccess,
+        results: results,
+        content: [{ type: 'text', text: `Processed ${items.length} fetch requests. Overall success: ${overallSuccess}` }],
       };
-
     } catch (e: any) {
-      const errorMsg = `Fetch failed for ${url}: ${e.message}`;
-      console.error(errorMsg);
+      // Catch unexpected errors during the loop itself (should be rare)
+      console.error(`Unexpected error during fetch tool execution: ${e.message}`);
       return {
         success: false,
-        id: id,
-        error: errorMsg,
-        suggestion: 'Check URL, network connection, method, headers, and body. Ensure CORS is handled if running in a browser context.',
+        results: results, // Return partial results if any
+        error: `Unexpected tool error: ${e.message}`,
         content: [],
       };
     }
   },
 };
 
-console.log('MCP Fetch Tool (Single Operation) Loaded');
+console.log('MCP Fetch Core Tool (Batch Operation) Loaded');

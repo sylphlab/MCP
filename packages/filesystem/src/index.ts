@@ -2,8 +2,9 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { ZodObject, ZodRawShape, z } from 'zod'; // Import z
 import { McpTool } from '@sylphlab/mcp-core';
-import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
+import { registerTools } from '@sylphlab/mcp-utils';
 
 // Import the complete tool objects from the core library
 import {
@@ -51,9 +52,8 @@ const definedTools: McpTool<any, any>[] = [
     writeFilesTool,
 ];
 
-// Register tools using the helper function
+// Register tools using the helper
 registerTools(mcpServer, definedTools);
-
 
 // --- Server Start ---
 async function startServer() {

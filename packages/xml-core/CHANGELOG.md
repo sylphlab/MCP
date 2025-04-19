@@ -1,5 +1,18 @@
 # @sylphlab/mcp-xml-core
 
+## 0.4.0
+
+### Minor Changes
+
+- feat: Refactor core types and tool structures
+
+  Refactored core types (`McpContentPart`) for SDK compatibility and updated all core tools to handle batch inputs. Corrected the `registerTools` helper in utils.
+
+### Patch Changes
+
+- Updated dependencies
+  - @sylphlab/mcp-core@0.1.0
+
 ## 0.3.0
 
 ### Minor Changes

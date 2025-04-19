@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-core",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Core types and utilities for Sylph Lab MCP packages",
   "type": "module",
   "main": "dist/index.cjs",

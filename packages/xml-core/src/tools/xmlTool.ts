@@ -5,75 +5,119 @@ import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from 
 
 export const XmlOperationEnum = z.enum(['parse']); // Add 'build' later
 
-// Input schema for a SINGLE XML operation
-export const XmlToolInputSchema = z.object({
-  id: z.string().optional(), // Keep id for correlation if used in batch by server
+// Schema for a single XML operation item
+const XmlInputItemSchema = z.object({
+  id: z.string().optional(),
   operation: XmlOperationEnum,
   data: z.string({ required_error: 'Input data for "parse" operation must be a string.' }),
+  // Add options for parsing/building later
+});
+
+// Main input schema: an array of XML operation items
+export const XmlToolInputSchema = z.object({
+  items: z.array(XmlInputItemSchema).min(1, 'At least one XML operation item is required.'),
 });
 
 // --- TypeScript Types ---
 export type XmlOperation = z.infer<typeof XmlOperationEnum>;
+export type XmlInputItem = z.infer<typeof XmlInputItemSchema>;
 export type XmlToolInput = z.infer<typeof XmlToolInputSchema>;
 
-// Output interface for a SINGLE XML result
-export interface XmlToolOutput extends BaseMcpToolOutput {
-  // BaseMcpToolOutput provides 'success' and 'content'
+// Interface for a single XML result item
+export interface XmlResultItem {
   id?: string; // Corresponds to input id if provided
+  success: boolean;
   result?: any; // Parsed object (placeholder for now)
   error?: string;
   suggestion?: string;
 }
 
+// Output interface for the tool (includes multiple results)
+export interface XmlToolOutput extends BaseMcpToolOutput {
+  results: XmlResultItem[];
+  error?: string; // Optional overall error if the tool itself fails unexpectedly
+}
+
+// --- Helper Function ---
+
+// Helper function to process a single XML operation item
+async function processSingleXml(item: XmlInputItem): Promise<XmlResultItem> {
+  const { id, operation, data } = item;
+  const resultItem: XmlResultItem = { id, success: false };
+
+  try {
+    let operationResult: any;
+    let suggestion: string | undefined;
+
+    switch (operation) {
+      case 'parse':
+        console.log(`Parsing XML... (ID: ${id ?? 'N/A'})`);
+        // Simple placeholder logic - check for opening error tag start
+        if (data.includes('<error')) { // Changed to catch <error> or <error/>
+           throw new Error('Simulated XML parse error (contains <error tag)');
+        }
+        // Placeholder: Replace with actual XML parsing library (e.g., fast-xml-parser)
+        operationResult = { simulated: 'parsed_data_for_' + (id ?? data.substring(0,10)) };
+        suggestion = 'Parsing simulated successfully. Replace with actual XML parser for real results.';
+        console.log(`XML parsed successfully (simulated). (ID: ${id ?? 'N/A'})`);
+        break;
+      // No default needed due to Zod validation
+    }
+
+    resultItem.success = true;
+    resultItem.result = operationResult;
+    resultItem.suggestion = suggestion;
+
+  } catch (e: any) {
+    resultItem.error = `XML operation '${operation}' failed: ${e.message}`;
+    resultItem.suggestion = 'Ensure input is valid XML. Check for syntax errors.'; // Generic suggestion
+    console.error(`${resultItem.error} (ID: ${id ?? 'N/A'})`);
+    // Ensure success is false if an error occurred
+    resultItem.success = false;
+  }
+  return resultItem;
+}
+
+
 // --- Tool Definition ---
 export const xmlTool: McpTool<typeof XmlToolInputSchema, XmlToolOutput> = {
-  name: 'xml', // Represents the capability (parse)
-  description: 'Performs an XML operation (currently parse with placeholder logic) on a single input.',
-  inputSchema: XmlToolInputSchema, // Schema for single item
+  name: 'xml',
+  description: 'Performs XML operations (currently parse with placeholder logic) on one or more inputs.',
+  inputSchema: XmlToolInputSchema, // Schema expects { items: [...] }
 
   async execute(input: XmlToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<XmlToolOutput> {
-    // Logic now directly processes the single 'input' object.
-    const { id, operation, data } = input; // data is guaranteed string by Zod
+    // Input validation happens before execute in the registerTools helper
+    const { items } = input;
+    const results: XmlResultItem[] = [];
+    let overallSuccess = true;
 
     try {
-      let operationResult: any;
-      let suggestion: string | undefined;
-
-      switch (operation) {
-        case 'parse':
-          console.log(`Parsing XML... (ID: ${id ?? 'N/A'})`);
-          // Simple placeholder logic based on original function
-          if (data.includes('<error>')) {
-             throw new Error('Simulated XML parse error (contains <error> tag)');
-          }
-          // Placeholder: Replace with actual XML parsing library (e.g., fast-xml-parser)
-          operationResult = { simulated: 'parsed_data_for_' + (id ?? data.substring(0,10)) };
-          suggestion = 'Parsing simulated successfully. Replace with actual XML parser for real results.';
-          console.log(`XML parsed successfully (simulated). (ID: ${id ?? 'N/A'})`);
-          break;
-        // No default needed due to Zod validation
+      // Process requests sequentially
+      for (const item of items) {
+        const result = await processSingleXml(item); // Process each item
+        results.push(result);
+        if (!result.success) {
+          overallSuccess = false;
+        }
       }
 
       return {
-        success: true,
-        id: id,
-        result: operationResult,
-        content: [{ type: 'text', text: `XML operation '${operation}' successful (simulated).` }],
-        suggestion: suggestion,
+        success: overallSuccess,
+        results: results,
+        content: [{ type: 'text', text: `Processed ${items.length} XML operations. Overall success: ${overallSuccess}` }],
       };
-
     } catch (e: any) {
-      const errorMsg = `XML operation '${operation}' failed: ${e.message}`;
+      // Catch unexpected errors during the loop itself (should be rare)
+      const errorMsg = `Unexpected error during XML tool execution: ${e.message}`;
       console.error(errorMsg);
       return {
         success: false,
-        id: id,
+        results: results, // Return partial results if any
         error: errorMsg,
-        suggestion: 'Ensure input is valid XML. Check for syntax errors.', // Generic suggestion
         content: [],
       };
     }
   },
 };
 
-console.log('MCP XML Tool (Single Operation) Loaded');
+console.log('MCP XML Core Tool (Batch Operation) Loaded');

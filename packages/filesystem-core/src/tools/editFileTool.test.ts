@@ -110,8 +110,7 @@ describe('editFileTool', () => {
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
-  // TODO: Investigate why result.results is empty in this test case despite logs showing push
-  it.skip('should fail delete_lines if end_line < start_line', async () => {
+  it('should fail delete_lines if end_line < start_line', async () => {
     const initialContent = 'line1\nline2\nline3';
     mockReadFile.mockResolvedValue(initialContent);
     const input = createInput([{
@@ -122,10 +121,10 @@ describe('editFileTool', () => {
     const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
-    expect(result.results).toHaveLength(1); // Check array length first
-    expect(result.results[0].success).toBe(false); // Access directly
-    expect(result.results[0].edit_results[0]?.success).toBe(false);
-    expect(result.results[0]?.edit_results[0]?.error).toContain('end_line 1 cannot be less than start_line 3');
+    // Expect early failure due to Zod validation
+    expect(result.results).toEqual([]);
+    expect(result.error).toContain('Input validation failed');
+    expect(result.error).toContain('end_line must be greater than or equal to start_line');
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
@@ -164,8 +163,7 @@ describe('editFileTool', () => {
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
-  // TODO: Investigate why result.results is empty in this test case despite logs showing push
-  it.skip('should fail replace_lines if end_line < start_line', async () => {
+  it('should fail replace_lines if end_line < start_line', async () => {
     const initialContent = 'line1\nline2\nline3';
     mockReadFile.mockResolvedValue(initialContent);
     const input = createInput([{
@@ -176,10 +174,10 @@ describe('editFileTool', () => {
     const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
-    expect(result.results).toHaveLength(1); // Check array length first
-    expect(result.results[0].success).toBe(false); // Access directly
-    expect(result.results[0].edit_results[0]?.success).toBe(false);
-    expect(result.results[0]?.edit_results[0]?.error).toContain('end_line 1 cannot be less than start_line 3');
+    // Expect early failure due to Zod validation
+    expect(result.results).toEqual([]);
+    expect(result.error).toContain('Input validation failed');
+    expect(result.error).toContain('end_line must be greater than or equal to start_line');
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
@@ -253,8 +251,7 @@ describe('editFileTool', () => {
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
-  // TODO: Investigate why result.results is empty in this test case despite logs showing push
-  it.skip('should fail search_replace if end_line < start_line', async () => {
+  it('should fail search_replace if end_line < start_line', async () => {
     const initialContent = 'apple\nbanana\ncherry';
     mockReadFile.mockResolvedValue(initialContent);
     const input = createInput([{
@@ -265,10 +262,10 @@ describe('editFileTool', () => {
     const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
 
     expect(result.success).toBe(false);
-    expect(result.results).toHaveLength(1); // Check array length first
-    expect(result.results[0].success).toBe(false); // Access directly
-    expect(result.results[0].edit_results[0]?.success).toBe(false);
-    expect(result.results[0]?.edit_results[0]?.error).toContain('end_line 1 cannot be less than start_line 3');
+    // Expect early failure due to Zod validation
+    expect(result.results).toEqual([]);
+    expect(result.error).toContain('Input validation failed');
+    expect(result.error).toContain('end_line must be greater than or equal to start_line');
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 

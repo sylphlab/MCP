@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-hasher",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "MCP server providing hasher tool",
   "type": "module",
   "main": "./dist/index.cjs",

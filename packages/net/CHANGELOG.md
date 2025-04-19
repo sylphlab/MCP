@@ -1,5 +1,15 @@
 # @sylphlab/mcp-net
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @sylphlab/mcp-core@0.1.0
+  - @sylphlab/mcp-utils@0.4.0
+  - @sylphlab/mcp-fetch-core@0.4.0
+  - @sylphlab/mcp-net-core@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes

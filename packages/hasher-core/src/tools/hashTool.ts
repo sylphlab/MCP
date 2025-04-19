@@ -11,63 +11,105 @@ const HashAlgorithmEnum = supportedAlgorithms.length > 0
   ? z.enum(supportedAlgorithms as [string, ...string[]])
   : z.string().refine(() => false, { message: "No hash algorithms available on the system" }); // Fallback if no hashes found
 
-// Input schema for a SINGLE hash operation
-export const HashToolInputSchema = z.object({
-  // id is usually for correlating batch results, less relevant for single op, but keep for potential direct use
+// Schema for a single hash request item
+const HashInputItemSchema = z.object({
   id: z.string().optional(),
   algorithm: HashAlgorithmEnum,
   data: z.string(), // Assuming string input
 });
 
+// Main input schema: an array of hash items
+export const HashToolInputSchema = z.object({
+  items: z.array(HashInputItemSchema).min(1, 'At least one hash item is required.'),
+});
+
 // --- TypeScript Types ---
 export type HashAlgorithm = z.infer<typeof HashAlgorithmEnum>;
+export type HashInputItem = z.infer<typeof HashInputItemSchema>;
 export type HashToolInput = z.infer<typeof HashToolInputSchema>;
 
-// Output interface for a SINGLE hash result
-export interface HashToolOutput extends BaseMcpToolOutput {
-  // BaseMcpToolOutput provides 'success' and 'content'
-  id?: string; // Keep id for correlation if used in batch by server
+// Interface for a single hash result item
+export interface HashResultItem {
+  id?: string;
+  success: boolean;
   result?: string; // The computed hash
   error?: string;
   suggestion?: string;
 }
 
+// Output interface for the tool (includes multiple results)
+export interface HashToolOutput extends BaseMcpToolOutput {
+  results: HashResultItem[];
+  error?: string; // Optional overall error if the tool itself fails unexpectedly
+}
+
+
+// --- Helper Function ---
+
+// Helper function to process a single hash item
+async function processSingleHash(item: HashInputItem): Promise<HashResultItem> {
+  const { id, algorithm, data } = item;
+  const resultItem: HashResultItem = { id, success: false }; // Initialize success to false
+
+  try {
+    console.log(`Computing ${algorithm} hash... (ID: ${id ?? 'N/A'})`);
+    const hashResult = createHash(algorithm).update(data).digest('hex');
+    console.log(`Hash computed successfully. (ID: ${id ?? 'N/A'})`);
+
+    resultItem.success = true;
+    resultItem.result = hashResult;
+
+  } catch (e: any) {
+    // Catch errors during the actual hash operation
+    resultItem.error = `Hash operation failed: ${e.message}`;
+    resultItem.suggestion = 'Check algorithm name and input data type.';
+    console.error(`${resultItem.error} (ID: ${id ?? 'N/A'})`);
+    // Ensure success is false if an error occurred
+    resultItem.success = false;
+  }
+  return resultItem;
+}
+
+
 // --- Tool Definition ---
 export const hashTool: McpTool<typeof HashToolInputSchema, HashToolOutput> = {
-  name: 'hash', // Tool name can represent the single operation capability
-  description: 'Computes a cryptographic hash for a single input string.',
-  inputSchema: HashToolInputSchema, // Schema for single item
+  name: 'hash',
+  description: 'Computes cryptographic hashes for one or more input strings.',
+  inputSchema: HashToolInputSchema, // Schema expects { items: [...] }
 
   async execute(input: HashToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<HashToolOutput> {
-    // Logic now directly processes the single 'input' object.
-    const { id, algorithm, data } = input;
+    // Input validation happens before execute in the registerTools helper
+    const { items } = input;
+    const results: HashResultItem[] = [];
+    let overallSuccess = true;
 
     try {
-      // Input type validation is handled by Zod before execute is called
-
-      console.log(`Computing ${algorithm} hash... (ID: ${id ?? 'N/A'})`);
-      const hashResult = createHash(algorithm).update(data).digest('hex');
-      console.log(`Hash computed successfully. (ID: ${id ?? 'N/A'})`);
+      // Process requests sequentially (hashing is usually fast, parallel might not be worth complexity)
+      for (const item of items) {
+        const result = await processSingleHash(item); // Process each item
+        results.push(result);
+        if (!result.success) {
+          overallSuccess = false;
+        }
+      }
 
       return {
-        success: true,
-        id: id, // Include id in the single result
-        result: hashResult,
-        content: [{ type: 'text', text: `Computed ${algorithm} hash: ${hashResult}` }],
+        success: overallSuccess,
+        results: results,
+        content: [{ type: 'text', text: `Processed ${items.length} hash requests. Overall success: ${overallSuccess}` }],
       };
     } catch (e: any) {
-      // Catch errors during the actual hash operation
-      const errorMsg = `Hash operation failed: ${e.message}`;
+      // Catch unexpected errors during the loop itself (should be rare)
+      const errorMsg = `Unexpected error during hash tool execution: ${e.message}`;
       console.error(errorMsg);
       return {
         success: false,
-        id: id, // Include id in the error result
+        results: results, // Return partial results if any
         error: errorMsg,
-        suggestion: 'Check algorithm name and input data type.',
         content: [],
       };
     }
   },
 };
 
-console.log('MCP Hash Tool (Single Operation) Loaded');
+console.log('MCP Hash Core Tool (Batch Operation) Loaded');
