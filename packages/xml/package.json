@@ -17,7 +17,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
@@ -42,6 +42,9 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "@sylphlab/mcp-xml-core": "workspace:*"
+    "@modelcontextprotocol/sdk": "^1.10.1",
+    "@sylphlab/mcp-core": "workspace:*",
+    "@sylphlab/mcp-xml-core": "workspace:*",
+    "zod": "^3.23.8"
   }
 }

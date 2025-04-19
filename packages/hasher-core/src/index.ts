@@ -4,10 +4,8 @@
 export { hashTool, HashToolInputSchema } from './tools/hashTool.js';
 export type {
   HashToolInput,
-  HasherInputItem,
   HashToolOutput,
-  HasherResultItem,
-  HashAlgorithm,
+  HashAlgorithm, // Still useful to export the algorithm type
 } from './tools/hashTool.js';
 
-console.log('MCP Hasher Core Package (Tool Structure) Loaded');
+console.log('MCP Hasher Core Package (Single Operation Tool Structure) Loaded');

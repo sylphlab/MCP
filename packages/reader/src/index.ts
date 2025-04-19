@@ -1,81 +1,92 @@
-import {
-  McpTool,
-  McpToolExecuteOptions,
-  McpToolSchema // Assuming this exists for schema definition
-} from '@sylphlab/mcp-core'; // Adjust import path if needed
-import {
-  processReadOperations,
-  ReaderInputItem,
-  ReaderResultItem,
-  ReadOperation
-} from '@sylphlab/mcp-reader-core';
+#!/usr/bin/env node
 
-// Define the input schema based on ReaderInputItem[]
-const readerToolSchema: McpToolSchema = {
-  type: 'array',
-  items: {
-    type: 'object',
-    properties: {
-      id: { type: 'string', description: 'Optional identifier for the operation' },
-      operation: {
-        type: 'string',
-        enum: ['readPdfText'], // Keep enum updated with supported operations
-        description: 'The read operation to perform'
-      },
-      filePath: { type: 'string', description: 'Path to the file relative to workspace root' }
-      // Add other ReaderInputItem properties if they exist
-    },
-    required: ['operation', 'filePath'],
-    additionalProperties: false // Or true if extra props are allowed
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { ZodObject, ZodRawShape, z } from 'zod';
+import { McpTool } from '@sylphlab/mcp-core';
+
+// Import the tool object from the core library
+import { readerTool } from '@sylphlab/mcp-reader-core';
+
+// --- Server Setup ---
+
+const serverName = 'reader';
+const serverDescription = 'Provides tools for reading and extracting content from files (e.g., PDF text).';
+const serverVersion = '0.1.0'; // TODO: Update version as needed
+
+// Instantiate McpServer
+const mcpServer = new McpServer(
+  {
+    name: serverName,
+    version: serverVersion,
+    description: serverDescription,
   },
-  description: 'An array of read operations to perform.'
-};
+  {},
+);
 
+// Array of imported tool objects
+const definedTools: McpTool<any, any>[] = [
+    readerTool,
+];
 
-const readerTool: McpTool = {
-  name: 'reader',
-  description: 'Reads content from files, supporting various formats like PDF text extraction.',
-  inputSchema: readerToolSchema,
-  // outputSchema: Define if needed, likely based on ReaderResultItem[]
-
-  async execute(args: unknown, options?: McpToolExecuteOptions): Promise<ReaderResultItem[]> {
-    // 1. Validate args against schema (framework might do this, but good practice)
-    // For now, assume args are valid ReaderInputItem[]
-    const items = args as ReaderInputItem[];
-
-    // 2. Extract necessary options
-    const workspaceRoot = options?.workspaceRoot;
-    const allowOutsideWorkspace = options?.allowOutsideWorkspace ?? false; // Default to false
-
-    if (!workspaceRoot) {
-      // This should ideally be handled by the MCP framework ensuring options are provided
-      throw new Error('Workspace root is required but was not provided in options.');
-    }
-
-    // 3. Call the core processing function
-    try {
-      console.log(`Executing reader tool with ${items.length} items. Allow outside: ${allowOutsideWorkspace}`);
-      const results = await processReadOperations(items, workspaceRoot, { allowOutsideWorkspace });
-      console.log(`Reader tool execution finished.`);
-      return results;
-    } catch (error: any) {
-      console.error('Error executing reader tool:', error);
-      // Re-throw or format error as needed for MCP response
-      // Potentially return a generic error result for all items if the core function throws globally
-       return items.map(item => ({
-         id: item.id,
-         success: false,
-         error: `Failed to execute reader operation batch: ${error.message || 'Unknown error'}`,
-         suggestion: 'Check tool configuration and input arguments.'
-       }));
-    }
+// Register tools
+definedTools.forEach((tool) => {
+  if (tool && tool.name && tool.execute && tool.inputSchema instanceof ZodObject) {
+    const zodShape: ZodRawShape = tool.inputSchema.shape;
+    mcpServer.tool(
+      tool.name,
+      tool.description || '',
+      zodShape,
+      async (args: unknown) => {
+          const workspaceRoot = process.cwd();
+          // Pass allowOutsideWorkspace option if needed by the tool
+          // For reader, it's handled internally by the core tool based on McpToolExecuteOptions
+          const options = { allowOutsideWorkspace: true }; // Example: Defaulting to allow for reader server? Or make configurable?
+          try {
+              const validatedArgs = tool.inputSchema.parse(args);
+              // Pass options to execute
+              const result = await tool.execute(validatedArgs, workspaceRoot, options);
+              if (result.success && !result.content) {
+                  result.content = [];
+              }
+              return result;
+          } catch (execError: any) {
+               console.error(`Error during execution of ${tool.name}:`, execError);
+               return {
+                   success: false,
+                   error: `Tool execution failed: ${execError.message || 'Unknown error'}`,
+                   content: [{ type: 'text', text: `Tool execution failed: ${execError.message || 'Unknown error'}` }]
+               };
+          }
+      }
+    );
+    console.error(`Registered tool: ${tool.name}`);
+  } else {
+    console.warn('Skipping invalid tool definition during registration:', tool);
   }
-};
+});
 
-// Export the tool
-export default readerTool; // Or export { readerTool };
+// --- Server Start ---
+async function startServer() {
+    try {
+      const transport = new StdioServerTransport();
+      await mcpServer.server.connect(transport);
+      console.error(`Reader MCP Server "${serverName}" v${serverVersion} started successfully via stdio.`);
+      console.error('Waiting for requests...');
+    } catch (error: unknown) {
+      console.error('Server failed to start:', error);
+      process.exit(1);
+    }
+}
 
-console.log('MCP Reader Tool Package Loaded');
+startServer();
 
-// Re-export core types if needed by consumers of this package directly
-export type { ReaderInputItem, ReaderResultItem, ReadOperation };
+// Graceful shutdown
+process.on('SIGINT', () => {
+    console.error('Received SIGINT. Exiting...');
+    process.exit(0);
+});
+process.on('SIGTERM', () => {
+    console.error('Received SIGTERM. Exiting...');
+    process.exit(0);
+});

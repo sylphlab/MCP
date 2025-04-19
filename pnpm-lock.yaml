@@ -32,9 +32,18 @@ importers:
 
   packages/base64:
     dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.1
+        version: 1.10.1
       '@sylphlab/mcp-base64-core':
         specifier: workspace:*
         version: link:../base64-core
+      '@sylphlab/mcp-core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
     devDependencies:
       '@types/node':
         specifier: ^20.12.12
@@ -131,9 +140,18 @@ importers:
 
   packages/fetch:
     dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.1
+        version: 1.10.1
+      '@sylphlab/mcp-core':
+        specifier: workspace:*
+        version: link:../core
       '@sylphlab/mcp-fetch-core':
         specifier: workspace:*
         version: link:../fetch-core
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
     devDependencies:
       '@types/node':
         specifier: ^20.12.12
@@ -267,9 +285,18 @@ importers:
 
   packages/hasher:
     dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.1
+        version: 1.10.1
+      '@sylphlab/mcp-core':
+        specifier: workspace:*
+        version: link:../core
       '@sylphlab/mcp-hasher-core':
         specifier: workspace:*
         version: link:../hasher-core
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
     devDependencies:
       '@types/node':
         specifier: ^20.12.12
@@ -344,9 +371,18 @@ importers:
 
   packages/json:
     dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.1
+        version: 1.10.1
+      '@sylphlab/mcp-core':
+        specifier: workspace:*
+        version: link:../core
       '@sylphlab/mcp-json-core':
         specifier: workspace:*
         version: link:../json-core
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
     devDependencies:
       '@types/node':
         specifier: ^20.12.12
@@ -421,9 +457,18 @@ importers:
 
   packages/net:
     dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.1
+        version: 1.10.1
+      '@sylphlab/mcp-core':
+        specifier: workspace:*
+        version: link:../core
       '@sylphlab/mcp-net-core':
         specifier: workspace:*
         version: link:../net-core
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
     devDependencies:
       '@types/node':
         specifier: ^20.12.12
@@ -498,12 +543,18 @@ importers:
 
   packages/reader:
     dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.1
+        version: 1.10.1
       '@sylphlab/mcp-core':
         specifier: workspace:*
         version: link:../core
       '@sylphlab/mcp-reader-core':
         specifier: workspace:*
         version: link:../reader-core
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
     devDependencies:
       '@types/node':
         specifier: ^20.12.12
@@ -581,9 +632,18 @@ importers:
 
   packages/wait:
     dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.1
+        version: 1.10.1
+      '@sylphlab/mcp-core':
+        specifier: workspace:*
+        version: link:../core
       '@sylphlab/mcp-wait-core':
         specifier: workspace:*
         version: link:../wait-core
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
     devDependencies:
       '@types/node':
         specifier: ^20.12.12
@@ -658,9 +718,18 @@ importers:
 
   packages/xml:
     dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.1
+        version: 1.10.1
+      '@sylphlab/mcp-core':
+        specifier: workspace:*
+        version: link:../core
       '@sylphlab/mcp-xml-core':
         specifier: workspace:*
         version: link:../xml-core
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
     devDependencies:
       '@types/node':
         specifier: ^20.12.12
@@ -1175,6 +1244,10 @@ packages:
 
   '@modelcontextprotocol/sdk@1.10.0':
     resolution: {integrity: sha512-wijOavYZfSOADbVM0LA7mrQ17N4IKNdFcfezknCCsZ1Y1KstVWlkDZ5ebcxuQJmqTTxsNjBHLc7it1SV0TBiPg==}
+    engines: {node: '>=18'}
+
+  '@modelcontextprotocol/sdk@1.10.1':
+    resolution: {integrity: sha512-xNYdFdkJqEfIaTVP1gPKoEvluACHZsHZegIoICX8DM1o6Qf3G5u2BQJHmgd0n4YgRPqqK/u1ujQvrgAxxSJT9w==}
     engines: {node: '>=18'}
 
   '@nodelib/fs.scandir@2.1.5':
@@ -3364,6 +3437,21 @@ snapshots:
       read-yaml-file: 1.1.0
 
   '@modelcontextprotocol/sdk@1.10.0':
+    dependencies:
+      content-type: 1.0.5
+      cors: 2.8.5
+      cross-spawn: 7.0.6
+      eventsource: 3.0.6
+      express: 5.1.0
+      express-rate-limit: 7.5.0(express@5.1.0)
+      pkce-challenge: 5.0.0
+      raw-body: 3.0.0
+      zod: 3.24.3
+      zod-to-json-schema: 3.24.5(zod@3.24.3)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@modelcontextprotocol/sdk@1.10.1':
     dependencies:
       content-type: 1.0.5
       cors: 2.8.5

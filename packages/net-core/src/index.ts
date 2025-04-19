@@ -1,13 +1,11 @@
 // src/index.ts for @sylphlab/mcp-net-core
 
 // Export the tool implementation, Zod schema, and inferred types
-export { netTool, NetToolInputSchema } from './tools/netTool.js';
+export { netTool, NetToolInputSchema, NetOperationEnum } from './tools/netTool.js';
 export type {
   NetToolInput,
-  NetInputItem,
   NetToolOutput,
-  NetResultItem,
-  NetOperation,
+  NetOperation, // Still useful to export the operation type
 } from './tools/netTool.js';
 
-console.log('MCP Net Core Package (Tool Structure) Loaded');
+console.log('MCP Net Core Package (Single Operation Tool Structure) Loaded');

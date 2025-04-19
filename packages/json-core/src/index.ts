@@ -1,13 +1,11 @@
 // src/index.ts for @sylphlab/mcp-json-core
 
 // Export the tool implementation, Zod schema, and inferred types
-export { jsonTool, JsonToolInputSchema } from './tools/jsonTool.js';
+export { jsonTool, JsonToolInputSchema, JsonOperationEnum } from './tools/jsonTool.js';
 export type {
   JsonToolInput,
-  JsonInputItem,
   JsonToolOutput,
-  JsonResultItem,
-  JsonOperation,
+  JsonOperation, // Still useful to export the operation type
 } from './tools/jsonTool.js';
 
-console.log('MCP JSON Core Package (Tool Structure) Loaded');
+console.log('MCP JSON Core Package (Single Operation Tool Structure) Loaded');
