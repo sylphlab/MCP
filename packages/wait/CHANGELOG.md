@@ -1,5 +1,11 @@
 # @sylphlab/mcp-wait
 
+## 0.3.1
+
+### Patch Changes
+
+- aa87680: fix executable path
+
 ## 0.3.0
 
 ### Minor Changes
