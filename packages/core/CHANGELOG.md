@@ -1,5 +1,11 @@
 # @sylphlab/mcp-core
 
+## 0.2.0
+
+### Minor Changes
+
+- Refactor core packages for batch input, SDK type alignment, and utils helper correction.
+
 ## 0.1.1
 
 ### Patch Changes

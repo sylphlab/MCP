@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-utils",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Shared utilities for MCP server packages",
   "type": "module",
   "main": "./dist/index.cjs",

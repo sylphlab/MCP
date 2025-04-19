@@ -1,5 +1,16 @@
 # @sylphlab/mcp-json-core
 
+## 0.5.0
+
+### Minor Changes
+
+- Refactor core packages for batch input, SDK type alignment, and utils helper correction.
+
+### Patch Changes
+
+- Updated dependencies
+  - @sylphlab/mcp-core@0.2.0
+
 ## 0.4.1
 
 ### Patch Changes

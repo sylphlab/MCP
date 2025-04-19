@@ -1,5 +1,14 @@
 # @sylphlab/mcp-base64
 
+## 0.3.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @sylphlab/mcp-core@0.2.0
+  - @sylphlab/mcp-utils@0.5.0
+  - @sylphlab/mcp-base64-core@0.3.3
+
 ## 0.3.2
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @sylphlab/mcp-filesystem
 
+## 0.4.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @sylphlab/mcp-core@0.2.0
+  - @sylphlab/mcp-utils@0.5.0
+  - @sylphlab/mcp-filesystem-core@0.4.2
+
 ## 0.4.1
 
 ### Patch Changes
