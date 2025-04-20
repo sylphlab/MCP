@@ -10,4 +10,10 @@ export default defineConfig({
   clean: true,
   target: 'node18',
   outDir: 'dist',
+  esbuildOptions(options) {
+    options.loader = {
+      ...options.loader,
+      '.wasm': 'file',
+    };
+  },
 });

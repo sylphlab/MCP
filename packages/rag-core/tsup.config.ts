@@ -1,5 +1,5 @@
 import { defineConfig } from 'tsup';
-import { execSync } from 'node:child_process'; // Need execSync again
+// No longer need execSync
 
 export default defineConfig({
   entry: ['src/index.ts'],
@@ -16,16 +16,5 @@ export default defineConfig({
   //     '.wasm': 'file',
   //   };
   // },
-  // Restore onSuccess hook to run the copy script
-  onSuccess: async () => {
-    console.log('Build successful, executing WASM copy script...');
-    try {
-      // Execute the copy script (ensure path is correct relative to package root)
-      execSync('node ../../scripts/copy-wasm.cjs', { stdio: 'inherit' });
-      console.log('WASM copy script finished successfully.');
-    } catch (error) {
-      console.error('WASM copy script failed:', error);
-      throw error; // Fail the build if copy fails
-    }
-  },
+  // Remove onSuccess hook
 });

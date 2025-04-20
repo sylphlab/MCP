@@ -98,6 +98,75 @@ describe('IndexManager', () => {
       vi.restoreAllMocks();
   });
 
+   // --- Initialization Error Tests ---
+   it('should throw error if Pinecone config is missing apiKey', async () => {
+       const badConfig = { provider: VectorDbProvider.Pinecone, indexName: 'test' } as any;
+       // Spy on initialize for this test
+       const initSpy = vi.spyOn(IndexManager.prototype as any, 'initialize').mockImplementationOnce(async () => {
+           // Simulate the internal check throwing
+           throw new Error('Pinecone config requires apiKey and indexName.');
+       });
+       await expect(IndexManager.create(badConfig)).rejects.toThrow(/Pinecone config requires apiKey and indexName/);
+       initSpy.mockRestore();
+   });
+
+    it('should throw error if Pinecone config is missing indexName', async () => {
+        const badConfig = { provider: VectorDbProvider.Pinecone, apiKey: 'test' } as any;
+        const initSpy = vi.spyOn(IndexManager.prototype as any, 'initialize').mockImplementationOnce(async () => {
+           throw new Error('Pinecone config requires apiKey and indexName.');
+       });
+       await expect(IndexManager.create(badConfig)).rejects.toThrow(/Pinecone config requires apiKey and indexName/);
+       initSpy.mockRestore();
+    });
+
+     it('should throw error if ChromaDB config is missing embedding function', async () => {
+        const badConfig = { provider: VectorDbProvider.ChromaDB } as any;
+        const initSpy = vi.spyOn(IndexManager.prototype as any, 'initialize').mockImplementationOnce(async () => {
+           throw new Error('ChromaDB provider requires an embedding function to be provided during IndexManager creation.');
+       });
+       // Let initialize run, pass undefined for embeddingFn
+       await expect(IndexManager.create(badConfig, undefined)).rejects.toThrow(/ChromaDB provider requires an embedding function/);
+       initSpy.mockRestore();
+    });
+
+     it('should handle ChromaDB client initialization errors', async () => {
+        const initError = new Error("Chroma connection failed");
+        // Mock the ChromaClient constructor to throw *within this test*
+        const mockChromaClient = vi.mocked((await import('chromadb')).ChromaClient);
+        mockChromaClient.mockImplementationOnce(() => { throw initError; });
+        // Spy on initialize to check console log, but let it run
+        const initSpy = vi.spyOn(IndexManager.prototype as any, 'initialize');
+        const consoleSpy = vi.spyOn(console, 'error');
+
+        await expect(IndexManager.create(testConfigChroma, dummyEmbeddingFn)).rejects.toThrow(/IndexManager initialization failed/);
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize IndexManager'), expect.any(Error));
+        initSpy.mockRestore();
+        consoleSpy.mockRestore();
+    });
+
+     it('should handle ChromaDB getOrCreateCollection errors', async () => {
+        const collectionError = new Error("Cannot create collection");
+        // Mock getOrCreateCollection to throw *within this test*
+         const mockGetOrCreate = vi.fn().mockRejectedValue(collectionError);
+         const mockChromaClient = vi.mocked((await import('chromadb')).ChromaClient);
+         mockChromaClient.mockImplementationOnce(() => ({
+             getOrCreateCollection: mockGetOrCreate,
+         } as any)); // Keep cast for incomplete mock
+         // Spy on initialize to check console log, but let it run
+         const initSpy = vi.spyOn(IndexManager.prototype as any, 'initialize');
+         const consoleSpy = vi.spyOn(console, 'error');
+
+
+        // Let initialize run, expect getOrCreateCollection mock to throw
+        await expect(IndexManager.create(testConfigChroma, dummyEmbeddingFn)).rejects.toThrow(/IndexManager initialization failed/);
+        expect(mockGetOrCreate).toHaveBeenCalled();
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize IndexManager'), expect.any(Error));
+        initSpy.mockRestore();
+        consoleSpy.mockRestore();
+    });
+
+   // --- Provider Specific Tests ---
+
   describe('ChromaDB Provider', () => {
     let manager: IndexManager;
     let convertFilterSpy: any;

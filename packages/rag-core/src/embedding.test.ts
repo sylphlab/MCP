@@ -42,15 +42,22 @@ vi.mock('ollama-ai-provider', () => ({
 }));
 
 
-// Mock node-fetch-native
-vi.mock('node-fetch-native', () => ({
-    default: vi.fn(),
-}));
-const mockedFetch = vi.mocked(fetch);
+// Mock node-fetch-native - Define mock fully inside factory
+vi.mock('node-fetch-native', () => {
+   // This structure ensures 'default' export is correctly mocked
+   return { default: vi.fn() };
+});
+
+// Get mock instance after mocking
+let mockedFetch = vi.mocked((await import('node-fetch-native')).default);
+
 
 describe('embedding', () => {
-  beforeEach(() => {
+  beforeEach(async () => { // Make async
     vi.clearAllMocks();
+    // Get mock instance here
+    mockedFetch = vi.mocked((await import('node-fetch-native')).default);
+    mockedFetch.mockClear(); // Clear fetch mock specifically
   });
 
   it('should use Mock provider by default and return dummy embeddings', async () => {
@@ -97,6 +104,31 @@ describe('embedding', () => {
     expect(embeddings[0][0]).toBeCloseTo(chunks[0].length * 0.1);
   });
 
+  it('should throw error if Ollama embedMany fails', async () => {
+       const chunks = ['ollama fail'];
+       const config: EmbeddingModelConfig = { provider: EmbeddingModelProvider.Ollama, modelName: 'fail-model', batchSize: 1 };
+       const error = new Error('Ollama connection refused');
+       const mockedEmbedMany = vi.mocked(embedMany).mockRejectedValueOnce(error);
+
+       await expect(generateEmbeddings(chunks, config)).rejects.toThrow(error);
+       expect(mockedEmbedMany).toHaveBeenCalledOnce();
+  });
+
+   it('should throw error if Ollama embedMany returns mismatched count', async () => {
+       const chunks = ['ollama mismatch 1', 'ollama mismatch 2'];
+       const config: EmbeddingModelConfig = { provider: EmbeddingModelProvider.Ollama, modelName: 'mismatch-model', batchSize: 1 };
+       // Mock embedMany to return only one embedding but full structure
+       const mockedEmbedMany = vi.mocked(embedMany).mockResolvedValueOnce({
+           embeddings: [[0.1]], // Mismatched count
+           values: chunks, // Include original values
+           usage: { tokens: 10 } // Provide required 'tokens' property
+       });
+
+       await expect(generateEmbeddings(chunks, config)).rejects.toThrow(/Ollama embedding count mismatch: expected 2, got 1/);
+       expect(mockedEmbedMany).toHaveBeenCalledOnce();
+  });
+
+
   it('should handle empty input array', async () => {
     const chunks: string[] = [];
     const embeddings = await generateEmbeddings(chunks, defaultEmbeddingConfig);
@@ -114,6 +146,15 @@ describe('embedding', () => {
       expect(embeddings).toHaveLength(2);
       // Type guard for accessing mockDimension
       if (defaultEmbeddingConfig.provider === EmbeddingModelProvider.Mock) {
+        expect(embeddings[0]).toHaveLength(defaultEmbeddingConfig.mockDimension);
+        expect(embeddings[1]).toHaveLength(defaultEmbeddingConfig.mockDimension);
+      } else {
+        expect(defaultEmbeddingConfig.provider).toBe(EmbeddingModelProvider.Mock);
+      }
+      // Mock provider doesn't call embedMany
+      const mockedEmbedMany = vi.mocked(embedMany);
+      expect(mockedEmbedMany).not.toHaveBeenCalled();
+  }); // End of 'should accept Chunk objects as input' test
 
 
   describe('HttpEmbeddingFunction', () => {
@@ -219,17 +260,34 @@ describe('embedding', () => {
       expect(mockedFetch).toHaveBeenCalledTimes(1);
     });
 
-  });
-        expect(embeddings[0]).toHaveLength(defaultEmbeddingConfig.mockDimension);
-        expect(embeddings[1]).toHaveLength(defaultEmbeddingConfig.mockDimension);
-      } else {
-        expect(defaultEmbeddingConfig.provider).toBe(EmbeddingModelProvider.Mock);
-      }
-      // Mock provider doesn't call embedMany
-      const mockedEmbedMany = vi.mocked(embedMany);
-      expect(mockedEmbedMany).not.toHaveBeenCalled();
-  });
+  }); // End of HttpEmbeddingFunction describe block
 
   // Removed tests related to VercelAIEmbeddingFunction
 
-});
+  // Tests for deprecated generateEmbeddings error paths
+  it('should re-throw errors from specific providers (deprecated fn)', async () => {
+      const chunks = ['fail test'];
+      const config: EmbeddingModelConfig = { provider: EmbeddingModelProvider.Ollama, modelName: 'fail-model', batchSize: 1 };
+      const error = new Error('Provider specific error');
+      vi.mocked(embedMany).mockRejectedValueOnce(error);
+
+      // Spy on console.error *before* the call that might throw
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await expect(generateEmbeddings(chunks, config)).rejects.toThrow(error);
+      // Correct assertion string based on previous output
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining(`Ollama embedding generation failed for model ${config.modelName}`), error);
+      errorSpy.mockRestore(); // Restore spy
+  });
+
+   it('should throw error for unhandled provider (deprecated fn)', async () => {
+      const chunks = ['unknown provider'];
+      // Force an invalid config type to test the default case
+      const invalidConfig = { provider: 'unknown-provider' } as any;
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await expect(generateEmbeddings(chunks, invalidConfig)).rejects.toThrow(/Unhandled embedding provider/);
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining(`Error generating embeddings with unknown-provider`), expect.any(Error));
+      errorSpy.mockRestore();
+  });
+
+}); // End of top-level describe block

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { z } from 'zod';
 // Import the actual modules now, except for embedding which we still mock fully
 import { queryIndexTool, QueryIndexInputSchema } from './queryIndexTool.js';
-import { IndexManager, VectorDbProvider, QueryResult, VectorDbConfigSchema } from '../indexManager.js';
+import { IndexManager, VectorDbProvider, QueryResult, VectorDbConfigSchema, VectorDbConfig } from '../indexManager.js'; // Added VectorDbConfig import
 import * as embedding from '../embedding.js'; // Mocked below
 import { BaseMcpToolOutput } from '@sylphlab/mcp-core';
 
@@ -31,8 +31,8 @@ const mockGenerateEmbeddings = vi.mocked(embedding.generateEmbeddings);
 import { MockInstance } from 'vitest'; // Import MockInstance
 
 describe('queryIndexTool', () => {
-  // Declare spy variable without explicit type; let it be inferred in beforeEach
-  let MockIndexManagerCreate;
+  // Declare spy variable with explicit type
+  let MockIndexManagerCreate: MockInstance<[config: VectorDbConfig, embeddingFn?: embedding.IEmbeddingFunction | undefined], Promise<IndexManager>>;
 
   beforeEach(() => {
     // Reset all mocks (including spies)
@@ -90,9 +90,21 @@ describe('queryIndexTool', () => {
      expect(result.content).toEqual([{ type: 'text', text: `Error generating query embedding: ${error.message}` }]);
      expect(MockIndexManagerCreate).not.toHaveBeenCalled();
      expect(mockQueryIndex).not.toHaveBeenCalled();
-  });
+ });
 
-  it('should handle IndexManager creation failure', async () => {
+ it('should handle embedding generation returning empty results', async () => {
+    const input = { queryText: 'empty embedding', topK: 5 };
+    mockGenerateEmbeddings.mockResolvedValue([]); // Simulate empty result
+
+    const result = await queryIndexTool.execute(input, '.');
+
+    expect(result.success).toBe(false);
+    expect(result.content).toEqual([{ type: 'text', text: 'Error generating query embedding: Embedding generation returned no results.' }]);
+    expect(MockIndexManagerCreate).not.toHaveBeenCalled();
+    expect(mockQueryIndex).not.toHaveBeenCalled();
+ });
+
+ it('should handle IndexManager creation failure', async () => {
       const input = { queryText: 'fail manager create', topK: 5 };
       const error = new Error('Manager creation failed');
       // Re-mock the spy for this specific test case
@@ -180,6 +192,38 @@ describe('queryIndexTool', () => {
       );
       expect(embedding.OllamaEmbeddingFunction).toHaveBeenCalledWith('custom-ollama', 'http://custom:11434');
       expect(mockQueryIndex).toHaveBeenCalledWith(queryVector, 5, undefined);
+  });
+
+  it('should instantiate HttpEmbeddingFunction when HTTP config is provided', async () => {
+       const httpConfig: Extract<z.infer<typeof embedding.EmbeddingModelConfigSchema>, { provider: embedding.EmbeddingModelProvider.Http }> = {
+           provider: embedding.EmbeddingModelProvider.Http,
+           url: 'http://test-embed:80',
+           headers: { 'X-Api-Key': 'test-key' },
+           batchSize: 50,
+       };
+       const input = {
+           queryText: 'http config query',
+           topK: 2,
+           embeddingConfig: httpConfig,
+           // Use default InMemory DB for simplicity here
+       };
+       const queryVector = [0.4, 0.6];
+       mockGenerateEmbeddings.mockResolvedValue([queryVector]);
+
+       await queryIndexTool.execute(input, '.');
+
+       expect(mockGenerateEmbeddings).toHaveBeenCalledWith([input.queryText], input.embeddingConfig);
+       expect(MockIndexManagerCreate).toHaveBeenCalledWith(
+           { provider: VectorDbProvider.InMemory }, // Default DB
+           expect.any(embedding.HttpEmbeddingFunction) // Expect HTTP instance
+       );
+       // Verify constructor call for HttpEmbeddingFunction
+       expect(embedding.HttpEmbeddingFunction).toHaveBeenCalledWith(
+           httpConfig.url,
+           httpConfig.headers,
+           httpConfig.batchSize
+       );
+       expect(mockQueryIndex).toHaveBeenCalledWith(queryVector, 2, undefined);
   });
 
 });

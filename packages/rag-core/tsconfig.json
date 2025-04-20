@@ -10,7 +10,7 @@
     // "declarationDir": "./dist", // Remove
     "types": ["node", "vitest/globals"] // Keep vitest types
   },
-  "include": ["src/**/*.ts"], // Keep include
-  "exclude": ["node_modules", "dist", "src/**/*.test.ts"], // Keep exclude test files
+  "include": ["src"], // Include everything in src for analysis
+  "exclude": ["node_modules", "dist"], // Remove test file exclusion
   // Remove references
 }
