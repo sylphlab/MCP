@@ -34,7 +34,7 @@ vi.mock('./parsing.js', async (importOriginal) => {
             ]
           }
         };
-      } else if (lang && code.length > 0) {
+      } else if (lang && code.length > 0 && !code.includes('fails parsing')) { // Add condition to exclude failure case
          // Generic mock for other successful parses
          return {
              rootNode: {
@@ -107,11 +107,12 @@ describe('Chunking Logic', () => {
      // This test should now pass after fixing createChunk
     // TODO: This test fails consistently despite code appearing correct.
     // The warning metadata is undefined during assertion. Needs investigation.
-     it.skip('should use fallback text splitting when parsing fails', async () => { // Re-skip test
+     it('should use fallback text splitting when parsing fails', async () => {
       // parseCode mock will return null by default
       const code = 'Some code that fails parsing';
       const chunks = await chunkCodeAst(code, SupportedLanguage.JavaScript, defaultOptions, baseMetadata);
       expect(chunks.length).toBe(1);
+      console.log('[Test] Received chunks:', JSON.stringify(chunks, null, 2));
       // Check if warning property exists and is a string
       expect(chunks[0].metadata?.warning).toBeTypeOf('string');
       expect(chunks[0].metadata?.warning).toContain('Fallback text splitting applied (parsing error'); // Check content
@@ -156,6 +157,54 @@ describe('Chunking Logic', () => {
 
     // TODO: Add more complex tests involving recursion based on meaningful children
     // These would require more sophisticated mocking of the tree structure returned by parseCode
+
+    it('should handle nested meaningful nodes with text in between (mocked)', async () => {
+      const code = `// Comment 1
+function outer() {
+  // Inner comment
+  let x = 1;
+  function inner() {
+    console.log(x);
+  }
+  // After inner
+}
+// Comment 2`;
+      const options = { maxChunkSize: 50, chunkOverlap: 5 }; // Smaller size to force splitting
+
+      // Mock a more complex AST
+      vi.mocked(parsing.parseCode).mockResolvedValueOnce({
+        rootNode: {
+          type: 'program', text: code, startIndex: 0, endIndex: code.length,
+          startPosition: { row: 0, column: 0 }, endPosition: { row: 9, column: 13 },
+          children: [
+            { type: 'comment', text: '// Comment 1', startIndex: 0, endIndex: 12, startPosition: { row: 0, column: 0 }, endPosition: { row: 0, column: 12 }, children: [] },
+            { type: 'function_declaration', text: 'function outer() {\n  // Inner comment\n  let x = 1;\n  function inner() {\n    console.log(x);\n  }\n  // After inner\n}', startIndex: 13, endIndex: 136, startPosition: { row: 1, column: 0 }, endPosition: { row: 8, column: 1 },
+              children: [
+                { type: 'comment', text: '// Inner comment', startIndex: 34, endIndex: 51, startPosition: { row: 2, column: 2 }, endPosition: { row: 2, column: 19 }, children: [] },
+                { type: 'lexical_declaration', text: 'let x = 1;', startIndex: 54, endIndex: 64, startPosition: { row: 3, column: 2 }, endPosition: { row: 3, column: 12 }, children: [] },
+                { type: 'function_declaration', text: 'function inner() {\n    console.log(x);\n  }', startIndex: 67, endIndex: 111, startPosition: { row: 4, column: 2 }, endPosition: { row: 6, column: 3 }, children: [] },
+                { type: 'comment', text: '// After inner', startIndex: 114, endIndex: 129, startPosition: { row: 7, column: 2 }, endPosition: { row: 7, column: 17 }, children: [] },
+              ]
+            },
+            { type: 'comment', text: '// Comment 2', startIndex: 137, endIndex: 149, startPosition: { row: 9, column: 0 }, endPosition: { row: 9, column: 12 }, children: [] },
+          ]
+        }
+      } as any);
+
+      const chunks = await chunkCodeAst(code, SupportedLanguage.JavaScript, options, baseMetadata);
+
+      // Assertions (adjust based on expected output with smallFragmentThreshold)
+      // Expect multiple chunks, check content and metadata
+      expect(chunks.length).toBeGreaterThan(3); // Expecting Comment1, Outer(parts), Comment2
+      expect(chunks[0].content).toBe('// Comment 1');
+      expect(chunks[1].content).toContain('function outer'); // Might contain prefix text
+      // Add more specific assertions based on how the refined logic splits the outer function and its children
+      expect(chunks.find(c => c.content.includes('function inner'))).toBeDefined();
+      // The last chunk should contain the merged content of the last meaningful node's suffix and the final suffix text
+      expect(chunks[chunks.length - 1].content).toBe('// Comment 2'); // Revert assertion: Expect separate chunk now
+    });
+
+    // Obsolete prefix/suffix merging tests removed after logic simplification
 
   });
 

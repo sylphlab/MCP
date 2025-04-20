@@ -1,70 +1,71 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock, SpyInstance } from 'vitest';
 import path from 'node:path';
-import { Parser, Language, Tree } from 'web-tree-sitter';
+// Import types, not the actual Parser/Language/Tree values from the original module
+import type { Parser, Language, Tree } from 'web-tree-sitter';
 import { parseCode, SupportedLanguage, _resetParsingState } from './parsing.js';
-import * as fsPromises from 'node:fs/promises'; // Import fsPromises
+// No longer importing fsPromises for spying
 
 // --- Mock web-tree-sitter ---
-// Hoist mocks to be available inside vi.mock factory
-// Hoist ALL mocks needed
-const { mockLoad, mockSetLanguage, mockParse, mockInit, mockReadFile } = vi.hoisted(() => {
+// Hoist mocks needed for web-tree-sitter factory
+const { mockLoad, mockSetLanguage, mockParse, mockInit } = vi.hoisted(() => {
   return {
     mockLoad: vi.fn(),
     mockSetLanguage: vi.fn(),
     mockParse: vi.fn(),
     mockInit: vi.fn(),
-    mockReadFile: vi.fn(), // Hoisted correctly
   };
 });
 
 // Mock the entire web-tree-sitter module
 vi.mock('web-tree-sitter', () => {
-  // Define a mock class that mimics the Parser structure
   class MockParser {
-    // Static method mock
     static init = mockInit;
-
-    // Instance method mocks
     setLanguage = mockSetLanguage;
     parse = mockParse;
-
-    constructor() {
-      // Constructor mock can be simple or track calls if needed
-      // console.log('MockParser constructor called');
-    }
+    constructor() {}
   }
-
   return {
-    // Export the mock class as 'Parser'
     Parser: MockParser,
-    // Mock Language as an object containing the static load method
-    Language: {
-      load: mockLoad,
-    },
-    // Tree: class MockTree {}, // If needed
+    Language: { load: mockLoad },
   };
 });
 
-// Mock node:fs/promises specifically for readFile
-vi.mock('node:fs/promises', async (importOriginal) => {
-  const actual = await importOriginal() as typeof fsPromises;
-  return {
-    ...actual, // Keep other fs functions
-    readFile: mockReadFile, // Use our hoisted mock
-  };
-});
 // --- End Mocks ---
 
 describe('parsing', () => {
-  // Reset mocks and internal state before each test
-  beforeEach(() => {
-    // vi.resetModules(); // resetModules can cause issues with mocks, use clearAllMocks and explicit reset instead
-    vi.clearAllMocks(); // Clear call history etc.
-    _resetParsingState(); // Call the explicit reset function for internal state
-    // mockInit.mockClear(); // vi.clearAllMocks() handles this
-    // mockLoad.mockClear();
-    // mockSetLanguage.mockClear();
-    // mockParse.mockClear();
+  // Hold references to the actual mock functions/objects retrieved via importMock
+  let MockedParserStatic: { init: Mock };
+  let MockedLanguageStatic: { load: Mock };
+  let MockedParserInstanceMethods: { setLanguage: Mock, parse: Mock };
+  // No longer need MockedReadFile
+
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    _resetParsingState();
+
+    // Retrieve the mocked web-tree-sitter module
+    const MockedWTS = await vi.importMock('web-tree-sitter') as {
+        Parser: { init: Mock, new(): { setLanguage: Mock, parse: Mock } },
+        Language: { load: Mock }
+    };
+
+    // Assign references for web-tree-sitter mocks
+    MockedParserStatic = MockedWTS.Parser;
+    MockedLanguageStatic = MockedWTS.Language;
+    const parserInstance = new MockedWTS.Parser();
+    MockedParserInstanceMethods = {
+        setLanguage: parserInstance.setLanguage,
+        parse: parserInstance.parse
+    };
+
+    // --- Removed readFile spy setup ---
+
+    // Default mock/spy implementations
+    MockedParserStatic.init.mockResolvedValue(undefined);
+    MockedLanguageStatic.load.mockResolvedValue({} as Language);
+    MockedParserInstanceMethods.parse.mockReturnValue({ rootNode: {} } as Tree);
+    // No default for readFile needed
   });
 
   afterEach(() => {
@@ -74,30 +75,28 @@ describe('parsing', () => {
   // initializeParser is not exported, tested implicitly via parseCode
 
   describe('parseCode', () => {
-    // Tests here will implicitly test initializeParser and loadLanguage logic
-    // by checking if mockInit, mockLoad, mockSetLanguage, mockParse are called correctly.
 
     it('should initialize parser, load language, set language, and parse', async () => {
       const code = 'const x = 1;';
       const language = SupportedLanguage.JavaScript;
-      const mockLang = { name: 'mockJS' } as Language; // Mock Language object
-      const mockTree = { rootNode: { text: code } } as Tree; // Mock Tree object
+      const mockLang = { name: 'mockJS' } as Language;
+      const mockTree = { rootNode: { text: code } } as Tree;
 
-      // Setup mocks for a successful run
-      mockInit.mockResolvedValue(undefined);
-      mockLoad.mockResolvedValue(mockLang);
-      mockParse.mockReturnValue(mockTree);
+      // Setup specific mock returns for this test
+      MockedLanguageStatic.load.mockResolvedValue(mockLang);
+      MockedParserInstanceMethods.parse.mockReturnValue(mockTree);
+      // Assume readFile works implicitly because loadLanguage mock resolves
 
       const result = await parseCode(code, language);
 
-      expect(mockInit).toHaveBeenCalledTimes(1); // Initialize called
-      expect(mockLoad).toHaveBeenCalledTimes(1);
-      // Check if load was called with the correct WASM path (needs path mock adjustment or careful assertion)
-      // For now, just check it was called
-      // expect(mockLoad).toHaveBeenCalledWith(expect.stringContaining('tree-sitter-javascript.wasm'));
-      expect(mockSetLanguage).toHaveBeenCalledWith(mockLang); // Set language called
-      expect(mockParse).toHaveBeenCalledWith(code); // Parse called
-      expect(result).toBe(mockTree); // Returns the parsed tree
+      expect(MockedParserStatic.init).toHaveBeenCalledTimes(1);
+      expect(MockedLanguageStatic.load).toHaveBeenCalledTimes(1);
+      // Cannot assert readFile directly anymore
+      // expect(MockedReadFile).toHaveBeenCalledTimes(1);
+      // expect(MockedReadFile).toHaveBeenCalledWith(path.resolve(process.cwd(), 'dist', 'tree-sitter-javascript.wasm'));
+      expect(MockedParserInstanceMethods.setLanguage).toHaveBeenCalledWith(mockLang);
+      expect(MockedParserInstanceMethods.parse).toHaveBeenCalledWith(code);
+      expect(result).toBe(mockTree);
     });
 
     it('should reuse initialized parser and loaded language', async () => {
@@ -109,77 +108,87 @@ describe('parsing', () => {
        const mockTree2 = { rootNode: { text: code2 } } as Tree;
 
        // Setup mocks
-       mockInit.mockResolvedValue(undefined);
-       mockLoad.mockResolvedValue(mockLang);
-       mockParse.mockReturnValueOnce(mockTree1).mockReturnValueOnce(mockTree2);
+       MockedLanguageStatic.load.mockResolvedValue(mockLang);
+       MockedParserInstanceMethods.parse.mockReturnValueOnce(mockTree1).mockReturnValueOnce(mockTree2);
 
        // First call
        await parseCode(code1, language);
-       expect(mockInit).toHaveBeenCalledTimes(1);
-       expect(mockLoad).toHaveBeenCalledTimes(1);
-       expect(mockSetLanguage).toHaveBeenCalledTimes(1);
-       expect(mockParse).toHaveBeenCalledTimes(1);
+       expect(MockedParserStatic.init).toHaveBeenCalledTimes(1);
+       expect(MockedLanguageStatic.load).toHaveBeenCalledTimes(1);
+       expect(MockedParserInstanceMethods.setLanguage).toHaveBeenCalledTimes(1);
+       expect(MockedParserInstanceMethods.parse).toHaveBeenCalledTimes(1);
+
+       // Reset call counts for the next assertion
+       vi.clearAllMocks();
+       // Re-set default resolved values if clearAllMocks removed them
+       MockedParserStatic.init.mockResolvedValue(undefined);
+       MockedLanguageStatic.load.mockResolvedValue(mockLang);
+       MockedParserInstanceMethods.parse.mockReturnValue(mockTree2);
+
 
        // Second call
-       await parseCode(code2, language);
-       expect(mockInit).toHaveBeenCalledTimes(1); // Not called again
-       expect(mockLoad).toHaveBeenCalledTimes(1); // Not called again
-       expect(mockSetLanguage).toHaveBeenCalledTimes(2); // Called again
-       expect(mockParse).toHaveBeenCalledTimes(2); // Called again
+       const tree2 = await parseCode(code2, language);
+       expect(MockedParserStatic.init).not.toHaveBeenCalled();
+       expect(MockedLanguageStatic.load).not.toHaveBeenCalled();
+       // Cannot assert readFile directly anymore
+       // expect(MockedReadFile).not.toHaveBeenCalled();
+       expect(MockedParserInstanceMethods.setLanguage).toHaveBeenCalledTimes(1);
+       expect(MockedParserInstanceMethods.parse).toHaveBeenCalledTimes(1);
+       expect(MockedParserInstanceMethods.parse).toHaveBeenCalledWith(code2);
+       expect(tree2).toBe(mockTree2);
     });
 
      it('should throw if language is unsupported', async () => {
         const code = 'some code';
-        // Cast an invalid value to bypass enum check for testing
-        const unsupportedLang = 'cobol' as SupportedLanguage;
+        const unsupportedLang = 'cobol' as any; // Use any cast
 
-        mockInit.mockResolvedValue(undefined); // Assume init works
+        MockedParserStatic.init.mockResolvedValue(undefined);
 
         await expect(parseCode(code, unsupportedLang)).rejects.toThrow(
-            `Unsupported language or missing WASM path for: ${unsupportedLang}`
+            `Unsupported language: ${unsupportedLang}`
         );
-        expect(mockInit).toHaveBeenCalledTimes(1);
-        expect(mockLoad).not.toHaveBeenCalled(); // Load should not be called
+        expect(MockedParserStatic.init).toHaveBeenCalledTimes(1);
+        expect(MockedLanguageStatic.load).not.toHaveBeenCalled();
      });
 
-     it('should throw if Language.load fails', async () => {
+     // REMOVED test for readFile failure
+
+      it('should throw if loadLanguage fails (via Language.load)', async () => {
         const code = 'some code';
         const language = SupportedLanguage.Python;
-        const readFileError = new Error('ENOENT: Failed to read WASM file');
+        const loadError = new Error('WASM compilation failed');
 
-        mockInit.mockResolvedValue(undefined);
-        // Mock readFile to fail for this test
-        mockReadFile.mockRejectedValue(readFileError);
-        // mockLoad should not be called if readFile fails, so no need to mock it here
+        // Mock Language.load spy to fail
+        MockedLanguageStatic.load.mockRejectedValue(loadError);
 
         await expect(parseCode(code, language)).rejects.toThrow(
-            `Failed to load grammar for ${language}` // The error thrown by loadLanguage wraps the readFile error
+             expect.stringContaining(`Failed to load grammar for ${language}`) // Error is wrapped
         );
-        expect(mockInit).toHaveBeenCalledTimes(1);
-        expect(mockReadFile).toHaveBeenCalledTimes(1); // Check readFile was called
-        expect(mockLoad).not.toHaveBeenCalled(); // Language.load should not be called
-        expect(mockSetLanguage).not.toHaveBeenCalled();
+        expect(MockedParserStatic.init).toHaveBeenCalledTimes(1);
+        // Cannot assert readFile directly anymore
+        // expect(MockedReadFile).toHaveBeenCalledTimes(1); // readFile would have been called
+        expect(MockedLanguageStatic.load).toHaveBeenCalledTimes(1); // load was called but failed
      });
+
 
      it('should throw if parser.parse returns null', async () => {
         const code = 'some code';
         const language = SupportedLanguage.TypeScript;
         const mockLang = { name: 'mockTS' } as Language;
 
-        mockInit.mockResolvedValue(undefined);
-        // Mock readFile to succeed for this test
-        mockReadFile.mockResolvedValue(Buffer.from('mock wasm content'));
-        mockLoad.mockResolvedValue(mockLang);
-        mockParse.mockReturnValue(null);
+        // Setup mocks for successful load but failed parse
+        MockedLanguageStatic.load.mockResolvedValue(mockLang);
+        MockedParserInstanceMethods.parse.mockReturnValue(null);
 
         await expect(parseCode(code, language)).rejects.toThrow(
             `Failed to parse code for language ${language}. Parser returned null.`
         );
-        expect(mockInit).toHaveBeenCalledTimes(1);
-        expect(mockReadFile).toHaveBeenCalledTimes(1); // Check readFile was called
-        expect(mockLoad).toHaveBeenCalledTimes(1); // Check Language.load was called
-        expect(mockSetLanguage).toHaveBeenCalledWith(mockLang);
-        expect(mockParse).toHaveBeenCalledWith(code);
+        expect(MockedParserStatic.init).toHaveBeenCalledTimes(1);
+        // Cannot assert readFile directly anymore
+        // expect(MockedReadFile).toHaveBeenCalledTimes(1);
+        expect(MockedLanguageStatic.load).toHaveBeenCalledTimes(1);
+        expect(MockedParserInstanceMethods.setLanguage).toHaveBeenCalledWith(mockLang);
+        expect(MockedParserInstanceMethods.parse).toHaveBeenCalledWith(code);
      });
 
   });

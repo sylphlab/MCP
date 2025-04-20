@@ -37,16 +37,20 @@ Refactor MCP core and server packages for consistency, testability, and adherenc
     - **Task 5: Build & Test:** Successfully built and tested the monorepo, resolving errors and passing all tests.
     - **Task 6: Finalize Release:** Created changeset, versioned, committed, and pushed tags for the refactoring changes.
     - **RAG Core Foundation:** Established package structure (`rag-core`, `rag`), installed dependencies, resolved complex build configuration issues (tsconfig references, pnpm linking, tsup DTS generation workaround using `tsc -b`). Created placeholder files (`loader`, `parser`, `embedding`, `chroma`, `indexManager`, `types`, `queryIndexTool`, `indexStatusTool`) with initial logic. Implemented basic AST/text chunking including Markdown code block separation and recursive calls in `chunking.ts`. Configured OpenAI embedding and ChromaDB local persistence. Integrated indexing into `rag` server startup. Project builds successfully.
-- **Current State:** Foundational structure for `rag-core` and `rag` is stable and builds. Core logic placeholders are implemented. `chunking.ts` contains initial recursive AST logic but has unresolved type errors (SyntaxNode import, metadata access). `indexContentTool.ts` (from previous context) was also modified to fix imports.
-- **Build Workaround:** Using `tsup` for JS bundling (`dts: false`) and `pnpm exec tsc -b` for declaration file generation.
+- **Current State:** Foundational structure for `rag-core` and `rag` is stable and builds. Core logic placeholders are implemented. `chunking.ts` contains initial recursive AST logic; previously noted type errors seem resolved upon inspection, but `tsc --noEmit` might be needed for full verification. Test files exist but contain known failures/TODOs. Pinecone provider is implemented. Http embedding provider is missing. Multiple TODOs exist regarding error handling and potential refactoring.
+- **Build Workaround:** Using `tsup` for JS bundling (`dts: false`) and `pnpm exec tsc -b` for declaration file generation (needed due to `tsup` DTS issues with project references).
 
 ## Next Actions
-- Fix remaining type errors in `chunking.ts` (SyntaxNode import, metadata access).
-- Add tests for the implemented `rag-core` functionality (chunking, embedding, indexing).
-- Implement remaining vector DB providers (e.g., Pinecone) in `indexManager.ts`.
-- Implement remaining embedding providers (e.g., Http) in `embedding.ts`.
-- Refine chunking combination/overlap logic.
-- Address deferred Markdown AST chunking (requires WASM compilation solution).
+- **Testing:**
+    - Investigate and fix failing test in `chunking.test.ts`.
+    - Add more comprehensive tests for `chunking.ts` (complex recursion).
+    - Review and enhance test coverage for `embedding.ts`, `indexManager.ts`, `parsing.ts`.
+- **Error Handling:** Address `TODO` comments related to error handling in tools (`queryIndexTool`, `indexContentTool`).
+- **Providers:** Implement Http embedding provider in `embedding.ts`.
+- **Chunking:**
+    - Refine chunking combination/overlap logic in `chunking.ts`.
+    - Address deferred Markdown AST chunking (likely requires WASM build/loading refinement).
+- **Refactoring:** Consider `TODO` comments for potential refactoring (`indexStatusTool`, `chroma.ts`).
 
 ## Waiting For
 N/A

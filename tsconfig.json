@@ -31,8 +31,8 @@
   "compilerOptions": {
     // Define base settings for referenced projects
     "target": "ES2022", // Or appropriate target
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "NodeNext", // Use NodeNext
+    "moduleResolution": "NodeNext", // Use NodeNext
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,

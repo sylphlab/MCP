@@ -108,6 +108,7 @@ async function traverseAndChunk(
     const chunks: Chunk[] = [];
     const nodeText = node.text;
     const boundaryTypes = CHUNK_BOUNDARY_TYPES[language] || [];
+    const smallFragmentThreshold = Math.max(10, options.maxChunkSize * 0.1); // Define threshold for small fragments
 
     const isBoundary = boundaryTypes.includes(node.type);
     const fits = nodeText.length <= options.maxChunkSize;
@@ -133,61 +134,30 @@ async function traverseAndChunk(
             }
 
             const childChunks = await traverseAndChunk(meaningfulChild, document, options, language, chunkCounter);
+            console.log(`[After Recurse] childChunks for ${meaningfulChild.type} (${meaningfulChild.startIndex}-${meaningfulChild.endIndex}):`, JSON.stringify(childChunks, null, 2));
 
-            if (childChunks.length > 0 && accumulatedPrefix.length > 0) {
-                const combinedPrefixContent = accumulatedPrefix + "\n\n" + childChunks[0].content;
-                if (combinedPrefixContent.length <= options.maxChunkSize) {
-                    childChunks[0].content = combinedPrefixContent;
-                    childChunks[0].startPosition = lastMeaningfulChildEnd;
-                    childChunks[0].metadata = {
-                        ...(childChunks[0].metadata || {}),
-                        nodeType: `text_before+${childChunks[0].metadata?.nodeType || 'unknown'}`,
-                    };
-                    accumulatedPrefix = "";
-                } else {
-                     chunks.push(createChunk(
-                        document, accumulatedPrefix, lastMeaningfulChildEnd, meaningfulChild.startIndex, chunkCounter.index++,
-                        { nodeType: 'text_between_nodes', language: language }
-                    ));
-                    accumulatedPrefix = "";
-                }
-            } else if (accumulatedPrefix.length > 0) {
+            // Always create a separate chunk for prefix text if it exists
+            if (accumulatedPrefix.length > 0) {
                  chunks.push(createChunk(
                     document, accumulatedPrefix, lastMeaningfulChildEnd, meaningfulChild.startIndex, chunkCounter.index++,
                     { nodeType: 'text_between_nodes', language: language }
                 ));
-                accumulatedPrefix = "";
+                accumulatedPrefix = ""; // Reset prefix
             }
 
             chunks.push(...childChunks);
+            // console.log(`[After Push] chunks array state after adding childChunks for ${meaningfulChild.type}:`, JSON.stringify(chunks, null, 2)); // Keep one log if needed
             lastMeaningfulChildEnd = meaningfulChild.endIndex;
         }
 
+        // console.log('[Suffix Check] Last Chunk Before Suffix Logic:', JSON.stringify(chunks[chunks.length - 1], null, 2)); // Keep if needed
         const suffixText = document.content.substring(lastMeaningfulChildEnd, node.endIndex).trim();
+        // Always create a separate chunk for suffix text if it exists
         if (suffixText.length > 0) {
-            const lastChunk = chunks[chunks.length - 1];
-            if (lastChunk) {
-                 const combinedSuffixContent = lastChunk.content + "\n\n" + suffixText;
-                 if (combinedSuffixContent.length <= options.maxChunkSize) {
-                     lastChunk.content = combinedSuffixContent;
-                     lastChunk.endPosition = node.endIndex;
-                     lastChunk.metadata = {
-                         ...(lastChunk.metadata || {}),
-                         nodeType: `${lastChunk.metadata?.nodeType || 'unknown'}+text_after`,
-                         endLine: node.endPosition.row + 1,
-                     };
-                 } else {
-                     chunks.push(createChunk(
-                        document, suffixText, lastMeaningfulChildEnd, node.endIndex, chunkCounter.index++,
-                        { nodeType: 'text_after_last_meaningful', language: language }
-                    ));
-                 }
-            } else {
-                 chunks.push(createChunk(
-                    document, suffixText, lastMeaningfulChildEnd, node.endIndex, chunkCounter.index++,
-                    { nodeType: 'text_after_last_meaningful', language: language }
-                ));
-            }
+             chunks.push(createChunk(
+                document, suffixText, lastMeaningfulChildEnd, node.endIndex, chunkCounter.index++,
+                { nodeType: 'text_after_last_meaningful', language: language }
+            ));
         }
 
     } else if (!fits) {
@@ -269,9 +239,10 @@ export async function chunkCodeAst(
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.warn(`AST parsing failed for language ${language}. Applying fallback text splitting.`, error, { codeSnippet: code.substring(0, 100) });
+        console.log('[chunkCodeAst CATCH] Error:', error);
         const textChunks = splitTextWithOverlap(code, mergedOptions.maxChunkSize, mergedOptions.chunkOverlap);
         // Ensure warning is added here
-        return textChunks.map((textChunk: string, idx: number) => createChunk(
+        const fallbackChunks = textChunks.map((textChunk: string, idx: number) => createChunk(
             document,
             textChunk,
             -1, -1,
@@ -283,5 +254,7 @@ export async function chunkCodeAst(
                 fallbackTotal: textChunks.length
             }
         ));
+        console.log('[chunkCodeAst CATCH] Created fallback chunks:', JSON.stringify(fallbackChunks, null, 2));
+        return fallbackChunks;
     }
 }

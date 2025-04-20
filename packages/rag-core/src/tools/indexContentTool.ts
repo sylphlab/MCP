@@ -92,11 +92,17 @@ export const indexContentTool: McpTool<typeof IndexContentInputSchema, BaseMcpTo
       }
 
       // 3. Chunk the content
-      // chunkCodeAst will handle fallback if languageToUse is null
-      // TODO: Handle potential errors during chunking more gracefully
-      console.log(`Attempting chunking with language: ${languageToUse ?? 'fallback'}`);
-      const chunks = await chunkCodeAst(item.content, languageToUse, chunkingOptions);
-      console.log(`Generated ${chunks.length} chunks.`);
+      let chunks: Chunk[];
+      try {
+          // chunkCodeAst will handle fallback if languageToUse is null
+          console.log(`Attempting chunking with language: ${languageToUse ?? 'fallback'}`);
+          chunks = await chunkCodeAst(item.content, languageToUse, chunkingOptions);
+          console.log(`Generated ${chunks.length} chunks.`);
+      } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error(`Error chunking content for source ${item.source || 'unknown'}: ${errorMessage}. Skipping item.`);
+          continue; // Skip to the next item
+      }
 
       if (chunks.length === 0) {
         console.warn(`No chunks generated for source: ${item.source || 'unknown'}. Skipping.`);
@@ -117,12 +123,19 @@ export const indexContentTool: McpTool<typeof IndexContentInputSchema, BaseMcpTo
       }));
 
 
-      // 2. Generate embeddings
-      // TODO: Handle potential errors during embedding generation
-      // Provide complete default mock config if none is given in input
-      const currentEmbeddingConfig = embeddingConfig ?? defaultEmbeddingConfig; // Use exported default
-      const embeddings = await generateEmbeddings(chunkObjects, currentEmbeddingConfig);
-      console.log(`Generated ${embeddings.length} embeddings.`);
+      // 4. Generate embeddings (Renumbered step)
+      let embeddings: number[][];
+      try {
+          // Provide complete default mock config if none is given in input
+          const currentEmbeddingConfig = embeddingConfig ?? defaultEmbeddingConfig; // Use exported default
+          embeddings = await generateEmbeddings(chunkObjects, currentEmbeddingConfig);
+          console.log(`Generated ${embeddings.length} embeddings.`);
+      } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error(`Error generating embeddings for source ${item.source || 'unknown'}: ${errorMessage}. Skipping item.`);
+          continue; // Skip to the next item
+      }
+
 
       if (embeddings.length !== chunkObjects.length) {
          console.error(`Mismatch between chunk count (${chunkObjects.length}) and embedding count (${embeddings.length}). Skipping item.`);
@@ -141,9 +154,17 @@ export const indexContentTool: McpTool<typeof IndexContentInputSchema, BaseMcpTo
 
     // 6. Upsert items into the index
     if (allIndexedItems.length > 0) {
-       // TODO: Handle potential errors during upsert
-       await indexManager.upsertItems(allIndexedItems);
-       console.log(`Upserted ${allIndexedItems.length} items into the index.`);
+       try {
+           await indexManager.upsertItems(allIndexedItems);
+           console.log(`Upserted ${allIndexedItems.length} items into the index.`);
+       } catch (error) {
+           const errorMessage = error instanceof Error ? error.message : String(error);
+           console.error(`Error upserting items into index: ${errorMessage}`);
+           return {
+               success: false,
+               content: [{ type: 'text', text: `Error upserting items into index: ${errorMessage}` }],
+           };
+       }
     } else {
        console.log("No items to upsert.");
     }

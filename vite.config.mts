@@ -1,26 +1,43 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vite'; // Import from vite
+import { defineConfig as defineViteConfig, mergeConfig } from 'vite';
+import { defineConfig as defineVitestConfig } from 'vitest/config';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import type { UserConfig } from 'vitest/config'; // Import Vitest config type
+// Remove WASM plugin imports
+// import wasm from 'vite-plugin-wasm';
+// import topLevelAwait from 'vite-plugin-top-level-await';
 
-// Cast the config object to satisfy both Vite and Vitest types
-export default defineConfig({
-  plugins: [tsconfigPaths()],
+const viteConfig = defineViteConfig({
+  plugins: [
+    tsconfigPaths(),
+    // Remove WASM plugins
+    // wasm(),
+    // topLevelAwait()
+  ],
+  // Remove optimizeDeps for WASM
+  // optimizeDeps: {
+  //   exclude: [
+  //       'web-tree-sitter',
+  //       'tree-sitter-javascript/tree-sitter-javascript.wasm',
+  //       'tree-sitter-typescript/tree-sitter-typescript.wasm',
+  //       'tree-sitter-typescript/tree-sitter-tsx.wasm',
+  //       'tree-sitter-python/tree-sitter-python.wasm',
+  //   ]
+  // }
+});
+
+const vitestConfig = defineVitestConfig({
   test: {
-    // Vitest specific config
     globals: true,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      include: ['packages/*-core/src/**/*.{ts,tsx}'],
+      reporter: ['text'], // Only use text reporter for console output
+      include: ['src/**/*.{ts,tsx}'], // Relative include path for per-package execution
       exclude: [
-        'packages/**/src/**/*.test.{ts,tsx}',
-        'packages/*-mcp/src/**/*.{ts,tsx}', // Exclude wrapper packages
-        'packages/core/src/**/*.{ts,tsx}', // Exclude original core package for now
-        'packages/filesystem/src/**/*.{ts,tsx}', // Exclude original fs package
-        'packages/filesystem-core/src/**/*.{ts,tsx}', // Exclude original fs-core package
-        // Exclude node_modules, dist, etc. (Vitest defaults usually cover this)
+        'src/**/*.test.{ts,tsx}', // Exclude test files within src
+        // Vitest defaults usually cover node_modules, dist etc.
       ],
     },
-  } as UserConfig['test'], // Cast the test config
+  },
 });
+
+export default mergeConfig(viteConfig, vitestConfig);
