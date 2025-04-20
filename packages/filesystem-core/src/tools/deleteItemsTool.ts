@@ -109,12 +109,16 @@ export const deleteItemsTool: McpTool<typeof DeleteItemsToolInputSchema, DeleteI
       });
     }
 
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify({
+        summary: `Delete operation completed. Overall success: ${overallSuccess}`,
+        results: results
+    }, null, 2); // Pretty-print JSON
+
     return {
-      success: overallSuccess, // True only if ALL operations succeeded without path validation errors or execution errors
-      results,
-      content: overallSuccess
-        ? [{ type: 'text', text: `Delete operation completed. Success: ${overallSuccess}` }]
-        : [],
+      success: overallSuccess, // Keep original success logic
+      results: results, // Keep original results field too
+      content: [{ type: 'text', text: contentText }], // Put JSON string in content
     };
   },
 };

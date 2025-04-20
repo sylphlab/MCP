@@ -330,23 +330,32 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
 
       // Return results after processing all changes
       console.log(`[Debug] Returning from try. fileResults length: ${fileResults.length}`); // Log before return
+      // Serialize the detailed results into the content field
+      const contentText = JSON.stringify({
+          summary: `Edit operation completed. Overall success: ${overallSuccess}`,
+          results: fileResults
+      }, null, 2); // Pretty-print JSON
+
       return {
         success: overallSuccess,
-        results: fileResults,
-        content: overallSuccess
-          ? [{ type: 'text', text: `Edit operation completed. Success: ${overallSuccess}` }]
-          : [],
+        results: fileResults, // Keep original results field too
+        content: [{ type: 'text', text: contentText }], // Put JSON string in content
       };
 
     } catch (unexpectedError: any) { // Catch unexpected errors during the main loop/setup
         console.error(`Unexpected error during editFileTool execution: ${unexpectedError.message}`);
         console.log(`[Debug] Returning from catch. fileResults length: ${fileResults.length}`); // Log before return
         // Return minimal error structure on unexpected failure
+        const errorMsg = `Unexpected tool error: ${unexpectedError.message}`;
+        const errorContentText = JSON.stringify({
+            error: errorMsg,
+            results: fileResults // Include partial results if any
+        }, null, 2);
         return {
             success: false,
-            error: `Unexpected tool error: ${unexpectedError.message}`,
-            results: [], // Return empty results on unexpected error
-            content: [],
+            error: errorMsg, // Keep top-level error
+            results: fileResults, // Keep partial results here too
+            content: [{ type: 'text', text: errorContentText }], // Put error JSON in content
         };
     }
   }, // Closing brace for execute method

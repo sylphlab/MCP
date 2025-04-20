@@ -98,12 +98,16 @@ export const createFolderTool: McpTool<typeof CreateFolderToolInputSchema, Creat
       });
     }
 
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify({
+        summary: `Create folder operation completed. Overall success (at least one): ${anySuccess}`,
+        results: results
+    }, null, 2); // Pretty-print JSON
+
     return {
-      success: anySuccess, // True if at least one succeeded
-      results,
-      content: anySuccess
-        ? [{ type: 'text', text: `Create folder operation completed. Success: ${anySuccess}` }]
-        : [],
+      success: anySuccess, // Keep original success logic (true if any succeeded)
+      results: results, // Keep original results field too
+      content: [{ type: 'text', text: contentText }], // Put JSON string in content
     };
   },
 };

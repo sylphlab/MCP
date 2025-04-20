@@ -127,12 +127,16 @@ export const writeFilesTool: McpTool<typeof WriteFilesToolInputSchema, WriteFile
       }
     } // End loop
 
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify({
+        summary: `Write operation completed. Overall success (at least one): ${anySuccess}`,
+        results: results
+    }, null, 2); // Pretty-print JSON
+
     return {
-      success: anySuccess,
-      results,
-      content: anySuccess
-        ? [{ type: 'text', text: `Write operation completed. Success: ${anySuccess}` }]
-        : [],
+      success: anySuccess, // Keep original success logic
+      results: results, // Keep original results field too
+      content: [{ type: 'text', text: contentText }], // Put JSON string in content
     };
   },
 };

@@ -173,13 +173,16 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
       });
     }
 
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify({
+        summary: `Move/Rename operation completed. Overall success: ${overallSuccess}`,
+        results: results
+    }, null, 2); // Pretty-print JSON
+
     return {
       success: overallSuccess,
-      results,
-      // Add a default success message to content if overall successful
-      content: overallSuccess
-        ? [{ type: 'text', text: `Move/Rename operation completed. Success: ${overallSuccess}` }]
-        : [],
+      results: results, // Keep original results field too
+      content: [{ type: 'text', text: contentText }], // Put JSON string in content
     };
   },
 };

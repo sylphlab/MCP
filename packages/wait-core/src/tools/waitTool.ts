@@ -84,22 +84,34 @@ export const waitTool: McpTool<typeof WaitToolInputSchema, WaitToolOutput> = {
         }
       }
 
+      // Serialize the detailed results into the content field
+      const contentText = JSON.stringify({
+          summary: `Processed ${items.length} wait operations. Total duration waited: ${totalWaited}ms. Overall success: ${overallSuccess}`,
+          totalDurationWaitedMs: totalWaited,
+          results: results
+      }, null, 2); // Pretty-print JSON
+
       return {
         success: overallSuccess,
-        results: results,
-        totalDurationWaitedMs: totalWaited,
-        content: [{ type: 'text', text: `Processed ${items.length} wait operations. Total duration waited: ${totalWaited}ms. Overall success: ${overallSuccess}` }],
+        results: results, // Keep original results field too
+        totalDurationWaitedMs: totalWaited, // Keep original field
+        content: [{ type: 'text', text: contentText }], // Put JSON string in content
       };
     } catch (e: any) {
       // Catch unexpected errors during the loop itself (should be rare)
       const errorMsg = `Unexpected error during wait tool execution: ${e.message}`;
       console.error(errorMsg);
+      const errorContentText = JSON.stringify({
+          error: errorMsg,
+          totalDurationWaitedMs: totalWaited, // Include partial duration
+          results: results // Include partial results in error content too
+      }, null, 2);
       return {
         success: false,
-        results: results, // Return partial results if any
-        totalDurationWaitedMs: totalWaited,
-        error: errorMsg,
-        content: [],
+        results: results, // Keep partial results here too
+        totalDurationWaitedMs: totalWaited, // Keep partial duration here too
+        error: errorMsg, // Keep top-level error
+        content: [{ type: 'text', text: errorContentText }], // Put error JSON in content
       };
     }
   },

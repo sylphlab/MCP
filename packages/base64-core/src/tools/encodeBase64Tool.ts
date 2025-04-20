@@ -33,17 +33,26 @@ export const encodeBase64Tool: McpTool<typeof EncodeBase64ToolInputSchema, Encod
       // In Node.js environment
       const encoded = Buffer.from(textToEncode, 'utf-8').toString('base64');
       console.log('Encoding successful.');
+      const contentText = JSON.stringify({
+          success: true,
+          encoded: encoded
+      }, null, 2);
       return {
         success: true,
-        encoded: encoded,
-        content: [{ type: 'text', text: `Encoded result: ${encoded}` }],
+        encoded: encoded, // Keep original field
+        content: [{ type: 'text', text: contentText }], // Put JSON in content
       };
     } catch (e: any) {
       console.error(`Encoding failed: ${e.message}`);
+      const errorMsg = `Encoding failed: ${e.message}`;
+      const errorContentText = JSON.stringify({
+          success: false,
+          error: errorMsg
+      }, null, 2);
       return {
         success: false,
-        error: `Encoding failed: ${e.message}`,
-        content: [],
+        error: errorMsg, // Keep original field
+        content: [{ type: 'text', text: errorContentText }], // Put JSON in content
       };
     }
   },

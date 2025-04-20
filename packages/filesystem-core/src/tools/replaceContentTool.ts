@@ -201,13 +201,16 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
         });
     } // End files loop
 
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify({
+        summary: `Replace operation completed. Overall success: ${overallSuccess}`,
+        results: fileResults
+    }, null, 2); // Pretty-print JSON
+
     return {
       success: overallSuccess,
-      results: fileResults,
-      // Add a default success message to content if overall successful
-      content: overallSuccess
-        ? [{ type: 'text', text: `Replace operation completed. Success: ${overallSuccess}` }]
-        : [],
+      results: fileResults, // Keep original results field too
+      content: [{ type: 'text', text: contentText }], // Put JSON string in content
     };
   },
 };

@@ -38,24 +38,36 @@ export const getInterfacesTool: McpTool<typeof GetInterfacesToolInputSchema, Get
       const interfaces = os.networkInterfaces();
       console.log(`Network interfaces retrieved. (ID: ${id ?? 'N/A'})`);
 
+      const contentText = JSON.stringify({
+          success: true,
+          id: id,
+          result: interfaces,
+          suggestion: 'Result contains local network interface details.'
+      }, null, 2);
       return {
         success: true,
         id: id,
-        result: interfaces,
-        // Content could summarize, e.g., list interface names
-        content: [{ type: 'text', text: `Retrieved details for interfaces: ${Object.keys(interfaces).join(', ')}` }],
-        suggestion: 'Result contains local network interface details.',
+        result: interfaces, // Keep original field
+        content: [{ type: 'text', text: contentText }], // Put JSON in content
+        suggestion: 'Result contains local network interface details.', // Keep original field
       };
     } catch (e: any) {
       // Errors are less likely here unless os module has issues
       const errorMsg = `Failed to get network interfaces: ${e.message}`;
       console.error(errorMsg);
+      const suggestion = 'Check system permissions or Node.js environment.';
+      const errorContentText = JSON.stringify({
+          success: false,
+          id: id,
+          error: errorMsg,
+          suggestion: suggestion
+      }, null, 2);
       return {
         success: false,
         id: id,
-        error: errorMsg,
-        suggestion: 'Check system permissions or Node.js environment.',
-        content: [],
+        error: errorMsg, // Keep original field
+        suggestion: suggestion, // Keep original field
+        content: [{ type: 'text', text: errorContentText }], // Put JSON in content
       };
     }
   },

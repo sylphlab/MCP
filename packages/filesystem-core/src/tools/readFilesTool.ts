@@ -150,13 +150,16 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
       });
     }
 
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify({
+        summary: `Read operation completed. Overall success (at least one): ${anySuccess}`,
+        results: results
+    }, null, 2); // Pretty-print JSON
+
     return {
-      success: anySuccess, // True if at least one read succeeded
-      results,
-      // Add a default success message to content if overall successful
-      content: anySuccess
-        ? [{ type: 'text', text: `Read operation completed. Success: ${anySuccess}` }]
-        : [],
+      success: anySuccess, // Keep original success logic
+      results: results, // Keep original results field too
+      content: [{ type: 'text', text: contentText }], // Put JSON string in content
     };
   },
 };

@@ -144,19 +144,30 @@ export const fetchTool: McpTool<typeof FetchToolInputSchema, FetchToolOutput> = 
         }
       }
 
+      // Serialize the detailed results into the content field
+      const contentText = JSON.stringify({
+          summary: `Processed ${items.length} fetch requests. Overall success: ${overallSuccess}`,
+          results: results
+      }, null, 2); // Pretty-print JSON
+
       return {
         success: overallSuccess,
-        results: results,
-        content: [{ type: 'text', text: `Processed ${items.length} fetch requests. Overall success: ${overallSuccess}` }],
+        results: results, // Keep original results field too
+        content: [{ type: 'text', text: contentText }], // Put JSON string in content
       };
     } catch (e: any) {
       // Catch unexpected errors during the loop itself (should be rare)
       console.error(`Unexpected error during fetch tool execution: ${e.message}`);
+      const errorMsg = `Unexpected tool error: ${e.message}`;
+      const errorContentText = JSON.stringify({
+          error: errorMsg,
+          results: results // Include partial results in error content too
+      }, null, 2);
       return {
         success: false,
-        results: results, // Return partial results if any
-        error: `Unexpected tool error: ${e.message}`,
-        content: [],
+        results: results, // Keep partial results here too
+        error: errorMsg, // Keep top-level error
+        content: [{ type: 'text', text: errorContentText }], // Put error JSON in content
       };
     }
   },

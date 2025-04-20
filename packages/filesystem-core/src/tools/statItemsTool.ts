@@ -100,12 +100,18 @@ export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsTo
       }
     } // End loop
 
+    // Serialize the detailed results into the content field
+    // Note: Stats objects might not serialize perfectly with JSON.stringify,
+    // but it's better than losing the data entirely. Client might need specific parsing.
+    const contentText = JSON.stringify({
+        summary: `Stat operation completed. Overall success (at least one): ${anySuccess}`,
+        results: results
+    }, null, 2); // Pretty-print JSON
+
     return {
-      success: anySuccess,
-      results,
-      content: anySuccess
-        ? [{ type: 'text', text: `Stat operation completed. Success: ${anySuccess}` }]
-        : [],
+      success: anySuccess, // Keep original success logic
+      results: results, // Keep original results field too
+      content: [{ type: 'text', text: contentText }], // Put JSON string in content
     };
   },
 };

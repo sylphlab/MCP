@@ -112,20 +112,30 @@ export const jsonTool: McpTool<typeof JsonToolInputSchema, JsonToolOutput> = {
         }
       }
 
+      // Serialize the detailed results into the content field
+      const contentText = JSON.stringify({
+          summary: `Processed ${items.length} JSON operations. Overall success: ${overallSuccess}`,
+          results: results
+      }, null, 2); // Pretty-print JSON
+
       return {
         success: overallSuccess,
-        results: results,
-        content: [{ type: 'text', text: `Processed ${items.length} JSON operations. Overall success: ${overallSuccess}` }],
+        results: results, // Keep original results field too
+        content: [{ type: 'text', text: contentText }], // Put JSON string in content
       };
     } catch (e: any) {
       // Catch unexpected errors during the loop itself (should be rare)
       const errorMsg = `Unexpected error during JSON tool execution: ${e.message}`;
       console.error(errorMsg);
+      const errorContentText = JSON.stringify({
+          error: errorMsg,
+          results: results // Include partial results in error content too
+      }, null, 2);
       return {
         success: false,
-        results: results, // Return partial results if any
-        error: errorMsg,
-        content: [],
+        results: results, // Keep partial results here too
+        error: errorMsg, // Keep top-level error
+        content: [{ type: 'text', text: errorContentText }], // Put error JSON in content
       };
     }
   },

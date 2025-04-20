@@ -67,11 +67,16 @@ export const getPublicIpTool: McpTool<typeof GetPublicIpToolInputSchema, GetPubl
         throw new Error(publicIpInfo.error);
       }
       if (publicIpInfo.ip) {
+        const contentText = JSON.stringify({
+            success: true,
+            id: id,
+            result: publicIpInfo.ip
+        }, null, 2);
         return {
           success: true,
           id: id,
-          result: publicIpInfo.ip,
-          content: [{ type: 'text', text: `Public IP: ${publicIpInfo.ip}` }],
+          result: publicIpInfo.ip, // Keep original field
+          content: [{ type: 'text', text: contentText }], // Put JSON in content
         };
       } else {
          // Should be caught by the error check above, but as a safeguard
@@ -80,12 +85,19 @@ export const getPublicIpTool: McpTool<typeof GetPublicIpToolInputSchema, GetPubl
     } catch (e: any) {
       const errorMsg = `Failed to get public IP: ${e.message}`;
       console.error(errorMsg);
+      const suggestion = 'Check internet connection and firewall settings.';
+      const errorContentText = JSON.stringify({
+          success: false,
+          id: id,
+          error: errorMsg,
+          suggestion: suggestion
+      }, null, 2);
       return {
         success: false,
         id: id,
-        error: errorMsg,
-        suggestion: 'Check internet connection and firewall settings.',
-        content: [],
+        error: errorMsg, // Keep original field
+        suggestion: suggestion, // Keep original field
+        content: [{ type: 'text', text: errorContentText }], // Put JSON in content
       };
     }
   },

@@ -220,13 +220,16 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
         };
     }
 
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify({
+        summary: `List operation completed. Overall success (at least one): ${anySuccess}`,
+        results: results // Results is an object map here
+    }, null, 2); // Pretty-print JSON
+
     return {
-      success: anySuccess, // True if at least one path succeeded
-      results,
-      // Add a default success message to content if overall successful
-      content: anySuccess
-        ? [{ type: 'text', text: `List operation completed. Success: ${anySuccess}` }]
-        : [],
+      success: anySuccess, // Keep original success logic
+      results: results, // Keep original results field too
+      content: [{ type: 'text', text: contentText }], // Put JSON string in content
     };
   },
 };

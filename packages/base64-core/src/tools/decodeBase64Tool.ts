@@ -40,18 +40,29 @@ export const decodeBase64Tool: McpTool<typeof DecodeBase64ToolInputSchema, Decod
       }
 
       console.log('Decoding successful.');
+      const contentText = JSON.stringify({
+          success: true,
+          decoded: decoded
+      }, null, 2);
       return {
         success: true,
-        decoded: decoded,
-        content: [{ type: 'text', text: `Decoded result: ${decoded}` }],
+        decoded: decoded, // Keep original field
+        content: [{ type: 'text', text: contentText }], // Put JSON in content
       };
     } catch (e: any) {
       console.error(`Decoding failed: ${e.message}`);
+      const errorMsg = `Decoding failed: ${e.message}`;
+      const suggestion = 'Ensure the input is a valid Base64 encoded string.';
+      const errorContentText = JSON.stringify({
+          success: false,
+          error: errorMsg,
+          suggestion: suggestion
+      }, null, 2);
       return {
         success: false,
-        error: `Decoding failed: ${e.message}`,
-        suggestion: 'Ensure the input is a valid Base64 encoded string.',
-        content: [],
+        error: errorMsg, // Keep original field
+        suggestion: suggestion, // Keep original field
+        content: [{ type: 'text', text: errorContentText }], // Put JSON in content
       };
     }
   },
