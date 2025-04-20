@@ -43,12 +43,12 @@ describe('copyItemsTool', () => {
     const input: CopyItemsToolInput = {
       items: [{ sourcePath: 'source.txt', destinationPath: 'dest/target.txt' }],
       overwrite: false,
-      allowOutsideWorkspace: false,
+      // allowOutsideWorkspace removed
     };
     // stat will reject with ENOENT (default mock)
 
     // Act
-    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false }); // Pass via options
+    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     // Assert
     expect(result.success).toBe(true);
@@ -70,7 +70,7 @@ describe('copyItemsTool', () => {
     const input = { items: [] };
 
     // Act
-    const result = await copyItemsTool.execute(input as any, WORKSPACE_ROOT);
+    const result = await copyItemsTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -88,7 +88,7 @@ describe('copyItemsTool', () => {
     };
 
     // Act
-    const result = await copyItemsTool.execute(input as any, WORKSPACE_ROOT);
+    const result = await copyItemsTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -109,14 +109,14 @@ describe('copyItemsTool', () => {
     const input: CopyItemsToolInput = {
       items: [{ sourcePath: 'nonexistent.txt', destinationPath: 'dest.txt' }],
       overwrite: false,
-      allowOutsideWorkspace: false,
+      // allowOutsideWorkspace removed
     };
     const enoentError = new Error('Source does not exist');
     (enoentError as any).code = 'ENOENT';
     mockCp.mockRejectedValue(enoentError); // Mock cp failure
 
     // Act
-    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false }); // Pass via options
+    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -132,14 +132,14 @@ describe('copyItemsTool', () => {
     const input: CopyItemsToolInput = {
       items: [{ sourcePath: 'source.txt', destinationPath: 'existing.txt' }],
       overwrite: false,
-      allowOutsideWorkspace: false,
+      // allowOutsideWorkspace removed
     };
     const eexistError = new Error('Destination exists');
     (eexistError as any).code = 'EEXIST';
     mockCp.mockRejectedValue(eexistError); // Mock cp failure
 
     // Act
-    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false }); // Pass via options
+    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -160,13 +160,13 @@ describe('copyItemsTool', () => {
     const input: CopyItemsToolInput = {
       items: [{ sourcePath: 'source.txt', destinationPath: 'dest.txt' }],
       overwrite: false,
-      allowOutsideWorkspace: false,
+      // allowOutsideWorkspace removed
     };
     const genericError = new Error('Something went wrong');
     mockCp.mockRejectedValue(genericError);
 
     // Act
-    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false }); // Pass via options
+    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -184,7 +184,7 @@ describe('copyItemsTool', () => {
       // allowOutsideWorkspace removed from input
     };
 
-    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false }); // Pass via options
+    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -202,7 +202,7 @@ describe('copyItemsTool', () => {
     // Mock cp to succeed even though path is outside for this test
     mockCp.mockResolvedValue(undefined);
 
-    const result = await copyItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: true }); // Pass via options
+    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true }); // Pass options object
 
     // Expect success because validation is skipped
     expect(result.success).toBe(true);

@@ -37,7 +37,7 @@ export const createFolderTool: McpTool<typeof CreateFolderToolInputSchema, Creat
   description: 'Creates one or more new folders at the specified paths within the workspace.',
   inputSchema: CreateFolderToolInputSchema,
 
-  async execute(input: CreateFolderToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<CreateFolderToolOutput> { // Add options
+  async execute(input: CreateFolderToolInput, options: McpToolExecuteOptions): Promise<CreateFolderToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
     const parsed = CreateFolderToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -63,7 +63,7 @@ export const createFolderTool: McpTool<typeof CreateFolderToolInputSchema, Creat
       let suggestion: string | undefined;
 
       // --- Validate and Resolve Path ---
-      const validationResult = validateAndResolvePath(folderPath, workspaceRoot, options?.allowOutsideWorkspace); // Pass flag from options
+      const validationResult = validateAndResolvePath(folderPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
       if (typeof validationResult !== 'string') {
           error = validationResult.error;
           suggestion = validationResult.suggestion;

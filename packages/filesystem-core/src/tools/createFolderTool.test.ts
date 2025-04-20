@@ -27,7 +27,7 @@ describe('createFolderTool', () => {
     mockMkdir.mockResolvedValue(undefined); // Mock successful creation
 
     // Act
-    const result = await createFolderTool.execute(input, WORKSPACE_ROOT);
+    const result = await createFolderTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     // Assert
     expect(result.success).toBe(true);
@@ -51,7 +51,7 @@ describe('createFolderTool', () => {
     mockMkdir.mockResolvedValue(undefined);
 
     // Act
-    const result = await createFolderTool.execute(input, WORKSPACE_ROOT);
+    const result = await createFolderTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     // Assert
     expect(result.success).toBe(true);
@@ -68,7 +68,7 @@ describe('createFolderTool', () => {
     const input = { folderPaths: [] }; // Invalid input
 
     // Act
-    const result = await createFolderTool.execute(input as any, WORKSPACE_ROOT); // No options needed
+    const result = await createFolderTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false); // Overall success is false
@@ -87,7 +87,7 @@ describe('createFolderTool', () => {
     };
 
     // Act
-    const result = await createFolderTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
+    const result = await createFolderTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false); // Overall success is false
@@ -111,7 +111,7 @@ describe('createFolderTool', () => {
       .mockRejectedValueOnce(testError);
 
     // Act
-    const result = await createFolderTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
+    const result = await createFolderTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     // Assert
     expect(result.success).toBe(true); // Overall success is true because one succeeded
@@ -134,7 +134,7 @@ describe('createFolderTool', () => {
     mockMkdir.mockResolvedValue(undefined); // Mock success
 
     // Act
-    const result = await createFolderTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: true }); // Pass flag via options
+    const result = await createFolderTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true }); // Pass options object
 
     // Assert
     expect(result.success).toBe(true); // Should succeed as validation is skipped

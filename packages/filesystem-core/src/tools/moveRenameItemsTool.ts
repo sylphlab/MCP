@@ -52,7 +52,7 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
   description: 'Moves or renames one or more files or folders within the workspace. Use relative paths.',
   inputSchema: MoveRenameItemsToolInputSchema,
 
-  async execute(input: MoveRenameItemsToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<MoveRenameItemsToolOutput> { // Add options
+  async execute(input: MoveRenameItemsToolInput, options: McpToolExecuteOptions): Promise<MoveRenameItemsToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
     const parsed = MoveRenameItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -81,7 +81,7 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
       let destinationFullPath: string | undefined; // Use let for validated paths
 
       // --- Validate Paths ---
-      const sourceValidation = validateAndResolvePath(item.sourcePath, workspaceRoot, options?.allowOutsideWorkspace);
+      const sourceValidation = validateAndResolvePath(item.sourcePath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
       if (typeof sourceValidation !== 'string') {
           error = `Source path validation failed: ${sourceValidation.error}`;
           suggestion = sourceValidation.suggestion;
@@ -91,7 +91,7 @@ export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema,
       }
 
       if (!error) { // Only validate destination if source is valid
-          const destValidation = validateAndResolvePath(item.destinationPath, workspaceRoot, options?.allowOutsideWorkspace);
+          const destValidation = validateAndResolvePath(item.destinationPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
           if (typeof destValidation !== 'string') {
               error = `Destination path validation failed: ${destValidation.error}`;
               suggestion = destValidation.suggestion;

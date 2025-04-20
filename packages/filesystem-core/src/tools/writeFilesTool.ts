@@ -43,7 +43,7 @@ export const writeFilesTool: McpTool<typeof WriteFilesToolInputSchema, WriteFile
   description: 'Writes or appends content to one or more files within the workspace.',
   inputSchema: WriteFilesToolInputSchema,
 
-  async execute(input: WriteFilesToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<WriteFilesToolOutput> {
+  async execute(input: WriteFilesToolInput, options: McpToolExecuteOptions): Promise<WriteFilesToolOutput> { // Remove workspaceRoot, require options
     const parsed = WriteFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
@@ -71,7 +71,7 @@ export const writeFilesTool: McpTool<typeof WriteFilesToolInputSchema, WriteFile
       const operation = append ? 'append' : 'write';
 
       // Correct argument order: relativePathInput, workspaceRoot
-      const validationResult = validateAndResolvePath(item.path, workspaceRoot, options?.allowOutsideWorkspace);
+      const validationResult = validateAndResolvePath(item.path, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
 
       // Check if validation succeeded (result is a string)
       if (typeof validationResult === 'string') {

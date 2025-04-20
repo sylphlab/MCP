@@ -32,8 +32,9 @@ describe('replaceContentTool', () => {
     mockWriteFile.mockResolvedValue(undefined); // Default to successful write
   });
 
-  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true }; // Define this
+  // Define options objects including workspaceRoot
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
 
   // Helper
   const createInput = (paths: string[], operations: ReplaceOperation[]): Omit<ReplaceContentToolInput, 'allowOutsideWorkspace'> => ({ paths, operations });
@@ -46,7 +47,7 @@ describe('replaceContentTool', () => {
     mockReadFile.mockResolvedValue(initialContent);
     const input = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }]); // Add isRegex
 
-    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await replaceContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -66,7 +67,7 @@ describe('replaceContentTool', () => {
     mockReadFile.mockResolvedValue(initialContent);
     const input = createInput([filePath], [{ search: 'line (\\d)', replace: 'L$1', isRegex: true, flags: 'g' }]);
 
-    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await replaceContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -85,7 +86,7 @@ describe('replaceContentTool', () => {
     const expectedContent1 = 'CONTENT A';
     const expectedContent2 = 'CONTENT B';
 
-    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await replaceContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(2);
@@ -103,7 +104,7 @@ describe('replaceContentTool', () => {
     mockReadFile.mockResolvedValue(initialContent);
     const input = createInput([filePath], [{ search: 'missing', replace: 'found', isRegex: false }]); // Add isRegex
 
-    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await replaceContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -116,7 +117,7 @@ describe('replaceContentTool', () => {
     mockGlob.mockResolvedValue([]); // No files matched
     const input = createInput(['*.nomatch'], [{ search: 'a', replace: 'b', isRegex: false }]);
 
-    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await replaceContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(0);
@@ -126,8 +127,7 @@ describe('replaceContentTool', () => {
 
   it('should return validation error for invalid input', async () => {
     const input = { paths: ['*.txt'], operations: [] }; // Empty operations array
-    // No options needed for input validation failure
-    const result = await replaceContentTool.execute(input as any, WORKSPACE_ROOT);
+    const result = await replaceContentTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
@@ -140,7 +140,7 @@ describe('replaceContentTool', () => {
     mockGlob.mockRejectedValue(globError);
     const input = createInput(['[invalid'], [{ search: 'a', replace: 'b', isRegex: false }]);
 
-    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await replaceContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('Glob pattern error');
@@ -155,7 +155,7 @@ describe('replaceContentTool', () => {
     mockReadFile.mockRejectedValue(readError);
     const input = createInput([filePath], [{ search: 'a', replace: 'b', isRegex: false }]);
 
-    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await replaceContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false); // Overall fails if one file fails
     expect(result.results).toHaveLength(1);
@@ -174,7 +174,7 @@ describe('replaceContentTool', () => {
     mockWriteFile.mockRejectedValue(writeError);
     const input = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }]);
 
-    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await replaceContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results).toHaveLength(1);
@@ -189,9 +189,9 @@ describe('replaceContentTool', () => {
      mockGlob.mockResolvedValue([filePath]);
      mockReadFile.mockResolvedValue('content');
      const input = createInput([filePath], [{ search: '(', replace: 'fail', isRegex: true }]); // Invalid regex
-
-     const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
-
+ 
+     const result = await replaceContentTool.execute(input, defaultOptions); // Pass options object
+ 
      expect(result.success).toBe(false);
      expect(result.results[0]?.success).toBe(false);
      expect(result.results[0]?.error).toContain('Invalid regex');
@@ -206,7 +206,7 @@ describe('replaceContentTool', () => {
     const input = createInput([filePath], [{ search: 'a', replace: 'b', isRegex: false }]); // Add isRegex
 
     // Act
-    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, defaultOptions); // Use default options (disallow outside)
+    const result = await replaceContentTool.execute(input, defaultOptions); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -227,7 +227,7 @@ describe('replaceContentTool', () => {
     const input = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }]); // Add isRegex
 
     // Act
-    const result = await replaceContentTool.execute(input, WORKSPACE_ROOT, allowOutsideOptions); // Pass flag via options
+    const result = await replaceContentTool.execute(input, allowOutsideOptions); // Pass options object
 
     // Assert
     expect(result.success).toBe(true); // Should succeed as validation is skipped

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { McpTool, McpToolInput, BaseMcpToolOutput, McpContentPart } from '@sylphlab/mcp-core'; // Corrected imports
+import { McpTool, McpToolInput, BaseMcpToolOutput, McpContentPart, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
 import { type ChunkingOptions, chunkCodeAst } from '../chunking.js'; // Import interface type
 import { EmbeddingModelConfigSchema, generateEmbeddings, EmbeddingModelProvider, defaultEmbeddingConfig } from '../embedding.js'; // Import default config
 import { IndexManager, VectorDbConfigSchema, IndexedItem, VectorDbProvider } from '../indexManager.js';
@@ -41,8 +41,9 @@ export const indexContentTool: McpTool<typeof IndexContentInputSchema, BaseMcpTo
   inputSchema: IndexContentInputSchema,
   // outputSchema property removed
 
-  async execute(input: z.infer<typeof IndexContentInputSchema>, context): Promise<BaseMcpToolOutput> { // Explicitly type input
+  async execute(input: z.infer<typeof IndexContentInputSchema>, options: McpToolExecuteOptions): Promise<BaseMcpToolOutput> { // Remove context, require options
     const { items, chunkingOptions, embeddingConfig, vectorDbConfig } = input;
+    // workspaceRoot is now in options.workspaceRoot if needed
     console.log(`indexContentTool: Processing ${items.length} items.`);
 
     // Provide default config if none is given in input

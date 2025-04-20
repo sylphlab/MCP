@@ -11,7 +11,7 @@ describe('xmlTool.execute', () => {
 
   it('should simulate parsing valid XML string (single item batch)', async () => {
     const input: XmlToolInput = { items: [{ id: 'a', operation: 'parse', data: '<tag>value</tag>' }] };
-    const result = await xmlTool.execute(input, mockWorkspaceRoot);
+    const result = await xmlTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -26,7 +26,7 @@ describe('xmlTool.execute', () => {
   it('should simulate returning error for invalid XML string (single item batch)', async () => {
     // Placeholder logic checks for '<error>' substring
     const input: XmlToolInput = { items: [{ id: 'b', operation: 'parse', data: '<error>invalid</error>' }] };
-    const result = await xmlTool.execute(input, mockWorkspaceRoot);
+    const result = await xmlTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false); // Overall fails
     expect(result.results).toHaveLength(1);
@@ -48,7 +48,7 @@ describe('xmlTool.execute', () => {
         { id: 'xml_ok2', operation: 'parse', data: '<ok>2</ok>' },
       ]
     };
-    const result = await xmlTool.execute(input, mockWorkspaceRoot);
+    const result = await xmlTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false); // Overall fails because one item fails - Corrected expectation
     expect(result.results).toHaveLength(3);

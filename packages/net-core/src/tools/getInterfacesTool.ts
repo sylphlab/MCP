@@ -30,8 +30,9 @@ export const getInterfacesTool: McpTool<typeof GetInterfacesToolInputSchema, Get
   description: 'Retrieves details about the network interfaces on the machine.',
   inputSchema: GetInterfacesToolInputSchema,
 
-  async execute(input: GetInterfacesToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<GetInterfacesToolOutput> {
+  async execute(input: GetInterfacesToolInput, options: McpToolExecuteOptions): Promise<GetInterfacesToolOutput> { // Use options object
     const { id } = input;
+    // workspaceRoot is now in options.workspaceRoot if needed
 
     try {
       console.log(`Getting network interfaces... (ID: ${id ?? 'N/A'})`);

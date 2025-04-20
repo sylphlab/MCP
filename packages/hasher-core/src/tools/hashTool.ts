@@ -77,9 +77,10 @@ export const hashTool: McpTool<typeof HashToolInputSchema, HashToolOutput> = {
   description: 'Computes cryptographic hashes for one or more input strings.',
   inputSchema: HashToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: HashToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<HashToolOutput> {
+  async execute(input: HashToolInput, options: McpToolExecuteOptions): Promise<HashToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper
     const { items } = input;
+    // workspaceRoot is now in options.workspaceRoot if needed
     const results: HashResultItem[] = [];
     let overallSuccess = true;
 

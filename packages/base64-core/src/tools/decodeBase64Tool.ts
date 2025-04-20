@@ -21,8 +21,9 @@ export const decodeBase64Tool: McpTool<typeof DecodeBase64ToolInputSchema, Decod
   description: 'Decodes a Base64 string into UTF-8.',
   inputSchema: DecodeBase64ToolInputSchema,
 
-  async execute(input: DecodeBase64ToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<DecodeBase64ToolOutput> {
+  async execute(input: DecodeBase64ToolInput, options: McpToolExecuteOptions): Promise<DecodeBase64ToolOutput> { // Remove workspaceRoot, require options
     const { encoded } = input;
+    // workspaceRoot is now in options.workspaceRoot if needed
 
     try {
       console.log('Decoding from Base64...');

@@ -53,7 +53,7 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
   description: 'Reads the content of one or more files within the workspace.',
   inputSchema: ReadFilesToolInputSchema,
 
-  async execute(input: ReadFilesToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<ReadFilesToolOutput> { // Add options
+  async execute(input: ReadFilesToolInput, options: McpToolExecuteOptions): Promise<ReadFilesToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
     const parsed = ReadFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -82,7 +82,7 @@ export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesTo
       let fullPath: string | undefined;
 
       // --- Validate Path ---
-      const validationResult = validateAndResolvePath(itemPath, workspaceRoot, options?.allowOutsideWorkspace);
+      const validationResult = validateAndResolvePath(itemPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
       if (typeof validationResult !== 'string') {
           error = `Path validation failed: ${validationResult.error}`;
           suggestionForError = validationResult.suggestion;

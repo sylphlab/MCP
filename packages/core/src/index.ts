@@ -79,6 +79,8 @@ export interface BaseMcpToolOutput {
 export interface McpToolExecuteOptions {
     /** If true, allows the tool to access paths outside the workspace root. Defaults to false. */
     allowOutsideWorkspace?: boolean;
+    /** The absolute path to the workspace root directory. */
+    workspaceRoot: string;
     // Add other internal options as needed
 }
 
@@ -100,8 +102,8 @@ export interface McpTool<
     /** The core execution logic for the tool. Receives validated input, workspace root, and optional internal options. */
     execute: (
         input: z.infer<TInputSchema>,
-        workspaceRoot: string,
-        options?: McpToolExecuteOptions // Added options parameter
+        // workspaceRoot: string, // Removed separate workspaceRoot argument
+        options: McpToolExecuteOptions // Options object now required and contains workspaceRoot
     ) => Promise<TOutput>;
 }
 

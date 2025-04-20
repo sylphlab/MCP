@@ -62,7 +62,7 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
   description: 'Performs search and replace operations across multiple files (supports globs).',
   inputSchema: ReplaceContentToolInputSchema,
 
-  async execute(input: ReplaceContentToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<ReplaceContentToolOutput> { // Add options
+  async execute(input: ReplaceContentToolInput, options: McpToolExecuteOptions): Promise<ReplaceContentToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
     const parsed = ReplaceContentToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -86,7 +86,7 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
     try {
         // Expand globs, ensuring paths are relative to workspaceRoot for security
         resolvedFilePaths = await glob(pathPatterns, {
-            cwd: workspaceRoot,
+            cwd: options.workspaceRoot, // Use options.workspaceRoot
             absolute: false, // Keep paths relative to cwd
             onlyFiles: true, // Only operate on files
             dot: true, // Include dotfiles
@@ -106,7 +106,7 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
 
 
     for (const relativeFilePath of resolvedFilePaths) {
-        const fullPath = path.resolve(workspaceRoot, relativeFilePath);
+        const fullPath = path.resolve(options.workspaceRoot, relativeFilePath); // Use options.workspaceRoot
         let fileSuccess = true;
         let fileError: string | undefined;
         let totalReplacementsMade = 0;
@@ -116,7 +116,7 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
 
         // Double-check security (glob should handle this, but belt-and-suspenders)
         // Skip this check if allowOutsideWorkspace is true
-        const relativeCheck = path.relative(workspaceRoot, fullPath);
+        const relativeCheck = path.relative(options.workspaceRoot, fullPath); // Use options.workspaceRoot
         if (!options?.allowOutsideWorkspace && (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck))) {
             fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
             console.error(fileError);

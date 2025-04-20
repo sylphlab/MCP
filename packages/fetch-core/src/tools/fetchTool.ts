@@ -128,9 +128,10 @@ export const fetchTool: McpTool<typeof FetchToolInputSchema, FetchToolOutput> = 
   description: 'Performs one or more HTTP fetch requests sequentially.',
   inputSchema: FetchToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: FetchToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<FetchToolOutput> {
+  async execute(input: FetchToolInput, options: McpToolExecuteOptions): Promise<FetchToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper
     const { items } = input;
+    // workspaceRoot is now in options.workspaceRoot if needed
     const results: FetchResultItem[] = [];
     let overallSuccess = true;
 

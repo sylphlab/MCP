@@ -119,7 +119,7 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
   description: 'Lists files and directories within one or more specified paths in the workspace.',
   inputSchema: ListFilesToolInputSchema,
 
-  async execute(input: ListFilesToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<ListFilesToolOutput> {
+  async execute(input: ListFilesToolInput, options: McpToolExecuteOptions): Promise<ListFilesToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
     const parsed = ListFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -147,7 +147,7 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
         let pathSuggestion: string | undefined; // Declare pathSuggestion here
 
         // --- Validate and Resolve Path ---
-        const validationResult = validateAndResolvePath(inputPath, workspaceRoot, options?.allowOutsideWorkspace);
+        const validationResult = validateAndResolvePath(inputPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
         let fullPath: string; // Declare fullPath here
         if (typeof validationResult !== 'string') {
             pathError = validationResult.error;
@@ -167,14 +167,14 @@ export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesTo
                 }
 
                 if (recursive) {
-                    pathEntries = await listDirectoryRecursive(fullPath, workspaceRoot, 0, maxDepth, includeStats);
+                    pathEntries = await listDirectoryRecursive(fullPath, options.workspaceRoot, 0, maxDepth, includeStats); // Use options.workspaceRoot
                 } else {
                     // Non-recursive: read only the top level
                     const dirents = await readdir(fullPath, { withFileTypes: true });
                     pathEntries = [];
                     for (const dirent of dirents) {
                          const entryFullPath = path.join(fullPath, dirent.name);
-                         const entryRelativePath = path.relative(workspaceRoot, entryFullPath);
+                         const entryRelativePath = path.relative(options.workspaceRoot, entryFullPath); // Use options.workspaceRoot
                          let entryStat: Stats | undefined = undefined;
                          if (includeStats) {
                              try {

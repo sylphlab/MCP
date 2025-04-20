@@ -70,8 +70,9 @@ describe('listFilesTool', () => {
     mockStat.mockResolvedValue(createMockStats(true, false)); // Assume path exists and is directory by default
     mockReaddir.mockResolvedValue([]); // Default to empty directory
   });
-  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true };
+  // Define options objects including workspaceRoot
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
 
 
   it('should list files non-recursively', async () => {
@@ -87,7 +88,7 @@ describe('listFilesTool', () => {
     ];
     mockReaddir.mockResolvedValue(mockDirents as any); // Cast needed as mock Dirent is simplified
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results['dir1']?.success).toBe(true);
@@ -115,7 +116,7 @@ describe('listFilesTool', () => {
         .mockResolvedValueOnce(topLevelDirents as any) // For dir1
         .mockResolvedValueOnce(subLevelDirents as any); // For dir1/subdir
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results['dir1']?.success).toBe(true);
@@ -138,7 +139,7 @@ describe('listFilesTool', () => {
 
     mockReaddir.mockResolvedValueOnce(topLevelDirents as any); // For dir1
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results['dir1']?.success).toBe(true);
@@ -161,7 +162,7 @@ describe('listFilesTool', () => {
         .mockResolvedValueOnce(createMockStats(true, false)) // For input path check
         .mockResolvedValueOnce(mockFileStats); // For file1.txt
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results['dir1']?.success).toBe(true);
@@ -173,8 +174,7 @@ describe('listFilesTool', () => {
 
   it('should return validation error for empty paths array', async () => {
     const input = { paths: [] }; // Invalid input
-    // No options needed for input validation failure
-    const result = await listFilesTool.execute(input as any, WORKSPACE_ROOT);
+    const result = await listFilesTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('paths array cannot be empty');
@@ -189,7 +189,7 @@ describe('listFilesTool', () => {
         // allowOutsideWorkspace removed
     };
     // Explicitly test with allowOutsideWorkspace: false
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
     expect(result.success).toBe(false); // Overall success is false
     expect(result.results['../outside']?.success).toBe(false);
     expect(result.results['../outside']?.error).toContain('Path validation failed');
@@ -208,7 +208,7 @@ describe('listFilesTool', () => {
     (statError as any).code = 'ENOENT';
     mockStat.mockRejectedValue(statError); // Mock stat failure for input path
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results['nonexistent']?.success).toBe(false);
@@ -226,7 +226,7 @@ describe('listFilesTool', () => {
     };
     mockStat.mockResolvedValue(createMockStats(false, true)); // Mock stat says it's a file
 
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results['file.txt']?.success).toBe(false);
@@ -248,7 +248,7 @@ describe('listFilesTool', () => {
     mockStat.mockResolvedValue(createMockStats(true, false));
 
     // Act
-    const result = await listFilesTool.execute(input, WORKSPACE_ROOT, allowOutsideOptions); // Pass flag via options
+    const result = await listFilesTool.execute(input, allowOutsideOptions); // Pass options object
 
     // Assert
     expect(result.success).toBe(true); // Should succeed as validation is skipped

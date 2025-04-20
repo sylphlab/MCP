@@ -26,9 +26,9 @@ export function registerTools(server: McpServer, tools: McpTool<any, any>[]) {
                 // Validate args using the tool's full Zod schema
                 const validatedArgs = tool.inputSchema.parse(args);
 
-                // Call the original tool's execute function
-                const executeOptions = {}; // Pass empty options for now
-                result = await tool.execute(validatedArgs, workspaceRoot, executeOptions);
+                // Call the original tool's execute function, passing workspaceRoot in options
+                const executeOptions = { workspaceRoot }; // Pass workspaceRoot in options
+                result = await tool.execute(validatedArgs, executeOptions); // Pass only input and options
             } catch (execError: any) {
                  // Catch errors during validation (parse) or execution
                  console.error(`Error during registration wrapper for ${tool.name}:`, execError);

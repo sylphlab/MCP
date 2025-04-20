@@ -37,7 +37,7 @@ describe('fetchTool.execute', () => {
 
   it('should process a single GET request (text)', async () => {
     const input: FetchToolInput = { items: [{ id: 'a', url: 'http://test.com/text', method: 'GET', responseType: 'text' }] };
-    const output = await fetchTool.execute(input, mockWorkspaceRoot);
+    const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results).toHaveLength(1);
@@ -51,7 +51,7 @@ describe('fetchTool.execute', () => {
 
   it('should process a single GET request (json)', async () => {
     const input: FetchToolInput = { items: [{ id: 'b', url: 'http://test.com/json', method: 'GET', responseType: 'json' }] };
-    const output = await fetchTool.execute(input, mockWorkspaceRoot);
+    const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results).toHaveLength(1);
@@ -72,7 +72,7 @@ describe('fetchTool.execute', () => {
       body: JSON.stringify({ data: 'value' }),
       responseType: 'json'
     }]};
-    const output = await fetchTool.execute(input, mockWorkspaceRoot);
+    const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results).toHaveLength(1);
@@ -96,7 +96,7 @@ describe('fetchTool.execute', () => {
       body: JSON.stringify({ data: 'value' }),
       responseType: 'json'
     }]};
-    await fetchTool.execute(input, mockWorkspaceRoot); // Don't need result, just check mock call
+    await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(global.fetch).toHaveBeenCalledWith('http://test.com/post', {
       method: 'POST',
@@ -110,7 +110,7 @@ describe('fetchTool.execute', () => {
   it('should handle fetch error (e.g., network error)', async () => {
     vi.mocked(global.fetch).mockRejectedValue(new Error('Network failed'));
     const input: FetchToolInput = { items: [{ id: 'f', url: 'http://test.com/fail', method: 'GET', responseType: 'text' }] };
-    const output = await fetchTool.execute(input, mockWorkspaceRoot);
+    const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(false); // Overall success is false
     expect(output.results).toHaveLength(1);
@@ -134,7 +134,7 @@ describe('fetchTool.execute', () => {
     };
     vi.mocked(global.fetch).mockResolvedValue(mockErrorResponse as unknown as Response);
     const input: FetchToolInput = { items: [{ id: 'g', url: 'http://test.com/notfound', method: 'GET', responseType: 'text' }] };
-    const output = await fetchTool.execute(input, mockWorkspaceRoot);
+    const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(false);
     expect(output.results).toHaveLength(1);
@@ -151,7 +151,7 @@ describe('fetchTool.execute', () => {
 
   it('should handle responseType ignore', async () => {
     const input: FetchToolInput = { items: [{ id: 'i', url: 'http://test.com/ignore', method: 'GET', responseType: 'ignore' }] };
-    const output = await fetchTool.execute(input, mockWorkspaceRoot);
+    const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results).toHaveLength(1);
@@ -175,7 +175,7 @@ describe('fetchTool.execute', () => {
     };
     vi.mocked(global.fetch).mockResolvedValue(mockBadJsonResponse as unknown as Response);
     const input: FetchToolInput = { items: [{ id: 'h', url: 'http://test.com/badjson', method: 'GET', responseType: 'json' }] };
-    const output = await fetchTool.execute(input, mockWorkspaceRoot);
+    const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(false);
     expect(output.results).toHaveLength(1);

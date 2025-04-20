@@ -58,8 +58,9 @@ export const getPublicIpTool: McpTool<typeof GetPublicIpToolInputSchema, GetPubl
   description: 'Retrieves the public IP address of the machine running the MCP server.',
   inputSchema: GetPublicIpToolInputSchema,
 
-  async execute(input: GetPublicIpToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<GetPublicIpToolOutput> {
+  async execute(input: GetPublicIpToolInput, options: McpToolExecuteOptions): Promise<GetPublicIpToolOutput> { // Remove workspaceRoot, require options
     const { id } = input;
+    // workspaceRoot is now in options.workspaceRoot if needed
 
     try {
       const publicIpInfo = await fetchPublicIp();

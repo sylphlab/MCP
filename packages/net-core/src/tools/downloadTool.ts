@@ -1,6 +1,6 @@
 import { McpTool, BaseMcpToolOutput, McpToolExecuteOptions, validateAndResolvePath } from '@sylphlab/mcp-core';
 import type * as http from 'node:http'; // Import type only for placeholder
-import type { DownloadToolInput, DownloadItem, DownloadResultItem, DownloadToolOutput } from './downloadTool.types'; // Import new types
+import type { DownloadToolInput, DownloadInputItem, DownloadResultItem, DownloadToolOutput } from './downloadTool.types'; // Import new types
 import { downloadToolInputSchema } from './downloadTool.schema';
 
 import * as fs from 'node:fs'; // For createWriteStream
@@ -13,14 +13,15 @@ import type { ClientRequest, RequestOptions, IncomingMessage } from 'node:http';
 
 // --- Helper Function for Single Download ---
 
-async function processSingleDownload(item: DownloadItem, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<DownloadResultItem> {
+async function processSingleDownload(item: DownloadInputItem, options: McpToolExecuteOptions): Promise<DownloadResultItem> { // Use options object
   const { id, url, destinationPath, overwrite } = item;
+  const { workspaceRoot, allowOutsideWorkspace } = options; // Extract from options
   console.log(`Processing item ${id ?? 'N/A'}: Download ${url} to ${destinationPath}`);
 
   let absoluteDestPath: string | undefined; // Define here for use in catch block
   try {
     // 1. Validate and Resolve destinationPath using the core utility
-    const validationResult = validateAndResolvePath(destinationPath, workspaceRoot, options?.allowOutsideWorkspace);
+    const validationResult = validateAndResolvePath(destinationPath, workspaceRoot, allowOutsideWorkspace); // Use extracted values
     if (typeof validationResult !== 'string') {
       // Validation failed, result is an error object
       const error = (validationResult as any)?.error ?? 'Unknown path validation error';
@@ -167,10 +168,10 @@ export const downloadTool: McpTool<typeof downloadToolInputSchema, DownloadToolO
   name: 'downloadTool',
   description: 'Downloads one or more files from URLs to specified paths within the workspace.',
   inputSchema: downloadToolInputSchema,
-  async execute(input: DownloadToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<DownloadToolOutput> {
-    // Add upfront check for workspaceRoot
-    if (!workspaceRoot) {
-        const errorMsg = 'Workspace root is not available.';
+  async execute(input: DownloadToolInput, options: McpToolExecuteOptions): Promise<DownloadToolOutput> { // Use options object
+    // Add upfront check for workspaceRoot within options
+    if (!options?.workspaceRoot) { // Check options.workspaceRoot
+        const errorMsg = 'Workspace root is not available in options.';
         console.error(errorMsg);
         return { success: false, error: errorMsg, results: [], content: [{ type: 'text', text: errorMsg }] };
     }
@@ -182,8 +183,8 @@ export const downloadTool: McpTool<typeof downloadToolInputSchema, DownloadToolO
     console.log(`Attempting to download ${items.length} item(s)...`);
 
     for (const item of items) {
-      // Pass workspaceRoot to helper
-      const result = await processSingleDownload(item, workspaceRoot, options);
+      // Pass the whole options object to helper
+      const result = await processSingleDownload(item, options);
       results.push(result);
       if (result.success) {
         overallSuccess = true; // Mark overall success if any item succeeds

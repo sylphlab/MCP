@@ -12,7 +12,7 @@ describe('waitTool.execute', () => {
     const input: WaitToolInput = { items: [{ id: 'wait1', ms: waitTime }] };
     const consoleSpy = vi.spyOn(console, 'log');
 
-    const result = await waitTool.execute(input, mockWorkspaceRoot);
+    const result = await waitTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     const endTime = Date.now();
     const duration = endTime - startTime;
@@ -44,7 +44,7 @@ describe('waitTool.execute', () => {
 
   it('should handle zero wait time (single item batch)', async () => {
     const input: WaitToolInput = { items: [{ id: 'wait0', ms: 0 }] };
-    const result = await waitTool.execute(input, mockWorkspaceRoot);
+    const result = await waitTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.error).toBeUndefined();
@@ -81,7 +81,7 @@ describe('waitTool.execute', () => {
 
     const consoleErrSpy = vi.spyOn(console, 'error');
 
-    const result = await waitTool.execute(input, mockWorkspaceRoot);
+    const result = await waitTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false); // Overall fails
     expect(result.error).toBeUndefined(); // No *tool* level error
@@ -117,7 +117,7 @@ describe('waitTool.execute', () => {
     const startTime = Date.now();
     const consoleSpy = vi.spyOn(console, 'log');
 
-    const result = await waitTool.execute(input, mockWorkspaceRoot);
+    const result = await waitTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     const endTime = Date.now();
     const totalDuration = endTime - startTime;

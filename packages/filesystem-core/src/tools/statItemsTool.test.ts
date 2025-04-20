@@ -29,15 +29,16 @@ describe('statItemsTool', () => {
     mockStat.mockResolvedValue(createMockStats(true));
   });
 
-  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true };
+  // Define options objects including workspaceRoot
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
 
   it('should successfully get stats for a single item', async () => {
     const input: StatItemsToolInput = { paths: ['file.txt'] };
     const mockStatsData = createMockStats(true);
     mockStat.mockResolvedValue(mockStatsData);
 
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -57,7 +58,7 @@ describe('statItemsTool', () => {
       .mockResolvedValueOnce(mockStats1)
       .mockResolvedValueOnce(mockStats2);
 
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(2);
@@ -74,7 +75,7 @@ describe('statItemsTool', () => {
     (enoentError as any).code = 'ENOENT';
     mockStat.mockRejectedValue(enoentError);
 
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false); // Overall success is false if any path not found
     expect(result.results).toHaveLength(1);
@@ -90,7 +91,7 @@ describe('statItemsTool', () => {
     (accessError as any).code = 'EACCES';
     mockStat.mockRejectedValue(accessError);
 
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results).toHaveLength(1);
@@ -112,7 +113,7 @@ describe('statItemsTool', () => {
       .mockResolvedValueOnce(mockStatsFound)
       .mockRejectedValueOnce(enoentError);
 
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true); // Overall success is true because one succeeded
     expect(result.results).toHaveLength(2);
@@ -130,8 +131,7 @@ describe('statItemsTool', () => {
 
   it('should return validation error for empty paths array', async () => {
     const input = { paths: [] }; // Invalid input
-    // No options needed for input validation failure
-    const result = await statItemsTool.execute(input as any, WORKSPACE_ROOT);
+    const result = await statItemsTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('paths array cannot be empty');
@@ -141,7 +141,7 @@ describe('statItemsTool', () => {
   it('should handle path validation failure (outside workspace)', async () => {
     const input: StatItemsToolInput = { paths: ['../outside.txt'] };
     // Explicitly test with allowOutsideWorkspace: false
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
     expect(result.success).toBe(false); // Overall success is false
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path validation failed');
@@ -155,7 +155,7 @@ describe('statItemsTool', () => {
     mockStat.mockResolvedValue(mockStatsData);
 
     // Execute with allowOutsideWorkspace: true
-    const result = await statItemsTool.execute(input, WORKSPACE_ROOT, allowOutsideOptions);
+    const result = await statItemsTool.execute(input, allowOutsideOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);

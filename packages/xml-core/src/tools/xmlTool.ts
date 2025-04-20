@@ -85,9 +85,10 @@ export const xmlTool: McpTool<typeof XmlToolInputSchema, XmlToolOutput> = {
   description: 'Performs XML operations (currently parse with placeholder logic) on one or more inputs.',
   inputSchema: XmlToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: XmlToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<XmlToolOutput> {
+  async execute(input: XmlToolInput, options: McpToolExecuteOptions): Promise<XmlToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper
     const { items } = input;
+    // workspaceRoot is now in options.workspaceRoot if needed
     const results: XmlResultItem[] = [];
     let overallSuccess = true;
 

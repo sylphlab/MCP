@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { queryIndexTool, QueryIndexInputSchema } from './queryIndexTool.js';
 import { IndexManager, VectorDbProvider, QueryResult, VectorDbConfigSchema, VectorDbConfig } from '../indexManager.js'; // Added VectorDbConfig import
 import * as embedding from '../embedding.js'; // Mocked below
-import { BaseMcpToolOutput } from '@sylphlab/mcp-core';
+import { BaseMcpToolOutput, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
 
 // --- Mock Setup ---
 
@@ -33,6 +33,8 @@ import { MockInstance } from 'vitest'; // Import MockInstance
 describe('queryIndexTool', () => {
   // Declare spy variable with explicit type
   let MockIndexManagerCreate: MockInstance<[config: VectorDbConfig, embeddingFn?: embedding.IEmbeddingFunction | undefined], Promise<IndexManager>>;
+  const mockWorkspaceRoot = '/test/workspace'; // Define mock workspace root
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot }; // Define options
 
   beforeEach(() => {
     // Reset all mocks (including spies)
@@ -59,7 +61,7 @@ describe('queryIndexTool', () => {
 
   it('should successfully query with default settings', async () => {
     const input = { queryText: 'test query', topK: 5 };
-    const result = await queryIndexTool.execute(input, '.'); // Pass string context
+    const result = await queryIndexTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(mockGenerateEmbeddings).toHaveBeenCalledOnce();
@@ -84,7 +86,7 @@ describe('queryIndexTool', () => {
      const error = new Error('Embedding failed');
      mockGenerateEmbeddings.mockRejectedValue(error);
 
-     const result = await queryIndexTool.execute(input, '.'); // Pass string context
+     const result = await queryIndexTool.execute(input, defaultOptions); // Pass options object
 
      expect(result.success).toBe(false);
      expect(result.content).toEqual([{ type: 'text', text: `Error generating query embedding: ${error.message}` }]);
@@ -96,7 +98,7 @@ describe('queryIndexTool', () => {
     const input = { queryText: 'empty embedding', topK: 5 };
     mockGenerateEmbeddings.mockResolvedValue([]); // Simulate empty result
 
-    const result = await queryIndexTool.execute(input, '.');
+    const result = await queryIndexTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.content).toEqual([{ type: 'text', text: 'Error generating query embedding: Embedding generation returned no results.' }]);
@@ -110,7 +112,7 @@ describe('queryIndexTool', () => {
       // Re-mock the spy for this specific test case
       MockIndexManagerCreate.mockRejectedValue(error);
 
-      const result = await queryIndexTool.execute(input, '.'); // Pass string context
+      const result = await queryIndexTool.execute(input, defaultOptions); // Pass options object
 
       expect(result.success).toBe(false);
       expect(result.content).toEqual([{ type: 'text', text: `Error querying index: ${error.message}` }]);
@@ -123,7 +125,7 @@ describe('queryIndexTool', () => {
       const error = new Error('Query failed');
       mockQueryIndex.mockRejectedValue(error); // Configure the query mock
 
-      const result = await queryIndexTool.execute(input, '.'); // Pass string context
+      const result = await queryIndexTool.execute(input, defaultOptions); // Pass options object
 
       expect(result.success).toBe(false);
       expect(result.content).toEqual([{ type: 'text', text: `Error querying index: ${error.message}` }]);
@@ -136,7 +138,7 @@ describe('queryIndexTool', () => {
       const input = { queryText: 'no results query', topK: 5 };
       mockQueryIndex.mockResolvedValue([]); // Configure the query mock
 
-      const result = await queryIndexTool.execute(input, '.'); // Pass string context
+      const result = await queryIndexTool.execute(input, defaultOptions); // Pass options object
 
       expect(result.success).toBe(true);
       expect(result.content).toEqual([{ type: 'text', text: 'No relevant results found in the index.' }]);
@@ -155,7 +157,7 @@ describe('queryIndexTool', () => {
       const queryVector = [0.5, 0.5];
       mockGenerateEmbeddings.mockResolvedValue([queryVector]);
 
-      await queryIndexTool.execute(input, '.'); // Pass string context
+      await queryIndexTool.execute(input, defaultOptions); // Pass options object
 
       expect(mockQueryIndex).toHaveBeenCalledOnce();
       expect(mockQueryIndex).toHaveBeenCalledWith(queryVector, input.topK, input.filter);
@@ -183,7 +185,7 @@ describe('queryIndexTool', () => {
       const queryVector = [0.9, 0.1];
       mockGenerateEmbeddings.mockResolvedValue([queryVector]);
 
-      await queryIndexTool.execute(input, '.'); // Pass string context
+      await queryIndexTool.execute(input, defaultOptions); // Pass options object
 
       expect(mockGenerateEmbeddings).toHaveBeenCalledWith([input.queryText], input.embeddingConfig);
       expect(MockIndexManagerCreate).toHaveBeenCalledWith(
@@ -210,7 +212,7 @@ describe('queryIndexTool', () => {
        const queryVector = [0.4, 0.6];
        mockGenerateEmbeddings.mockResolvedValue([queryVector]);
 
-       await queryIndexTool.execute(input, '.');
+       await queryIndexTool.execute(input, defaultOptions); // Pass options object
 
        expect(mockGenerateEmbeddings).toHaveBeenCalledWith([input.queryText], input.embeddingConfig);
        expect(MockIndexManagerCreate).toHaveBeenCalledWith(

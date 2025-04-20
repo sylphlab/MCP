@@ -21,8 +21,9 @@ export const encodeBase64Tool: McpTool<typeof EncodeBase64ToolInputSchema, Encod
   description: 'Encodes a UTF-8 string into Base64.',
   inputSchema: EncodeBase64ToolInputSchema,
 
-  async execute(input: EncodeBase64ToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<EncodeBase64ToolOutput> {
+  async execute(input: EncodeBase64ToolInput, options: McpToolExecuteOptions): Promise<EncodeBase64ToolOutput> { // Remove workspaceRoot, require options
     const { input: textToEncode } = input;
+    // workspaceRoot is now in options.workspaceRoot if needed
 
     try {
       console.log('Encoding to Base64...');

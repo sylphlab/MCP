@@ -1,6 +1,6 @@
 import { z } from 'zod';
 // Remove incorrect McpToolContext import
-import { McpTool, McpToolInput, BaseMcpToolOutput, McpContentPart } from '@sylphlab/mcp-core';
+import { McpTool, McpToolInput, BaseMcpToolOutput, McpContentPart, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
 import {
   EmbeddingModelConfigSchema,
   generateEmbeddings,
@@ -30,9 +30,9 @@ export const queryIndexTool: McpTool<typeof QueryIndexInputSchema, BaseMcpToolOu
   inputSchema: QueryIndexInputSchema,
 
   // Correct signature based on type error: second param is workspaceRoot: string
-  async execute(input: z.infer<typeof QueryIndexInputSchema>, workspaceRoot: string): Promise<BaseMcpToolOutput> {
+  async execute(input: z.infer<typeof QueryIndexInputSchema>, options: McpToolExecuteOptions): Promise<BaseMcpToolOutput> { // Remove workspaceRoot, require options
     const { queryText, topK, filter, embeddingConfig, vectorDbConfig } = input;
-    // Note: workspaceRoot parameter is currently unused in this implementation
+    // workspaceRoot is now in options.workspaceRoot if needed
     console.log(`queryIndexTool: Processing query "${queryText.substring(0, 50)}..."`);
 
     // 1. Generate embedding for the query text

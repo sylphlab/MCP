@@ -40,7 +40,7 @@ export const deleteItemsTool: McpTool<typeof DeleteItemsToolInputSchema, DeleteI
   description: 'Deletes specified files or directories (supports globs - TODO: implement glob support). Uses trash by default.',
   inputSchema: DeleteItemsToolInputSchema,
 
-  async execute(input: DeleteItemsToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<DeleteItemsToolOutput> {
+  async execute(input: DeleteItemsToolInput, options: McpToolExecuteOptions): Promise<DeleteItemsToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
     const parsed = DeleteItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -70,7 +70,7 @@ export const deleteItemsTool: McpTool<typeof DeleteItemsToolInputSchema, DeleteI
       const deleteMethod = useTrash ? 'trash' : 'delete permanently';
 
       // --- Validate and Resolve Path ---
-      const validationResult = validateAndResolvePath(itemPath, workspaceRoot, options?.allowOutsideWorkspace);
+      const validationResult = validateAndResolvePath(itemPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
       if (typeof validationResult !== 'string') {
           error = validationResult.error;
           suggestion = validationResult.suggestion;

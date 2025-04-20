@@ -96,9 +96,10 @@ export const jsonTool: McpTool<typeof JsonToolInputSchema, JsonToolOutput> = {
   description: 'Performs JSON operations (parse or stringify) on one or more inputs.',
   inputSchema: JsonToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: JsonToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<JsonToolOutput> {
+  async execute(input: JsonToolInput, options: McpToolExecuteOptions): Promise<JsonToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper
     const { items } = input;
+    // workspaceRoot is now in options.workspaceRoot if needed
     const results: JsonResultItem[] = [];
     let overallSuccess = true;
 

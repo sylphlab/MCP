@@ -69,7 +69,7 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
   description: 'Searches for content within multiple files (supports globs).',
   inputSchema: SearchContentToolInputSchema,
 
-  async execute(input: SearchContentToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<SearchContentToolOutput> { // Add options
+  async execute(input: SearchContentToolInput, options: McpToolExecuteOptions): Promise<SearchContentToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
     const parsed = SearchContentToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -100,7 +100,7 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
 
      try {
         resolvedFilePaths = await glob(pathPatterns, {
-            cwd: workspaceRoot,
+            cwd: options.workspaceRoot, // Use options.workspaceRoot
             absolute: false,
             onlyFiles: true,
             dot: true,
@@ -118,7 +118,7 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
     }
 
     for (const relativeFilePath of resolvedFilePaths) {
-        const fullPath = path.resolve(workspaceRoot, relativeFilePath);
+        const fullPath = path.resolve(options.workspaceRoot, relativeFilePath); // Use options.workspaceRoot
         let fileSuccess = true;
         let fileError: string | undefined;
         const matches: SearchMatch[] = [];
@@ -127,7 +127,7 @@ export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, Sea
 
         // Double-check security
         // Skip this check if allowOutsideWorkspace is true
-        const relativeCheck = path.relative(workspaceRoot, fullPath);
+        const relativeCheck = path.relative(options.workspaceRoot, fullPath); // Use options.workspaceRoot
         if (!options?.allowOutsideWorkspace && (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck))) {
             fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
             console.error(fileError); // Keep error log

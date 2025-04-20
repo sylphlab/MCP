@@ -24,11 +24,11 @@ describe('editFileTool', () => {
   });
 
   // Helper function to create input easily
-  // Use 'as any' to bypass strict type checking for the helper, as allowOutsideWorkspace is optional
-  const createInput = (changes: { path: string; edits: EditOperation[] }[]): EditFileToolInput => ({ changes } as any);
+  const createInput = (changes: { path: string; edits: EditOperation[] }[]): EditFileToolInput => ({ changes });
 
-  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true };
+  // Define options objects including workspaceRoot
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
 
   it('should insert content at the specified line', async () => {
     const initialContent = 'line1\nline3';
@@ -39,7 +39,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = 'line1\nline2\nline3';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -57,7 +57,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = 'line0\nline1\nline2';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
     expect(result.success).toBe(true);
     expect(mockWriteFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'file.txt'), expectedContent, 'utf-8');
   });
@@ -71,7 +71,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = 'line1\nline2\nline3';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
     expect(result.success).toBe(true);
     expect(mockWriteFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'file.txt'), expectedContent, 'utf-8');
   });
@@ -85,7 +85,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = 'line1\nline4';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -101,7 +101,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'delete_lines', start_line: 1, end_line: 3 }], // end_line 3 is out of bounds
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -118,7 +118,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'delete_lines', start_line: 3, end_line: 1 }],
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     // Expect early failure due to Zod validation
@@ -138,7 +138,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = 'line1\nnew_line_A\nnew_line_B\nline4';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -154,7 +154,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'replace_lines', start_line: 1, end_line: 3, content: 'new' }], // end_line 3 is out of bounds
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -171,7 +171,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'replace_lines', start_line: 3, end_line: 1, content: 'new' }],
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     // Expect early failure due to Zod validation
@@ -191,7 +191,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = 'hi world\nhi again\nworld';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -209,7 +209,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = 'L1:\nL2:\nL3:';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -227,7 +227,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = 'apple\nbanana\norange\ncherry';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.edit_results[0]?.message).toContain('1 replacement(s)');
@@ -242,7 +242,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'search_replace_text', search: 'a', replace: 'b', start_line: 1, end_line: 3 }], // end_line 3 out of bounds
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -259,7 +259,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'search_replace_text', search: 'a', replace: 'b', start_line: 3, end_line: 1 }],
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     // Expect early failure due to Zod validation
@@ -282,7 +282,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = 'LINE A\nLINE B\nLINE C';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -303,7 +303,7 @@ describe('editFileTool', () => {
     const expectedContent1 = 'start\nfile1 content';
     const expectedContent2 = '';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(2);
@@ -317,7 +317,7 @@ describe('editFileTool', () => {
   it('should return validation error for invalid input', async () => {
     const input = { changes: [{ path: 'file.txt', edits: [{ operation: 'insert' }] }] }; // Missing content/start_line
 
-    const result = await editFileTool.execute(input as any, WORKSPACE_ROOT); // No options needed
+    const result = await editFileTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
@@ -333,7 +333,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'insert', start_line: 1, content: 'test' }],
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results).toHaveLength(1);
@@ -351,7 +351,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'insert', start_line: 5, content: 'test' }], // Line 5 out of bounds
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -369,7 +369,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'search_replace_text', search: 'missing', replace: 'found' }],
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -386,7 +386,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'search_replace_regex', regex: '(', replace: 'fail' }], // Invalid regex
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -405,7 +405,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = 'new line\n';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(mockWriteFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'file.txt'), expectedContent, 'utf-8');
@@ -420,7 +420,7 @@ describe('editFileTool', () => {
     }]);
     const expectedContent = '';
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(mockWriteFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'file.txt'), expectedContent, 'utf-8');
@@ -432,7 +432,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'insert', start_line: 1, content: 'test' }],
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
+    const result = await editFileTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -453,7 +453,7 @@ describe('editFileTool', () => {
     const expectedContent = 'test\noutside content';
 
     // Act
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: true }); // Pass flag
+    const result = await editFileTool.execute(input, allowOutsideOptions); // Pass options object
 
     // Assert
     expect(result.success).toBe(true);
@@ -473,7 +473,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'replace_lines', start_line: 1, end_line: 1, content: 'line1' }], // Replace line1 with line1
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -505,7 +505,7 @@ describe('editFileTool', () => {
       ],
     };
 
-    const output = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions); // Use correct options variable
+    const output = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results[0]?.success).toBe(true);
@@ -538,7 +538,7 @@ describe('editFileTool', () => {
       ],
     };
 
-    const output = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions); // Use correct options variable
+    const output = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results[0]?.success).toBe(true);
@@ -572,7 +572,7 @@ describe('editFileTool', () => {
       ],
     };
 
-    const output = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions); // Use correct options variable
+    const output = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results[0]?.success).toBe(true);
@@ -595,7 +595,7 @@ describe('editFileTool', () => {
       edits: [{ operation: 'insert', start_line: 1, content: 'test' }]
     }]);
 
-    const result = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -629,7 +629,7 @@ describe('editFileTool', () => {
       ],
     };
 
-    const output = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions); // Use correct options variable
+    const output = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results[0]?.success).toBe(true);
@@ -662,7 +662,7 @@ describe('editFileTool', () => {
       ],
     };
 
-    const output = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions); // Use correct options variable
+    const output = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results[0]?.success).toBe(true);
@@ -696,7 +696,7 @@ describe('editFileTool', () => {
       ],
     };
 
-    const output = await editFileTool.execute(input, WORKSPACE_ROOT, defaultOptions); // Use correct options variable
+    const output = await editFileTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results[0]?.success).toBe(true);

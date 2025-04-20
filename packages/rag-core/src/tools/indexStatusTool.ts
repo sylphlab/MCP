@@ -22,10 +22,10 @@ export const indexStatusTool: McpTool<typeof IndexStatusInput, IndexStatusOutput
   inputSchema: IndexStatusInput, // Use Zod schema directly
 
   // Correct execute signature
-  async execute(_input: z.infer<typeof IndexStatusInput>, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<IndexStatusOutput> {
+  async execute(_input: z.infer<typeof IndexStatusInput>, options: McpToolExecuteOptions): Promise<IndexStatusOutput> { // Remove workspaceRoot, require options
     try {
-      // Determine chromaDbPath using workspaceRoot
-      const chromaDbPath = path.join(workspaceRoot, '.mcp', 'chroma_db');
+      // Determine chromaDbPath using options.workspaceRoot
+      const chromaDbPath = path.join(options.workspaceRoot, '.mcp', 'chroma_db'); // Use options.workspaceRoot
 
       // Create a minimal dummy embedding function locally just to satisfy getRagCollection's type requirement
       // This avoids needing to import/configure a real embedding model for a simple status check.
@@ -38,7 +38,7 @@ export const indexStatusTool: McpTool<typeof IndexStatusInput, IndexStatusOutput
               return texts.map(() => []); // Return empty arrays of the correct type
           }
       };
-      const collection = await getRagCollection(dummyEmbeddingFn, workspaceRoot, chromaDbPath);
+      const collection = await getRagCollection(dummyEmbeddingFn, options.workspaceRoot, chromaDbPath); // Use options.workspaceRoot
 
       const count = await collection.count();
       const contentText = `Index contains ${count} items in collection "${collection.name}".`;

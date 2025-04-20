@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'node:path';
-import { TextPart } from '@sylphlab/mcp-core'; // Import TextPart
+import { TextPart, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import TextPart and McpToolExecuteOptions
 import { IEmbeddingFunction } from 'chromadb'; // Import type
 
 // --- Mocks ---
@@ -28,6 +28,7 @@ describe('indexStatusTool', () => {
   const workspaceRoot = '/fake/workspace';
   const expectedDbPath = path.join(workspaceRoot, '.mcp', 'chroma_db');
   const mockCollectionName = 'mock-collection';
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: workspaceRoot }; // Define options
 
   beforeEach(async () => { // Make async
     // Reset mocks
@@ -58,7 +59,7 @@ describe('indexStatusTool', () => {
     mockCount.mockResolvedValue(itemCount);
 
     // Input is optional/ignored, pass undefined or empty object
-    const result = await indexStatusTool.execute(undefined, workspaceRoot);
+    const result = await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
 
     expect(mockGetRagCollection).toHaveBeenCalledWith(
       expect.objectContaining({ // Check if a dummy embedding function was passed
@@ -79,7 +80,7 @@ describe('indexStatusTool', () => {
     const collectionError = new Error('Failed to connect to DB');
     mockGetRagCollection.mockRejectedValue(collectionError);
 
-    const result = await indexStatusTool.execute(undefined, workspaceRoot);
+    const result = await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
 
     expect(mockGetRagCollection).toHaveBeenCalled();
     expect(mockCount).not.toHaveBeenCalled(); // count() should not be called
@@ -96,7 +97,7 @@ describe('indexStatusTool', () => {
     const countError = new Error('Failed to count items');
     mockCount.mockRejectedValue(countError);
 
-    const result = await indexStatusTool.execute(undefined, workspaceRoot);
+    const result = await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
 
     expect(mockGetRagCollection).toHaveBeenCalled();
     expect(mockCount).toHaveBeenCalled();
@@ -120,7 +121,7 @@ describe('indexStatusTool', () => {
             return { count: mockCount, name: mockCollectionName } as any; // Cast to any
         });
 
-        await indexStatusTool.execute(undefined, workspaceRoot);
+        await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
 
         // Call the captured dummy function's generate method
         await capturedEmbeddingFn.generate(['test']);

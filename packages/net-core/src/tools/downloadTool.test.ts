@@ -7,6 +7,7 @@ import * as path from 'node:path'; // Add path import
 import type * as fsTypes from 'node:fs'; // Use type import for fs types
 import type * as stream from 'node:stream'; // Keep type import for Readable
 import type * as https from 'node:https'; // Import type for https options
+import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 
 // --- Mocks ---
 // Mock @sylphlab/mcp-core
@@ -65,6 +66,7 @@ import { get as httpsGet } from 'node:https'; // Import mocked function
 
 describe('downloadTool', () => {
   const workspaceRoot = '/test/workspace'; // Define workspaceRoot here
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot, allowOutsideWorkspace: false }; // Explicitly set allowOutsideWorkspace
 
   // Helper to mock https.get response stream (Define here for access in all tests)
   const mockHttpsResponseStream = (statusCode = 200, headers = {}, bodyChunks: string[] = ['data'], redirectUrl?: string) => {
@@ -185,7 +187,7 @@ describe('downloadTool', () => {
       return mockReq as unknown as ClientRequest;
     });
 
-    const output = await downloadTool.execute(defaultInput, workspaceRoot);
+    const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true); // Overall success
     expect(output.results).toHaveLength(1);
@@ -194,7 +196,7 @@ describe('downloadTool', () => {
     expect(result.id).toBe(defaultItem.id);
     expect(result.path).toBe(defaultItem.destinationPath);
     expect(result.message).toContain('Successfully downloaded');
-    expect(vi.mocked(validateAndResolvePath)).toHaveBeenCalledWith(defaultItem.destinationPath, workspaceRoot, undefined); // Use vi.mocked
+    expect(vi.mocked(validateAndResolvePath)).toHaveBeenCalledWith(defaultItem.destinationPath, workspaceRoot, false); // Use vi.mocked, check allowOutsideWorkspace
     expect(vi.mocked(mkdir)).toHaveBeenCalledWith(path.dirname(resolvedPath), { recursive: true }); // Use vi.mocked
     expect(vi.mocked(access)).toHaveBeenCalledWith(resolvedPath); // Use vi.mocked
     expect(vi.mocked(httpsGet)).toHaveBeenCalledWith(defaultItem.url, expect.any(Function)); // Use vi.mocked
@@ -227,7 +229,7 @@ describe('downloadTool', () => {
      });
 
 
-     const output = await downloadTool.execute(defaultInput, workspaceRoot);
+     const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
      expect(output.success).toBe(true);
      expect(output.results).toHaveLength(1);
@@ -246,7 +248,7 @@ describe('downloadTool', () => {
     vi.mocked(access).mockResolvedValue(undefined); // Use vi.mocked
 
     const input: DownloadToolInput = { items: [{ ...defaultItem, overwrite: false }] };
-    const output = await downloadTool.execute(input, workspaceRoot);
+    const output = await downloadTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false); // Overall success is false if only item fails
     expect(output.results).toHaveLength(1);
@@ -270,14 +272,14 @@ describe('downloadTool', () => {
     });
 
     const input: DownloadToolInput = { items: [{ ...defaultItem, overwrite: true }] };
-    const output = await downloadTool.execute(input, workspaceRoot);
+    const output = await downloadTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results).toHaveLength(1);
     const result = output.results[0];
     expect(result.success).toBe(true);
     expect(result.message).toContain('Successfully downloaded');
-    expect(vi.mocked(validateAndResolvePath)).toHaveBeenCalledWith(defaultItem.destinationPath, workspaceRoot, undefined); // Use vi.mocked
+    expect(vi.mocked(validateAndResolvePath)).toHaveBeenCalledWith(defaultItem.destinationPath, workspaceRoot, false); // Use vi.mocked
     expect(vi.mocked(access)).toHaveBeenCalledWith(resolvedPath); // Use vi.mocked
     expect(vi.mocked(pipeline)).toHaveBeenCalled(); // Use vi.mocked
   });
@@ -287,7 +289,7 @@ describe('downloadTool', () => {
     const validationError = { error: 'Invalid path', suggestion: 'Check syntax' };
     vi.mocked(validateAndResolvePath).mockReturnValue(validationError); // Use vi.mocked
 
-    const output = await downloadTool.execute(defaultInput, workspaceRoot);
+    const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false);
     expect(output.results).toHaveLength(1);
@@ -295,7 +297,7 @@ describe('downloadTool', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('Path validation failed: Invalid path');
     expect(result.message).toContain('Path validation failed: Invalid path');
-    expect(vi.mocked(validateAndResolvePath)).toHaveBeenCalledWith(defaultItem.destinationPath, workspaceRoot, undefined); // Use vi.mocked
+    expect(vi.mocked(validateAndResolvePath)).toHaveBeenCalledWith(defaultItem.destinationPath, workspaceRoot, false); // Use vi.mocked
     expect(vi.mocked(mkdir)).not.toHaveBeenCalled(); // Use vi.mocked
     expect(vi.mocked(httpsGet)).not.toHaveBeenCalled(); // Use vi.mocked
   });
@@ -310,7 +312,7 @@ describe('downloadTool', () => {
      });
 
 
-    const output = await downloadTool.execute(defaultInput, workspaceRoot);
+    const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false);
     expect(output.results).toHaveLength(1);
@@ -332,7 +334,7 @@ describe('downloadTool', () => {
          return mockReq as unknown as ClientRequest;
       });
 
-      const output = await downloadTool.execute(defaultInput, workspaceRoot);
+      const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
       expect(output.success).toBe(false);
       expect(output.results).toHaveLength(1);
@@ -355,7 +357,7 @@ describe('downloadTool', () => {
          return mockReq as unknown as ClientRequest;
       });
 
-      const output = await downloadTool.execute(defaultInput, workspaceRoot);
+      const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
       expect(output.success).toBe(false);
       expect(output.results).toHaveLength(1);
@@ -367,13 +369,13 @@ describe('downloadTool', () => {
    });
 
    it('should fail if workspaceRoot is missing (though unlikely)', async () => {
-      // Execute with null workspaceRoot
-      const output = await downloadTool.execute(defaultInput, null as any);
+      // Execute with null workspaceRoot in options
+      const output = await downloadTool.execute(defaultInput, { workspaceRoot: null } as any); // Pass options object
 
       // Expect overall failure and specific error before loop starts
       expect(output.success).toBe(false);
       expect(output.results).toEqual([]); // No items processed
-      expect(output.error).toContain('Workspace root is not available.'); // Check top-level error
+      expect(output.error).toContain('Workspace root is not available in options.'); // Check top-level error
       expect(vi.mocked(validateAndResolvePath)).not.toHaveBeenCalled(); // Use vi.mocked
    });
 
@@ -399,7 +401,7 @@ describe('downloadTool', () => {
             .mockImplementationOnce((...args: any[]) => { const { callback } = getUrlAndCallback(args); if (callback) callback(responseStream2); return mockReq as unknown as ClientRequest; });
 
         const input: DownloadToolInput = { items: [item1, item2] };
-        const output = await downloadTool.execute(input, workspaceRoot);
+        const output = await downloadTool.execute(input, defaultOptions); // Pass options object
 
         expect(output.success).toBe(true);
         expect(output.results).toHaveLength(2);
@@ -432,9 +434,9 @@ describe('downloadTool', () => {
             .mockImplementationOnce((...args: any[]) => { const { callback } = getUrlAndCallback(args); if (callback) callback(responseStream2); return mockReq as unknown as ClientRequest; });
 
         const input: DownloadToolInput = { items: [item1, item2] };
-        const output = await downloadTool.execute(input, workspaceRoot);
+        const output = await downloadTool.execute(input, defaultOptions); // Pass options object
 
-        expect(output.success).toBe(true);
+        expect(output.success).toBe(true); // Overall success is true because one succeeded
         expect(output.results).toHaveLength(2);
         expect(output.results[0].success).toBe(true);
         expect(output.results[1].success).toBe(false);

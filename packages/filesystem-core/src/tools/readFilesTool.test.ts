@@ -32,8 +32,9 @@ describe('readFilesTool', () => {
     mockStat.mockResolvedValue(createMockStats(true)); // Assume path exists and is file by default
     mockReadFile.mockResolvedValue(Buffer.from('')); // Default to empty buffer
   });
-  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true };
+  // Define options objects including workspaceRoot
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
 
 
   it('should read a single file with utf-8 encoding by default', async () => {
@@ -46,7 +47,7 @@ describe('readFilesTool', () => {
     const fileContent = 'Hello World!';
     mockReadFile.mockResolvedValue(Buffer.from(fileContent, 'utf-8'));
 
-    const result = await readFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await readFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -71,7 +72,7 @@ describe('readFilesTool', () => {
     const fileBuffer = Buffer.from(fileContent, 'base64');
     mockReadFile.mockResolvedValue(fileBuffer);
 
-    const result = await readFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await readFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -90,7 +91,7 @@ describe('readFilesTool', () => {
       .mockResolvedValueOnce(Buffer.from('Content 1'))
       .mockResolvedValueOnce(Buffer.from('Content 2'));
 
-    const result = await readFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await readFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(2);
@@ -112,7 +113,7 @@ describe('readFilesTool', () => {
     mockStat.mockResolvedValue(mockFileStats); // Mock stat for the file
     mockReadFile.mockResolvedValue(Buffer.from('content'));
 
-    const result = await readFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await readFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -131,7 +132,7 @@ describe('readFilesTool', () => {
     };
     mockStat.mockResolvedValue(createMockStats(false)); // Mock stat says it's a directory
 
-    const result = await readFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await readFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false); // Overall success is false as the only read failed
     expect(result.results[0]?.success).toBe(false);
@@ -144,8 +145,7 @@ describe('readFilesTool', () => {
 
   it('should return validation error for empty paths array', async () => {
     const input = { paths: [] }; // Invalid input
-    // No options needed for input validation failure
-    const result = await readFilesTool.execute(input as any, WORKSPACE_ROOT);
+    const result = await readFilesTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('paths array cannot be empty');
@@ -155,7 +155,7 @@ describe('readFilesTool', () => {
   it('should handle path validation failure (outside workspace)', async () => {
     const input: ReadFilesToolInput = { paths: ['../outside.txt'], encoding: 'utf-8', includeStats: false }; // allowOutsideWorkspace removed
     // Explicitly test with allowOutsideWorkspace: false
-    const result = await readFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await readFilesTool.execute(input, defaultOptions); // Pass options object
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path validation failed');
@@ -169,7 +169,7 @@ describe('readFilesTool', () => {
     (readError as any).code = 'ENOENT';
     mockReadFile.mockRejectedValue(readError);
 
-    const result = await readFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await readFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -186,7 +186,7 @@ describe('readFilesTool', () => {
     // Need to mock stat to say it's a directory IF includeStats was true, but here it's false,
     // so the error comes directly from readFile
 
-    const result = await readFilesTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await readFilesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -203,7 +203,7 @@ describe('readFilesTool', () => {
     mockStat.mockResolvedValue(createMockStats(true));
 
     // Act
-    const result = await readFilesTool.execute(input, WORKSPACE_ROOT, allowOutsideOptions); // Pass flag via options
+    const result = await readFilesTool.execute(input, allowOutsideOptions); // Pass options object
 
     // Assert
     expect(result.success).toBe(true); // Should succeed as validation is skipped

@@ -63,9 +63,10 @@ export const waitTool: McpTool<typeof WaitToolInputSchema, WaitToolOutput> = {
   description: 'Waits sequentially for one or more specified durations in milliseconds.',
   inputSchema: WaitToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: WaitToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<WaitToolOutput> {
+  async execute(input: WaitToolInput, options: McpToolExecuteOptions): Promise<WaitToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper
     const { items } = input;
+    // workspaceRoot is now in options.workspaceRoot if needed
     const results: WaitResultItem[] = [];
     let overallSuccess = true;
     let totalWaited = 0;

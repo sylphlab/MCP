@@ -5,12 +5,16 @@ import {
   getInterfacesTool, GetInterfacesToolInput, GetInterfacesToolOutput
 } from './index';
 import os from 'node:os'; // Import os for mocking
+import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 
 // Mock the os module for getInterfaces
 vi.mock('node:os');
 
 // Mock workspace root - not used by these tools' logic but required by execute signature
 const mockWorkspaceRoot = '';
+// Define options objects including workspaceRoot
+const defaultOptions: McpToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot };
+
 
 describe('getPublicIpTool.execute', () => {
   beforeEach(() => {
@@ -24,7 +28,7 @@ describe('getPublicIpTool.execute', () => {
 
   it('should fetch public IP successfully', async () => {
     const input: GetPublicIpToolInput = { id: 'a' }; // Input might just be an ID or empty
-    const result = await getPublicIpTool.execute(input, mockWorkspaceRoot);
+    const result = await getPublicIpTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.result).toBe('8.8.8.8'); // Correct property name
@@ -42,7 +46,7 @@ describe('getPublicIpTool.execute', () => {
      } as Response);
 
     const input: GetPublicIpToolInput = { id: 'd' };
-    const result = await getPublicIpTool.execute(input, mockWorkspaceRoot);
+    const result = await getPublicIpTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.result).toBeUndefined(); // Correct property name
@@ -54,12 +58,12 @@ describe('getPublicIpTool.execute', () => {
      // Mock fetch to throw a network error
      vi.mocked(global.fetch).mockRejectedValue(new Error('Network failed'));
 
-    const input: GetPublicIpToolInput = { id: 'g' };
-    const result = await getPublicIpTool.execute(input, mockWorkspaceRoot);
+     const input: GetPublicIpToolInput = { id: 'g' };
+     const result = await getPublicIpTool.execute(input, defaultOptions); // Pass options object
 
-    expect(result.success).toBe(false);
-    expect(result.ip).toBeUndefined();
-    expect(result.error).toContain("Failed to fetch public IP: Network failed");
+     expect(result.success).toBe(false);
+     expect(result.ip).toBeUndefined();
+     expect(result.error).toContain("Failed to fetch public IP: Network failed");
   });
 
   // Note: Caching logic is internal to the tool, testing multiple calls implicitly tests caching if implemented
@@ -77,7 +81,7 @@ describe('getInterfacesTool.execute', () => {
 
   it('should get network interfaces successfully', async () => {
     const input: GetInterfacesToolInput = { id: 'b' }; // Input might just be an ID or empty
-    const result = await getInterfacesTool.execute(input, mockWorkspaceRoot);
+    const result = await getInterfacesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.result).toBeDefined(); // Correct property name
@@ -92,7 +96,7 @@ describe('getInterfacesTool.execute', () => {
     vi.mocked(os.networkInterfaces).mockImplementation(() => { throw mockError; });
 
     const input: GetInterfacesToolInput = { id: 'h' };
-    const result = await getInterfacesTool.execute(input, mockWorkspaceRoot);
+    const result = await getInterfacesTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.result).toBeUndefined(); // Correct property name

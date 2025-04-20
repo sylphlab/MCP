@@ -8,7 +8,7 @@ const mockWorkspaceRoot = '';
 describe('hashTool.execute', () => {
   it('should compute sha256 hash correctly for a single item batch', async () => {
     const input: HashToolInput = { items: [{ id: 'a', algorithm: 'sha256', data: 'hello world' }] };
-    const result = await hashTool.execute(input, mockWorkspaceRoot);
+    const result = await hashTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -22,7 +22,7 @@ describe('hashTool.execute', () => {
 
   it('should compute md5 hash correctly for a single item batch', async () => {
     const input: HashToolInput = { items: [{ id: 'b', algorithm: 'md5', data: 'hello world' }] };
-    const result = await hashTool.execute(input, mockWorkspaceRoot);
+    const result = await hashTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -35,7 +35,7 @@ describe('hashTool.execute', () => {
 
   it('should handle empty string in a single item batch', async () => {
     const input: HashToolInput = { items: [{ id: 'c', algorithm: 'sha256', data: '' }] };
-    const result = await hashTool.execute(input, mockWorkspaceRoot);
+    const result = await hashTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -50,7 +50,7 @@ describe('hashTool.execute', () => {
     // Zod validation should catch this before execute if using registerTools,
     // but this tests the internal processSingleHash error handling.
     const input: HashToolInput = { items: [{ id: 'd', algorithm: 'invalidAlgo' as any, data: 'test' }] };
-    const result = await hashTool.execute(input, mockWorkspaceRoot);
+    const result = await hashTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false); // Overall success is false if any item fails
     expect(result.results).toHaveLength(1);
@@ -75,7 +75,7 @@ describe('hashTool.execute', () => {
       ]
     };
 
-    const result = await hashTool.execute(input, mockWorkspaceRoot);
+    const result = await hashTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false); // Overall success is false due to item 'i'
     expect(result.results).toHaveLength(4);

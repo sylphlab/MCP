@@ -10,18 +10,18 @@ const mockWorkspaceRoot = '';
 
 describe('encodeBase64Tool.execute', () => {
   it('should encode string to Base64', async () => {
-    const input: EncodeBase64ToolInput = { input: 'hello world' }; // Corrected property name
-    const result = await encodeBase64Tool.execute(input, mockWorkspaceRoot);
+    const input: EncodeBase64ToolInput = { input: 'hello world' };
+    const result = await encodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
     expect(result.success).toBe(true);
-    expect(result.encoded).toBe('aGVsbG8gd29ybGQ='); // Corrected assertion property
+    expect(result.encoded).toBe('aGVsbG8gd29ybGQ=');
     expect(result.error).toBeUndefined();
   });
 
   it('should handle empty string', async () => {
-    const input: EncodeBase64ToolInput = { input: '' }; // Corrected property name
-    const result = await encodeBase64Tool.execute(input, mockWorkspaceRoot);
+    const input: EncodeBase64ToolInput = { input: '' };
+    const result = await encodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
     expect(result.success).toBe(true);
-    expect(result.encoded).toBe(''); // Corrected assertion property
+    expect(result.encoded).toBe('');
     expect(result.error).toBeUndefined();
   });
 
@@ -34,9 +34,8 @@ describe('encodeBase64Tool.execute', () => {
     const expectedErrorMessage = 'Simulated encoding error'; // Matches the error thrown in the tool
     const consoleSpy = vi.spyOn(console, 'error');
 
-    const result = await encodeBase64Tool.execute(input, mockWorkspaceRoot);
+    const result = await encodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
-    // No need to check spy call as we are not mocking Buffer.from anymore
     expect(result.success).toBe(false);
     expect(result.encoded).toBeUndefined();
     expect(result.error).toBe(`Encoding failed: ${expectedErrorMessage}`);
@@ -50,25 +49,25 @@ describe('encodeBase64Tool.execute', () => {
 
 describe('decodeBase64Tool.execute', () => {
   it('should decode Base64 string correctly', async () => {
-    const input: DecodeBase64ToolInput = { encoded: 'aGVsbG8gd29ybGQ=' }; // Corrected property name
-    const result = await decodeBase64Tool.execute(input, mockWorkspaceRoot);
+    const input: DecodeBase64ToolInput = { encoded: 'aGVsbG8gd29ybGQ=' };
+    const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
     expect(result.success).toBe(true);
-    expect(result.decoded).toBe('hello world'); // Corrected assertion property
+    expect(result.decoded).toBe('hello world');
     expect(result.error).toBeUndefined();
   });
 
   it('should handle empty string', async () => {
-    const input: DecodeBase64ToolInput = { encoded: '' }; // Corrected property name
-    const result = await decodeBase64Tool.execute(input, mockWorkspaceRoot);
+    const input: DecodeBase64ToolInput = { encoded: '' };
+    const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
     expect(result.success).toBe(true);
-    expect(result.decoded).toBe(''); // Corrected assertion property
+    expect(result.decoded).toBe('');
     expect(result.error).toBeUndefined();
   });
 
   it('should handle decoding errors (invalid base64)', async () => {
-    const input: DecodeBase64ToolInput = { encoded: 'invalid-base64!' }; // Corrected property name
+    const input: DecodeBase64ToolInput = { encoded: 'invalid-base64!' };
     const consoleSpy = vi.spyOn(console, 'error');
-    const result = await decodeBase64Tool.execute(input, mockWorkspaceRoot);
+    const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.decoded).toBeUndefined(); // Corrected assertion property
@@ -82,9 +81,9 @@ describe('decodeBase64Tool.execute', () => {
 
   it('should handle invalid base64 characters that Buffer might ignore', async () => {
     // Input that might decode partially but fail re-encoding check
-    const input: DecodeBase64ToolInput = { encoded: 'aGVsbG8#gd29ybGQ=' }; 
+    const input: DecodeBase64ToolInput = { encoded: 'aGVsbG8#gd29ybGQ=' };
     const consoleSpy = vi.spyOn(console, 'error');
-    const result = await decodeBase64Tool.execute(input, mockWorkspaceRoot);
+    const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.decoded).toBeUndefined();
@@ -110,7 +109,7 @@ describe('decodeBase64Tool.execute', () => {
     });
     const consoleSpy = vi.spyOn(console, 'error');
 
-    const result = await decodeBase64Tool.execute(input, mockWorkspaceRoot);
+    const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.decoded).toBeUndefined();

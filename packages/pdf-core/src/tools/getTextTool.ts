@@ -84,14 +84,14 @@ export interface GetTextToolOutput extends BaseMcpToolOutput {
 // Helper function to process a single PDF text extraction item
 async function processSinglePdfGetText(
   item: GetTextInputItem,
-  workspaceRoot: string,
-  allowOutsideWorkspace?: boolean
+  options: McpToolExecuteOptions // Use options object
 ): Promise<GetTextResultItem> {
   const { id, filePath: inputFilePath } = item;
   const resultItem: GetTextResultItem = { id, success: false };
+  const { workspaceRoot, allowOutsideWorkspace } = options; // Extract from options
 
   // --- Path Validation ---
-  const validationResult = validateAndResolvePath(inputFilePath, workspaceRoot, allowOutsideWorkspace);
+  const validationResult = validateAndResolvePath(inputFilePath, workspaceRoot, allowOutsideWorkspace); // Use extracted values
   if (typeof validationResult !== 'string') {
     resultItem.error = validationResult.error;
     resultItem.suggestion = validationResult.suggestion;
@@ -140,16 +140,17 @@ export const getTextTool: McpTool<typeof GetTextToolInputSchema, GetTextToolOutp
   description: 'Extracts text content from one or more PDF files.',
   inputSchema: GetTextToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: GetTextToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<GetTextToolOutput> {
+  async execute(input: GetTextToolInput, options: McpToolExecuteOptions): Promise<GetTextToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper
     const { items } = input;
+    // workspaceRoot and allowOutsideWorkspace are now in options
     const results: GetTextResultItem[] = [];
     let overallSuccess = true;
 
     try {
       // Process requests sequentially (file I/O and PDF parsing can be intensive)
       for (const item of items) {
-        const result = await processSinglePdfGetText(item, workspaceRoot, options?.allowOutsideWorkspace); // Process each item
+        const result = await processSinglePdfGetText(item, options); // Pass options object directly
         results.push(result);
         if (!result.success) {
           overallSuccess = false;

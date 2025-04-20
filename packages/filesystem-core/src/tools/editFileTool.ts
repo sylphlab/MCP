@@ -123,7 +123,7 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
   description: 'Applies selective edits (insert, delete, replace by line or search pattern) to one or more files.',
   inputSchema: EditFileToolInputSchema,
 
-  async execute(input: EditFileToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<EditFileToolOutput> { // Add options
+  async execute(input: EditFileToolInput, options: McpToolExecuteOptions): Promise<EditFileToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
     const parsed = EditFileToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -153,7 +153,7 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
           let fileSuggestion: string | undefined;
 
           // --- Validate and Resolve Path ---
-          const validationResult = validateAndResolvePath(filePath, workspaceRoot, options?.allowOutsideWorkspace);
+          const validationResult = validateAndResolvePath(filePath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
           if (typeof validationResult !== 'string') {
               fileError = validationResult.error;
               fileSuggestion = validationResult.suggestion;

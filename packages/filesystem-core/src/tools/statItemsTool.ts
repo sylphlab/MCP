@@ -32,7 +32,7 @@ export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsTo
   description: 'Gets file system stats for one or more specified paths within the workspace.',
   inputSchema: StatItemsToolInputSchema,
 
-  async execute(input: StatItemsToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<StatItemsToolOutput> {
+  async execute(input: StatItemsToolInput, options: McpToolExecuteOptions): Promise<StatItemsToolOutput> { // Remove workspaceRoot, require options
     const parsed = StatItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
@@ -58,7 +58,7 @@ export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsTo
       let resolvedPath: string | undefined;
 
       // Correct argument order: relativePathInput, workspaceRoot
-      const validationResult = validateAndResolvePath(itemPath, workspaceRoot, options?.allowOutsideWorkspace);
+      const validationResult = validateAndResolvePath(itemPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
 
       // Check if validation succeeded (result is a string)
       if (typeof validationResult === 'string') {

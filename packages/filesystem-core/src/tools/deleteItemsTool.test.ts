@@ -37,7 +37,7 @@ describe('deleteItemsTool', () => {
     mockTrash.mockResolvedValue(undefined); // Mock successful trash operation
 
     // Act
-    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await deleteItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     // Assert
     expect(result.success).toBe(true);
@@ -62,7 +62,7 @@ describe('deleteItemsTool', () => {
     mockRm.mockResolvedValue(undefined); // Mock successful rm operation
 
     // Act
-    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT);
+    const result = await deleteItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     // Assert
     expect(result.success).toBe(true);
@@ -82,7 +82,7 @@ describe('deleteItemsTool', () => {
     const input = { paths: [] }; // Invalid input
 
     // Act
-    const result = await deleteItemsTool.execute(input as any, WORKSPACE_ROOT); // No options needed
+    const result = await deleteItemsTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -104,7 +104,7 @@ describe('deleteItemsTool', () => {
     };
 
     // Act
-    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
+    const result = await deleteItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false); // Overall success is false
@@ -128,7 +128,7 @@ describe('deleteItemsTool', () => {
     mockTrash.mockRejectedValue(testError);
 
     // Act
-    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
+    const result = await deleteItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -153,7 +153,7 @@ describe('deleteItemsTool', () => {
     mockRm.mockRejectedValue(testError);
 
     // Act
-    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: false });
+    const result = await deleteItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -176,7 +176,7 @@ describe('deleteItemsTool', () => {
     mockTrash.mockResolvedValue(undefined); // Mock success
 
     // Act
-    const result = await deleteItemsTool.execute(input, WORKSPACE_ROOT, { allowOutsideWorkspace: true }); // Pass flag via options
+    const result = await deleteItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true }); // Pass options object
 
     // Assert
     expect(result.success).toBe(true); // Should succeed as validation is skipped

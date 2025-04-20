@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mocked } from 'vitest'; // Import Mocked type
 import { getTextTool, GetTextToolInput } from './index'; // Import the correct tool and input type
 import path from 'node:path'; // Import path for resolving
+import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 // Import the real function for mocking its module - Assuming validateAndResolvePath is still used and not mocked here
 // import { validateAndResolvePath } from '@sylphlab/mcp-core';
 
@@ -61,8 +62,9 @@ describe('getTextTool.execute', () => { // Update describe block
   const resolvedValidPath = path.join(WORKSPACE_ROOT, 'test.pdf');
   const resolvedErrorPath = path.join(WORKSPACE_ROOT, 'error.pdf');
   const resolvedOutsidePath = path.resolve('/test', 'outside.pdf');
-  const defaultOptions = { allowOutsideWorkspace: false };
-  const allowOutsideOptions = { allowOutsideWorkspace: true };
+  // Define options objects including workspaceRoot
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
 
 
   beforeEach(() => {
@@ -112,7 +114,7 @@ describe('getTextTool.execute', () => { // Update describe block
 
   it('should read PDF text for a single item batch', async () => {
     const input: GetTextToolInput = { items: [{ id: 'pdf1', filePath: 'test.pdf' }] };
-    const output = await getTextTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const output = await getTextTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results).toHaveLength(1);
@@ -134,7 +136,7 @@ describe('getTextTool.execute', () => { // Update describe block
 
   it('should handle file read error (ENOENT) for a single item batch', async () => {
     const input: GetTextToolInput = { items: [{ id: 'pdf2', filePath: 'nonexistent.pdf' }] };
-    const output = await getTextTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const output = await getTextTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false); // Overall fails
     expect(output.results).toHaveLength(1);
@@ -155,7 +157,7 @@ describe('getTextTool.execute', () => { // Update describe block
     vi.mocked(mupdfjs.PDFDocument.openDocument).mockImplementation(() => { throw openError; });
 
     const input: GetTextToolInput = { items: [{ id: 'pdf3', filePath: 'test.pdf' }] };
-    const output = await getTextTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const output = await getTextTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false); // Overall fails
     expect(output.results).toHaveLength(1);
@@ -174,7 +176,7 @@ describe('getTextTool.execute', () => { // Update describe block
 
   it('should fail for path outside workspace by default (single item batch)', async () => {
     const input: GetTextToolInput = { items: [{ id: 'pdf4', filePath: '../outside.pdf' }] };
-    const output = await getTextTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const output = await getTextTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false); // Overall fails
     expect(output.results).toHaveLength(1);
@@ -192,7 +194,7 @@ describe('getTextTool.execute', () => { // Update describe block
 
   it('should succeed reading PDF outside workspace when allowed (single item batch)', async () => {
     const input: GetTextToolInput = { items: [{ id: 'pdf5', filePath: '../outside.pdf' }] };
-    const output = await getTextTool.execute(input, WORKSPACE_ROOT, allowOutsideOptions);
+    const output = await getTextTool.execute(input, allowOutsideOptions); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results).toHaveLength(1);
@@ -233,7 +235,7 @@ describe('getTextTool.execute', () => { // Update describe block
     });
 
     // Execute with default options first
-    const outputDefault = await getTextTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const outputDefault = await getTextTool.execute(input, defaultOptions); // Pass options object
 
     expect(outputDefault.success).toBe(false); // Overall fails because some items fail
     expect(outputDefault.results).toHaveLength(5);
@@ -245,7 +247,7 @@ describe('getTextTool.execute', () => { // Update describe block
 
     // Re-execute the specific item that needs different options ('batch_outside_ok')
     const outsideOkInput: GetTextToolInput = { items: [{ id: 'batch_outside_ok', filePath: '../outside.pdf' }] };
-    const outputOutsideOk = await getTextTool.execute(outsideOkInput, WORKSPACE_ROOT, allowOutsideOptions);
+    const outputOutsideOk = await getTextTool.execute(outsideOkInput, allowOutsideOptions); // Pass options object
 
 
     // --- Assertions for outputDefault ---

@@ -8,7 +8,7 @@ const mockWorkspaceRoot = '';
 describe('jsonTool.execute', () => {
   it('should parse valid JSON string in a single item batch', async () => {
     const input: JsonToolInput = { items: [{ id: 'a', operation: 'parse', data: '{\"key\": \"value\"}' }] };
-    const result = await jsonTool.execute(input, mockWorkspaceRoot);
+    const result = await jsonTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -22,7 +22,7 @@ describe('jsonTool.execute', () => {
 
   it('should return item error for invalid JSON string in parse (single item batch)', async () => {
     const input: JsonToolInput = { items: [{ id: 'b', operation: 'parse', data: 'invalid json' }] };
-    const result = await jsonTool.execute(input, mockWorkspaceRoot);
+    const result = await jsonTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false); // Overall fails
     expect(result.results).toHaveLength(1);
@@ -40,7 +40,7 @@ describe('jsonTool.execute', () => {
   it('should stringify a valid object in a single item batch', async () => {
     const data = { key: 'value', num: 123 };
     const input: JsonToolInput = { items: [{ id: 'd', operation: 'stringify', data }] };
-    const result = await jsonTool.execute(input, mockWorkspaceRoot);
+    const result = await jsonTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
@@ -55,7 +55,7 @@ describe('jsonTool.execute', () => {
     const circularObj: any = { key: 'value' };
     circularObj.self = circularObj; // Create circular reference
     const input: JsonToolInput = { items: [{ id: 'e', operation: 'stringify', data: circularObj }] };
-    const result = await jsonTool.execute(input, mockWorkspaceRoot);
+    const result = await jsonTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false); // Overall fails
     expect(result.results).toHaveLength(1);
@@ -77,7 +77,7 @@ describe('jsonTool.execute', () => {
       ]
     };
 
-    const result = await jsonTool.execute(input, mockWorkspaceRoot);
+    const result = await jsonTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(false); // Overall fails because 'h' fails
     expect(result.results).toHaveLength(4);

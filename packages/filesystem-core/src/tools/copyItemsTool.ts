@@ -60,7 +60,7 @@ export const copyItemsTool: McpTool<typeof CopyItemsToolInputSchema, CopyItemsTo
   name: 'copyItemsTool',
   description: 'Copies one or more files or folders within the workspace. Handles recursion. Use relative paths.',
   inputSchema: CopyItemsToolInputSchema,
-  async execute(input: CopyItemsToolInput, workspaceRoot: string, options?: McpToolExecuteOptions): Promise<CopyItemsToolOutput> { // Add options
+  async execute(input: CopyItemsToolInput, options: McpToolExecuteOptions): Promise<CopyItemsToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
     const parsed = CopyItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -86,7 +86,7 @@ export const copyItemsTool: McpTool<typeof CopyItemsToolInputSchema, CopyItemsTo
       let suggestion: string | undefined;
 
       // --- Validate and Resolve Paths ---
-      const sourceValidationResult = validateAndResolvePath(item.sourcePath, workspaceRoot, options?.allowOutsideWorkspace); // Pass flag from options
+      const sourceValidationResult = validateAndResolvePath(item.sourcePath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
       if (typeof sourceValidationResult !== 'string') {
           error = sourceValidationResult.error;
           suggestion = sourceValidationResult.suggestion;
@@ -97,7 +97,7 @@ export const copyItemsTool: McpTool<typeof CopyItemsToolInputSchema, CopyItemsTo
       }
       const sourceFullPath = sourceValidationResult;
 
-      const destValidationResult = validateAndResolvePath(item.destinationPath, workspaceRoot, options?.allowOutsideWorkspace); // Pass flag from options
+      const destValidationResult = validateAndResolvePath(item.destinationPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
        if (typeof destValidationResult !== 'string') {
           error = destValidationResult.error;
           suggestion = destValidationResult.suggestion;

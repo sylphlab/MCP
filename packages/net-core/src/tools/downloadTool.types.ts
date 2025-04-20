@@ -1,19 +1,17 @@
 import { z } from 'zod';
-import type { BaseMcpToolOutput } from '@sylphlab/mcp-core';
-import { DownloadItemSchema, downloadToolInputSchema } from './downloadTool.schema';
+import { BaseMcpToolOutput } from '@sylphlab/mcp-core';
+import { downloadToolInputSchema, DownloadItemSchema } from './downloadTool.schema'; // Fixed import name
 
-// Type for a single download item input
-export type DownloadItem = z.infer<typeof DownloadItemSchema>;
-
-// Type for the overall tool input
+// --- TypeScript Types ---
+export type DownloadInputItem = z.infer<typeof DownloadItemSchema>; // Fixed schema name
 export type DownloadToolInput = z.infer<typeof downloadToolInputSchema>;
 
 // Interface for a single download result item
 export interface DownloadResultItem {
-  id?: string; // Correlates with input item id
-  path: string; // The original requested destination path
+  id?: string; // Corresponds to input id if provided
+  path: string; // The destination path provided in the input
   success: boolean;
-  message?: string;
+  message?: string; // e.g., "Successfully downloaded", "File already exists", etc.
   error?: string;
   suggestion?: string;
 }

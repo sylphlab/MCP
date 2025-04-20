@@ -29,8 +29,9 @@ describe('searchContentTool', () => {
     mockReadFile.mockResolvedValue(''); // Default to empty file
   });
 
-  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
-  // const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true }; // Not strictly needed
+  // Define options objects including workspaceRoot
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
 
   // Helper
   // Use 'as any' to bypass strict type checking for the helper, as allowOutsideWorkspace is optional
@@ -54,7 +55,7 @@ describe('searchContentTool', () => {
     mockReadFile.mockResolvedValue(content);
     const input = createInput([filePath], 'Hello'); // matchCase defaults to true
 
-    const result = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -70,7 +71,7 @@ describe('searchContentTool', () => {
     mockReadFile.mockResolvedValue(content);
     const input = createInput([filePath], 'hello', { matchCase: false });
 
-    const result = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -91,7 +92,7 @@ describe('searchContentTool', () => {
     // Regex to find numbers after "Value: "
     const input = createInput([filePath], 'Value: (\\d+)', { isRegex: true });
 
-    const result = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -109,7 +110,7 @@ describe('searchContentTool', () => {
     mockReadFile.mockResolvedValue(content);
     const input = createInput([filePath], 'Match', { contextLinesBefore: 1, contextLinesAfter: 1 });
 
-    const result = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.matches).toHaveLength(1);
@@ -125,7 +126,7 @@ describe('searchContentTool', () => {
     mockReadFile.mockResolvedValue(content);
     const input = createInput([filePath], 'match', { maxResultsPerFile: 2 });
 
-    const result = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.matches).toHaveLength(2);
@@ -138,7 +139,7 @@ describe('searchContentTool', () => {
     mockReadFile.mockResolvedValue(content);
     const input = createInput([filePath], 'missing');
 
-    const result = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -153,7 +154,7 @@ describe('searchContentTool', () => {
       .mockResolvedValueOnce('No match');
     const input = createInput(files, 'Match');
 
-    const result = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(2);
@@ -165,8 +166,7 @@ describe('searchContentTool', () => {
 
   it('should return validation error for empty paths array', async () => {
     const input = { paths: [], query: 'test' }; // Invalid input
-    // No options needed for input validation failure
-    const result = await searchContentTool.execute(input as any, WORKSPACE_ROOT);
+    const result = await searchContentTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('paths array cannot be empty');
@@ -176,7 +176,7 @@ describe('searchContentTool', () => {
     const globError = new Error('Invalid glob');
     mockGlob.mockRejectedValue(globError);
     const input = createInput(['['], 'test');
-    const result = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Glob pattern error');
     // No suggestion at this level
@@ -188,7 +188,7 @@ describe('searchContentTool', () => {
     const readError = new Error('Permission denied');
     mockReadFile.mockRejectedValue(readError);
     const input = createInput([filePath], 'test');
-    const result = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
     expect(result.success).toBe(false); // Overall fails
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Permission denied');
@@ -200,7 +200,7 @@ describe('searchContentTool', () => {
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue('content');
     const input = createInput([filePath], '(', { isRegex: true }); // Invalid regex
-    const result = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
     expect(result.success).toBe(false); // Overall fails because file processing failed
     expect(result.error).toBeUndefined(); // No top-level error
     expect(result.results).toHaveLength(1); // Should have one result for the file
@@ -224,7 +224,7 @@ describe('searchContentTool', () => {
       contextLinesAfter: 0,
     };
 
-    const output = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const output = await searchContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
     expect(output.results[0]?.success).toBe(true); // Check file success
@@ -248,7 +248,7 @@ describe('searchContentTool', () => {
       contextLinesAfter: 0,
     };
 
-    const output = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const output = await searchContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false); // Check overall success is false
     expect(output.results[0]?.success).toBe(false);
@@ -272,7 +272,7 @@ describe('searchContentTool', () => {
       contextLinesAfter: 0,
     };
 
-    const output = await searchContentTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const output = await searchContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false); // Check overall success is false
     expect(output.results[0]?.success).toBe(false);

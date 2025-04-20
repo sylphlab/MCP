@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Remove top-level declaration of mockUpsertItems
 import { z } from 'zod';
-import { BaseMcpToolOutput, TextPart } from '@sylphlab/mcp-core'; // Import TextPart
+import { BaseMcpToolOutput, TextPart, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import TextPart and McpToolExecuteOptions
 import { SupportedLanguage } from '../parsing.js';
 import { VectorDbProvider, IndexManager } from '../indexManager.js'; // Import IndexManager class directly
 import { EmbeddingModelProvider } from '../embedding.js'; // Import EmbeddingModelProvider enum
@@ -20,7 +20,8 @@ import { indexContentTool, IndexContentInputSchema } from './indexContentTool.js
 
 // --- Test Suite ---
 describe('indexContentTool', () => {
-  const mockContext = 'test-context'; // Use a string for context
+  const mockWorkspaceRoot = '/test/workspace'; // Define mock workspace root
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot }; // Define options
 
   beforeEach(async () => {
     // Reset spies in afterEach
@@ -73,9 +74,9 @@ describe('indexContentTool', () => {
     } as any);
 
 
-    const result = await indexContentTool.execute(input, mockContext);
+    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
 
-    // Expect createSpy to be called with config (temporarily remove embeddingFn check)
+    // Expect createSpy to be called with config
     expect(createSpy).toHaveBeenCalledWith(input.vectorDbConfig); // TODO: Add back expect.any(Function) later
     expect(chunkCodeAstSpy).toHaveBeenCalledWith(input.items[0].content, input.items[0].language, input.chunkingOptions);
     expect(generateEmbeddingsSpy).toHaveBeenCalledWith(expect.arrayContaining([
@@ -106,7 +107,7 @@ describe('indexContentTool', () => {
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings').mockResolvedValue(embeddings);
 
 
-    await indexContentTool.execute(input, mockContext);
+    await indexContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(createSpy).toHaveBeenCalled();
     expect(highlightAutoSpy).toHaveBeenCalledWith(input.items[0].content);
@@ -133,7 +134,7 @@ describe('indexContentTool', () => {
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings').mockResolvedValue(embeddings);
 
 
-    await indexContentTool.execute(input, mockContext);
+    await indexContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(createSpy).toHaveBeenCalled();
     expect(highlightAutoSpy).toHaveBeenCalledWith(input.items[0].content);
@@ -162,7 +163,7 @@ describe('indexContentTool', () => {
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings').mockResolvedValue(embeddings);
 
 
-    await indexContentTool.execute(input, mockContext);
+    await indexContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(createSpy).toHaveBeenCalledWith({ provider: VectorDbProvider.InMemory }); // Default DB config
     expect(generateEmbeddingsSpy).toHaveBeenCalledWith(expect.any(Array), defaultEmbeddingConfig); // Default embedding config
@@ -186,7 +187,7 @@ describe('indexContentTool', () => {
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings');
 
 
-    const result = await indexContentTool.execute(input, mockContext);
+    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(createSpy).toHaveBeenCalled(); // create is still called
     expect(generateEmbeddingsSpy).not.toHaveBeenCalled();
@@ -217,7 +218,7 @@ describe('indexContentTool', () => {
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings').mockRejectedValue(embeddingError);
 
 
-    const result = await indexContentTool.execute(input, mockContext);
+    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(createSpy).toHaveBeenCalled(); // create is still called
     expect(generateEmbeddingsSpy).toHaveBeenCalled(); // Ensure generateEmbeddings was called
@@ -247,7 +248,7 @@ describe('indexContentTool', () => {
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings').mockResolvedValue(embeddings); // Mismatch
 
 
-    const result = await indexContentTool.execute(input, mockContext);
+    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(createSpy).toHaveBeenCalled(); // create is still called
     expect(generateEmbeddingsSpy).toHaveBeenCalled(); // Ensure generateEmbeddings was called
@@ -278,7 +279,7 @@ describe('indexContentTool', () => {
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings').mockResolvedValue(embeddings);
 
 
-    const result = await indexContentTool.execute(input, mockContext);
+    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(createSpy).toHaveBeenCalled(); // create is still called
     expect(generateEmbeddingsSpy).toHaveBeenCalled(); // Ensure generateEmbeddings was called
@@ -300,7 +301,7 @@ describe('indexContentTool', () => {
      } as any);
 
 
-    const result = await indexContentTool.execute(input, mockContext);
+    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(createSpy).toHaveBeenCalled(); // create is still called
     // Spy on functions (though they won't be called)
@@ -328,7 +329,7 @@ describe('indexContentTool', () => {
     const chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst').mockResolvedValue([]); // Simulate no chunks generated
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings');
 
-    const result = await indexContentTool.execute(input, mockContext);
+    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
 
     expect(createSpy).toHaveBeenCalled(); // create is still called
     expect(chunkCodeAstSpy).toHaveBeenCalled();

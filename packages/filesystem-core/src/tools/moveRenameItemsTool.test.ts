@@ -42,8 +42,9 @@ describe('moveRenameItemsTool', () => {
     (enoentError as any).code = 'ENOENT';
     mockStat.mockRejectedValue(enoentError);
   });
-  const defaultOptions: McpToolExecuteOptions = { allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { allowOutsideWorkspace: true };
+  // Define options objects including workspaceRoot
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
+  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
 
 
   it('should successfully move/rename item when destination does not exist', async () => {
@@ -54,7 +55,7 @@ describe('moveRenameItemsTool', () => {
     };
     // stat will reject with ENOENT (default mock)
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await moveRenameItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -77,7 +78,7 @@ describe('moveRenameItemsTool', () => {
     // Mock stat to indicate destination exists
     mockStat.mockResolvedValue(createMockStats(false, true));
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await moveRenameItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
@@ -101,7 +102,7 @@ describe('moveRenameItemsTool', () => {
     // Mock stat to indicate destination exists
     mockStat.mockResolvedValue(createMockStats(false, true));
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await moveRenameItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -115,8 +116,7 @@ describe('moveRenameItemsTool', () => {
 
   it('should return validation error for empty items array', async () => {
     const input = { items: [] }; // Invalid input
-    // No options needed for input validation failure
-    const result = await moveRenameItemsTool.execute(input as any, WORKSPACE_ROOT);
+    const result = await moveRenameItemsTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('items array cannot be empty');
@@ -130,7 +130,7 @@ describe('moveRenameItemsTool', () => {
       // allowOutsideWorkspace removed
     };
     // Explicitly test with allowOutsideWorkspace: false
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await moveRenameItemsTool.execute(input, defaultOptions); // Pass options object
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('Path validation failed');
@@ -149,7 +149,7 @@ describe('moveRenameItemsTool', () => {
     mockRename.mockRejectedValue(renameError);
     // stat will reject with ENOENT (default mock) for destination
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await moveRenameItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -168,7 +168,7 @@ describe('moveRenameItemsTool', () => {
     mockMkdir.mockRejectedValue(mkdirError);
     // stat will reject with ENOENT (default mock) for destination
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await moveRenameItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -188,7 +188,7 @@ describe('moveRenameItemsTool', () => {
     const rmError = new Error('EPERM');
     mockRm.mockRejectedValue(rmError); // Mock rm failure
 
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, defaultOptions);
+    const result = await moveRenameItemsTool.execute(input, defaultOptions); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -208,7 +208,7 @@ describe('moveRenameItemsTool', () => {
     mockRename.mockResolvedValue(undefined); // Mock success
 
     // Act
-    const result = await moveRenameItemsTool.execute(input, WORKSPACE_ROOT, allowOutsideOptions); // Pass flag via options
+    const result = await moveRenameItemsTool.execute(input, allowOutsideOptions); // Pass options object
 
     // Assert
     expect(result.success).toBe(true); // Should succeed as validation is skipped
