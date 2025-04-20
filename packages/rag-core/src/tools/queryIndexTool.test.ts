@@ -59,7 +59,7 @@ describe('queryIndexTool', () => {
 
   it('should successfully query with default settings', async () => {
     const input = { queryText: 'test query', topK: 5 };
-    const result = await queryIndexTool.execute(input, { workspacePath: '.' });
+    const result = await queryIndexTool.execute(input, '.'); // Pass string context
 
     expect(result.success).toBe(true);
     expect(mockGenerateEmbeddings).toHaveBeenCalledOnce();
@@ -84,7 +84,7 @@ describe('queryIndexTool', () => {
      const error = new Error('Embedding failed');
      mockGenerateEmbeddings.mockRejectedValue(error);
 
-     const result = await queryIndexTool.execute(input, { workspacePath: '.' });
+     const result = await queryIndexTool.execute(input, '.'); // Pass string context
 
      expect(result.success).toBe(false);
      expect(result.content).toEqual([{ type: 'text', text: `Error generating query embedding: ${error.message}` }]);
@@ -98,7 +98,7 @@ describe('queryIndexTool', () => {
       // Re-mock the spy for this specific test case
       MockIndexManagerCreate.mockRejectedValue(error);
 
-      const result = await queryIndexTool.execute(input, { workspacePath: '.' });
+      const result = await queryIndexTool.execute(input, '.'); // Pass string context
 
       expect(result.success).toBe(false);
       expect(result.content).toEqual([{ type: 'text', text: `Error querying index: ${error.message}` }]);
@@ -111,7 +111,7 @@ describe('queryIndexTool', () => {
       const error = new Error('Query failed');
       mockQueryIndex.mockRejectedValue(error); // Configure the query mock
 
-      const result = await queryIndexTool.execute(input, { workspacePath: '.' });
+      const result = await queryIndexTool.execute(input, '.'); // Pass string context
 
       expect(result.success).toBe(false);
       expect(result.content).toEqual([{ type: 'text', text: `Error querying index: ${error.message}` }]);
@@ -124,7 +124,7 @@ describe('queryIndexTool', () => {
       const input = { queryText: 'no results query', topK: 5 };
       mockQueryIndex.mockResolvedValue([]); // Configure the query mock
 
-      const result = await queryIndexTool.execute(input, { workspacePath: '.' });
+      const result = await queryIndexTool.execute(input, '.'); // Pass string context
 
       expect(result.success).toBe(true);
       expect(result.content).toEqual([{ type: 'text', text: 'No relevant results found in the index.' }]);
@@ -143,7 +143,7 @@ describe('queryIndexTool', () => {
       const queryVector = [0.5, 0.5];
       mockGenerateEmbeddings.mockResolvedValue([queryVector]);
 
-      await queryIndexTool.execute(input, { workspacePath: '.' });
+      await queryIndexTool.execute(input, '.'); // Pass string context
 
       expect(mockQueryIndex).toHaveBeenCalledOnce();
       expect(mockQueryIndex).toHaveBeenCalledWith(queryVector, input.topK, input.filter);
@@ -171,7 +171,7 @@ describe('queryIndexTool', () => {
       const queryVector = [0.9, 0.1];
       mockGenerateEmbeddings.mockResolvedValue([queryVector]);
 
-      await queryIndexTool.execute(input, { workspacePath: '.' });
+      await queryIndexTool.execute(input, '.'); // Pass string context
 
       expect(mockGenerateEmbeddings).toHaveBeenCalledWith([input.queryText], input.embeddingConfig);
       expect(MockIndexManagerCreate).toHaveBeenCalledWith(
