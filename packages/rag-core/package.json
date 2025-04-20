@@ -64,7 +64,8 @@
     "@lezer/css": "^1.0.0",
     "@lezer/html": "^1.0.0",
     "@lezer/xml": "^1.0.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "fast-glob": "^3.3.2"
   },
   "devDependencies": {
     "@types/node": "^20.17.30",

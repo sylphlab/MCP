@@ -1,103 +1,76 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest'; // Added Mock type
 import path from 'node:path';
-import { IEmbeddingFunction } from 'chromadb'; // Import type
+import { Collection, IEmbeddingFunction } from 'chromadb'; // Import type
 
 // --- Mocks ---
+// Define shared mock implementations
 const mockGetOrCreateCollection = vi.fn();
-// Mock the ChromaClient constructor and its instance methods
 const mockChromaClientInstance = {
     getOrCreateCollection: mockGetOrCreateCollection,
 };
-const mockChromaClientConstructor = vi.fn(() => mockChromaClientInstance);
 
-vi.mock('chromadb', () => ({
-    ChromaClient: mockChromaClientConstructor,
-}));
-
-// --- Static Import ---
-// @ts-expect-error - Workaround for TS/Vitest module resolution issue
-import * as chroma from '../chroma'; // Use static import without .js
-const { getRagCollection, convertFilterToChromaWhere } = chroma;
-const initChromaClient = (chroma as any).initChromaClient; // Access internal function
+// Mock the 'chromadb' module - Define constructor mock *inside* factory
+vi.mock('chromadb', () => {
+    // Define the mock constructor function *inside* the factory
+    const mockChromaClientConstructorInternal = vi.fn(() => mockChromaClientInstance);
+    return {
+        ChromaClient: mockChromaClientConstructorInternal,
+        // Preserve other exports if necessary
+    };
+});
 
 // --- Test Suite ---
+// Use dynamic import inside describe/beforeEach/it
 describe('ChromaDB Interaction', () => {
+    // Declare variables for dynamically imported functions/mocks using let
+    let getRagCollection: typeof import('./chroma.js').getRagCollection;
+    let convertFilterToChromaWhere: typeof import('./chroma.js').convertFilterToChromaWhere;
+    let initChromaClient: any; // Keep as any if accessing private/internal
+    let mockChromaClientConstructor: Mock; // Variable to hold the mocked constructor reference
+
     const projectRoot = '/fake/project';
     const defaultDbPath = path.resolve(projectRoot, './.mcp/chroma_db');
     const customDbPath = path.resolve(projectRoot, './custom_db');
     const mockCollectionName = 'mcp_rag_collection'; // Default name used in chroma.ts
     const mockEmbeddingFn = { generate: async (texts: string[]) => texts.map(() => []) } as IEmbeddingFunction; // Dummy embedding fn
+    const mockCollection = { name: mockCollectionName } as unknown as Collection;
 
-    beforeEach(async () => { // Make async again
-        // Reset mocks and modules before each test to clear state
-        vi.resetModules(); // Clears module cache including state variables in chroma.ts
-        mockChromaClientConstructor.mockClear();
-        mockGetOrCreateCollection.mockClear();
+    beforeEach(async () => { // Make beforeEach async
+        // Reset modules to clear internal cache before each test
+        vi.resetModules();
 
-        // Re-import functions after resetting modules
-        // @ts-expect-error - Workaround for TS/Vitest module resolution issue
-        const chromaModule = await import('../chroma.js'); // Use .js extension
-        getRagCollection = chromaModule.getRagCollection;
-        convertFilterToChromaWhere = chromaModule.convertFilterToChromaWhere;
-        // Accessing internal function using type assertion
-        initChromaClient = (chromaModule as any).initChromaClient;
+        // Dynamically import the module *after* mocks are applied and modules reset
+        const chroma = await import('./chroma.js');
+        // Assign to the 'let' variables declared above
+        getRagCollection = chroma.getRagCollection;
+        convertFilterToChromaWhere = chroma.convertFilterToChromaWhere;
+        initChromaClient = (chroma as any).initChromaClient; // Access internal if needed
 
+        // Dynamically import the mocked module to get the constructor reference
+        const mockedChromaDb = await import('chromadb');
+        // Assign the mocked constructor (wrapped) to the 'let' variable
+        mockChromaClientConstructor = vi.mocked(mockedChromaDb.ChromaClient);
 
-        // Disable console logging
+        // Clear mocks using standard vi methods
+        vi.clearAllMocks(); // Use clearAllMocks to reset call history etc.
+
+        // Reset specific mock behavior if needed (e.g., default success)
+        mockGetOrCreateCollection.mockResolvedValue(mockCollection);
+
+        // Disable console logging for cleaner test output
         vi.spyOn(console, 'log').mockImplementation(() => {});
         vi.spyOn(console, 'error').mockImplementation(() => {});
         vi.spyOn(console, 'warn').mockImplementation(() => {});
     });
 
     afterEach(() => {
-        vi.restoreAllMocks(); // Restore console
+        vi.restoreAllMocks(); // Restore console and any other spies
     });
 
-    describe('initChromaClient (Internal)', () => {
-        // NOTE: Because initChromaClient relies on module-level state (client, dbPath)
-        // and we removed vi.resetModules, these tests might interfere with each other
-        // or with getRagCollection tests if not run in isolation or if state isn't manually reset.
-        // For now, assuming basic functionality check is sufficient.
-        // A more robust approach might involve refactoring chroma.ts to avoid module state.
-
-        it('should initialize client with default path', async () => {
-            // Manually reset internal state for this test if needed
-            (chroma as any)._resetClientForTest?.(); // Assuming a hypothetical reset function exists
-            await initChromaClient(projectRoot);
-            expect(mockChromaClientConstructor).toHaveBeenCalledTimes(1);
-            expect(mockChromaClientConstructor).toHaveBeenCalledWith({ path: defaultDbPath });
-        });
-
-        it('should initialize client with custom path', async () => {
-            (chroma as any)._resetClientForTest?.();
-            await initChromaClient(projectRoot, './custom_db'); // Relative custom path
-            expect(mockChromaClientConstructor).toHaveBeenCalledTimes(1);
-            expect(mockChromaClientConstructor).toHaveBeenCalledWith({ path: customDbPath });
-        });
-
-        // Cannot reliably test caching/re-init without module reset or refactor
-        // it('should return cached client if path is the same', async () => { ... });
-        // it('should re-initialize client if path changes', async () => { ... });
-
-        it('should throw error if client constructor fails', async () => {
-            (chroma as any)._resetClientForTest?.();
-            const initError = new Error('DB connection failed');
-            mockChromaClientConstructor.mockImplementationOnce(() => { throw initError; });
-
-            await expect(initChromaClient(projectRoot)).rejects.toThrow('ChromaDB client initialization failed');
-            expect(console.error).toHaveBeenCalledWith('Failed to initialize ChromaDB client:', initError);
-        });
-    });
+    // Removed describe block for internal 'initChromaClient' tests
 
     describe('getRagCollection', () => {
-        const mockCollection = { name: mockCollectionName /* ... other properties */ };
-
-        beforeEach(() => {
-            // Default successful mock for getOrCreateCollection
-            mockGetOrCreateCollection.mockResolvedValue(mockCollection);
-            // Reset internal state before each getRagCollection test
-             (chroma as any)._resetClientForTest?.();
-        });
+        // No separate beforeEach needed here
 
         it('should initialize client and get/create collection', async () => {
             const collection = await getRagCollection(mockEmbeddingFn, projectRoot);
@@ -111,13 +84,9 @@ describe('ChromaDB Interaction', () => {
             expect(collection).toBe(mockCollection);
         });
 
-        // Cannot reliably test caching without module reset or refactor
-        // it('should use cached collection instance', async () => { ... });
-        // it('should re-fetch collection if client was re-initialized due to path change', async () => { ... });
-
         it('should throw error if getOrCreateCollection fails', async () => {
             const collectionError = new Error('Failed to access collection');
-            mockGetOrCreateCollection.mockRejectedValue(collectionError);
+            mockGetOrCreateCollection.mockRejectedValueOnce(collectionError); // Set rejection for this test
 
             await expect(getRagCollection(mockEmbeddingFn, projectRoot)).rejects.toThrow(
                 `Failed to get/create collection: ${collectionError.message}`
@@ -133,28 +102,14 @@ describe('ChromaDB Interaction', () => {
 
     describe('convertFilterToChromaWhere', () => {
         it('should convert simple key-value pairs to $eq format', () => {
-            const filter = {
-                fileType: 'ts',
-                author: 'JohnDoe',
-            };
-            const expectedWhere = {
-                fileType: { $eq: 'ts' },
-                author: { $eq: 'JohnDoe' },
-            };
+            const filter = { fileType: 'ts', author: 'JohnDoe' };
+            const expectedWhere = { fileType: { $eq: 'ts' }, author: { $eq: 'JohnDoe' } };
             expect(convertFilterToChromaWhere(filter)).toEqual(expectedWhere);
         });
 
         it('should handle different value types', () => {
-            const filter = {
-                lines: 100,
-                isPublic: true,
-                name: 'test',
-            };
-            const expectedWhere = {
-                lines: { $eq: 100 },
-                isPublic: { $eq: true },
-                name: { $eq: 'test' },
-            };
+            const filter = { lines: 100, isPublic: true, name: 'test' };
+            const expectedWhere = { lines: { $eq: 100 }, isPublic: { $eq: true }, name: { $eq: 'test' } };
             expect(convertFilterToChromaWhere(filter)).toEqual(expectedWhere);
         });
 

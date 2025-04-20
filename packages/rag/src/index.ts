@@ -75,8 +75,13 @@ async function startIndexing() {
             const ollamaModel = (embeddingConfig as any).modelName || 'nomic-embed-text';
             const ollamaUrl = (embeddingConfig as any).baseURL;
             embeddingFn = new OllamaEmbeddingFunction(ollamaModel, ollamaUrl);
-        } else {
+        } else if (embeddingConfig.provider === EmbeddingModelProvider.Mock) {
+            // Type guard to ensure mockDimension exists
             embeddingFn = new MockEmbeddingFunction(embeddingConfig.mockDimension);
+        } else {
+            // Fallback or throw error if provider is unexpected
+            console.warn(`Unsupported embedding provider in config: ${embeddingConfig.provider}. Falling back to MockEmbeddingFunction.`);
+            embeddingFn = new MockEmbeddingFunction(); // Use default dimension
         }
 
         // 2. Initialize IndexManager (Pass embedding function)

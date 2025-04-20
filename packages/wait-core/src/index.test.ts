@@ -27,7 +27,12 @@ describe('waitTool.execute', () => {
     expect(itemResult.error).toBeUndefined();
 
     expect(result.totalDurationWaitedMs).toBe(waitTime);
-    expect(result.content).toEqual([{ type: 'text', text: `Processed 1 wait operations. Total duration waited: ${waitTime}ms. Overall success: true` }]);
+    const expectedContent = JSON.stringify({
+        summary: `Processed 1 wait operations. Total duration waited: ${waitTime}ms. Overall success: true`,
+        totalDurationWaitedMs: waitTime,
+        results: [{ id: 'wait1', success: true, durationWaitedMs: waitTime }]
+    }, null, 2);
+    expect(result.content).toEqual([{ type: 'text', text: expectedContent }]);
 
     // Check if the duration is roughly the wait time (allowing for some overhead)
     expect(duration).toBeGreaterThanOrEqual(waitTime - 10); // Allow some tolerance
@@ -51,7 +56,12 @@ describe('waitTool.execute', () => {
     expect(itemResult.error).toBeUndefined();
 
     expect(result.totalDurationWaitedMs).toBe(0);
-    expect(result.content).toEqual([{ type: 'text', text: `Processed 1 wait operations. Total duration waited: 0ms. Overall success: true` }]);
+    const expectedContentZero = JSON.stringify({
+        summary: `Processed 1 wait operations. Total duration waited: 0ms. Overall success: true`,
+        totalDurationWaitedMs: 0,
+        results: [{ id: 'wait0', success: true, durationWaitedMs: 0 }]
+    }, null, 2);
+    expect(result.content).toEqual([{ type: 'text', text: expectedContentZero }]);
   });
 
   it('should handle errors during the wait operation (single item batch)', async () => {
@@ -83,7 +93,12 @@ describe('waitTool.execute', () => {
     expect(itemResult.error).toBe(`Wait failed: ${mockError.message}`);
 
     expect(result.totalDurationWaitedMs).toBe(0); // Failed wait doesn't add to total
-    expect(result.content).toEqual([{ type: 'text', text: `Processed 1 wait operations. Total duration waited: 0ms. Overall success: false` }]);
+    const expectedContentError = JSON.stringify({
+        summary: `Processed 1 wait operations. Total duration waited: 0ms. Overall success: false`,
+        totalDurationWaitedMs: 0,
+        results: [{ id: 'wait_err', success: false, error: `Wait failed: ${mockError.message}` }]
+    }, null, 2);
+    expect(result.content).toEqual([{ type: 'text', text: expectedContentError }]);
     expect(consoleErrSpy).toHaveBeenCalledWith(`Wait failed: Internal timer error (ID: wait_err)`);
 
     // Restore mocks
@@ -128,7 +143,15 @@ describe('waitTool.execute', () => {
 
     // Check overall results
     expect(result.totalDurationWaitedMs).toBe(expectedTotalWait);
-    expect(result.content).toEqual([{ type: 'text', text: `Processed 2 wait operations. Total duration waited: ${expectedTotalWait}ms. Overall success: true` }]);
+    const expectedContentBatch = JSON.stringify({
+        summary: `Processed 2 wait operations. Total duration waited: ${expectedTotalWait}ms. Overall success: true`,
+        totalDurationWaitedMs: expectedTotalWait,
+        results: [
+            { id: 'batch_wait1', success: true, durationWaitedMs: waitTime1 },
+            { id: 'batch_wait2', success: true, durationWaitedMs: waitTime2 }
+        ]
+    }, null, 2);
+    expect(result.content).toEqual([{ type: 'text', text: expectedContentBatch }]);
 
     // Check timing (approximate)
     expect(totalDuration).toBeGreaterThanOrEqual(expectedTotalWait - 15); // Allow tolerance

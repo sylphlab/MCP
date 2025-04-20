@@ -130,45 +130,57 @@ describe('IndexManager', () => {
     });
 
      it('should handle ChromaDB client initialization errors', async () => {
+        // Restore the global initialize mock for this specific test
+        initializeSpy.mockRestore();
+
         const initError = new Error("Chroma connection failed");
-        // Mock the ChromaClient constructor to throw *within this test*
-        const mockChromaClient = vi.mocked((await import('chromadb')).ChromaClient);
-        mockChromaClient.mockImplementationOnce(() => { throw initError; });
-        // Spy on initialize to check console log, but let it run
-        const initSpy = vi.spyOn(IndexManager.prototype as any, 'initialize');
+        // Get the mocked constructor from the top-level mock
+        const { ChromaClient } = await import('chromadb');
+        const mockChromaClientConstructor = vi.mocked(ChromaClient);
+        mockChromaClientConstructor.mockImplementationOnce(() => { throw initError; });
+        // Spy locally if needed, but don't mock implementation
+        const localInitSpy = vi.spyOn(IndexManager.prototype as any, 'initialize');
         const consoleSpy = vi.spyOn(console, 'error');
 
         await expect(IndexManager.create(testConfigChroma, dummyEmbeddingFn)).rejects.toThrow(/IndexManager initialization failed/);
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize IndexManager'), expect.any(Error));
-        initSpy.mockRestore();
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize IndexManager'), initError); // Expect the specific error
+        localInitSpy.mockRestore(); // Restore local spy
         consoleSpy.mockRestore();
     });
 
      it('should handle ChromaDB getOrCreateCollection errors', async () => {
+        // Restore the global initialize mock for this specific test
+        initializeSpy.mockRestore();
+
         const collectionError = new Error("Cannot create collection");
-        // Mock getOrCreateCollection to throw *within this test*
-         const mockGetOrCreate = vi.fn().mockRejectedValue(collectionError);
-         const mockChromaClient = vi.mocked((await import('chromadb')).ChromaClient);
-         mockChromaClient.mockImplementationOnce(() => ({
-             getOrCreateCollection: mockGetOrCreate,
-         } as any)); // Keep cast for incomplete mock
-         // Spy on initialize to check console log, but let it run
-         const initSpy = vi.spyOn(IndexManager.prototype as any, 'initialize');
+        // Get the mocked constructor from the top-level mock
+         const { ChromaClient } = await import('chromadb');
+         const mockChromaClientConstructor = vi.mocked(ChromaClient);
+
+         // Define the mock behavior for getOrCreateCollection specifically for this test
+         const mockGetOrCreateRejects = vi.fn().mockRejectedValueOnce(collectionError);
+
+         // Ensure the constructor returns an object where getOrCreateCollection rejects
+         mockChromaClientConstructor.mockImplementationOnce(() => ({
+             getOrCreateCollection: mockGetOrCreateRejects,
+         } as any));
+         // Spy locally if needed, but don't mock implementation
+         const localInitSpy = vi.spyOn(IndexManager.prototype as any, 'initialize');
          const consoleSpy = vi.spyOn(console, 'error');
 
 
         // Let initialize run, expect getOrCreateCollection mock to throw
         await expect(IndexManager.create(testConfigChroma, dummyEmbeddingFn)).rejects.toThrow(/IndexManager initialization failed/);
-        expect(mockGetOrCreate).toHaveBeenCalled();
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize IndexManager'), expect.any(Error));
-        initSpy.mockRestore();
+        expect(mockGetOrCreateRejects).toHaveBeenCalled(); // Check the specific mock used in this test
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize IndexManager'), collectionError); // Expect the specific error
+        localInitSpy.mockRestore(); // Restore local spy
         consoleSpy.mockRestore();
     });
 
    // --- Provider Specific Tests ---
 
-  describe('ChromaDB Provider', () => {
-    let manager: IndexManager;
+    describe('ChromaDB Provider', () => { // Added describe block for structure
+        let manager: IndexManager;
     let convertFilterSpy: any;
 
     beforeEach(async () => { // Local beforeEach to create instance
