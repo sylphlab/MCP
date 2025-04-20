@@ -1,5 +1,11 @@
 # @sylphlab/mcp-net-core
 
+## 0.5.0
+
+### Minor Changes
+
+- a919ad9: feat(net): add downloadTool
+
 ## 0.4.0
 
 ### Minor Changes
