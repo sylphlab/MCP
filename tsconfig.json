@@ -1,7 +1,6 @@
 {
   // This is a solution-style tsconfig.json used for project references.
   // It helps TypeScript understand the monorepo structure.
-  "files": [], // No files are compiled by this config directly
   "compilerOptions": {
     // Define base settings for referenced projects
     "target": "ES2022", // Or appropriate target
