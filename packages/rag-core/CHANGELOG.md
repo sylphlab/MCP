@@ -1,5 +1,13 @@
 # @sylphlab/mcp-rag-core
 
+## 0.1.3
+
+### Patch Changes
+
+- bb39824: minor fix built issue
+- Updated dependencies [bb39824]
+  - @sylphlab/mcp-core@0.2.2
+
 ## 0.1.2
 
 ### Patch Changes
