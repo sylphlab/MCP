@@ -8,8 +8,9 @@ import { ZodObject, type ZodRawShape } from 'zod';
  * @param server The McpServer instance.
  * @param tools An array of McpTool objects to register.
  */
+// biome-ignore lint/suspicious/noExplicitAny: Function handles diverse tools; types checked internally
 export function registerTools(server: McpServer, tools: McpTool<any, any>[]) {
-  tools.forEach((tool) => {
+  for (const tool of tools) {
     // Basic validation of the tool object structure
     if (
       tool?.name &&
@@ -33,7 +34,7 @@ export function registerTools(server: McpServer, tools: McpTool<any, any>[]) {
           // Call the original tool's execute function, passing workspaceRoot in options
           const executeOptions = { workspaceRoot }; // Pass workspaceRoot in options
           result = await tool.execute(validatedArgs, executeOptions); // Pass only input and options
-        } catch (execError: any) {
+        } catch (execError: unknown) {
           // Format error consistent with BaseMcpToolOutput structure
           const errorMessage =
             execError instanceof Error ? execError.message : 'Unknown execution error';
@@ -54,6 +55,7 @@ export function registerTools(server: McpServer, tools: McpTool<any, any>[]) {
         handler, // Pass the handler
       );
     } else {
+      // Handle or log invalid tool structure if necessary
     }
-  });
+  } // End for...of loop
 }

@@ -37,8 +37,9 @@ describe('Document Loader', () => {
 
     it('should load documents correctly, applying default ignores when .gitignore is missing', async () => {
       // Mock readFile for .gitignore to simulate ENOENT
-      const gitignoreError: any = new Error('ENOENT');
-      gitignoreError.code = 'ENOENT';
+      const gitignoreError = new Error('ENOENT');
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamically adding property for mock error
+      (gitignoreError as any).code = 'ENOENT'; // Add code property dynamically for mock
       mockReadFile.mockImplementation(async (filePath) => {
         if (filePath === path.join(projectRoot, '.gitignore')) {
           throw gitignoreError;
@@ -51,7 +52,9 @@ describe('Document Loader', () => {
 
       // Mock fs operations for the files
       mockStat
+        // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
         .mockResolvedValueOnce({ birthtimeMs: 1000, mtimeMs: 2000, size: 10 } as any) // Cast mock stat
+        // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
         .mockResolvedValueOnce({ birthtimeMs: 1500, mtimeMs: 2500, size: 20 } as any); // Cast mock stat
 
       // Mock fast-glob response
@@ -99,6 +102,7 @@ describe('Document Loader', () => {
       });
 
       // Mock fs operations for the remaining file
+      // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
       mockStat.mockResolvedValueOnce({ birthtimeMs: 1000, mtimeMs: 2000, size: 10 } as any); // Cast mock stat
 
       const files = ['file1.ts']; // fast-glob should filter out subdir/file2.js
@@ -128,6 +132,7 @@ describe('Document Loader', () => {
 
       // Mock fs operations, making readFile fail for bad.txt
       // Stat will only be called for good.txt
+      // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
       mockStat.mockResolvedValueOnce({ birthtimeMs: 100, mtimeMs: 200, size: 5 } as any); // Cast mock stat
 
       const files = ['good.txt', 'bad.txt'];

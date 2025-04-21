@@ -25,6 +25,7 @@ const mcpServer = new McpServer(
 );
 
 // Array of imported tool objects (only one for this package)
+// biome-ignore lint/suspicious/noExplicitAny: Tool array holds diverse tools; types checked by registerTools
 const definedTools: McpTool<any, any>[] = [waitTool];
 
 // Register tools using the helper function

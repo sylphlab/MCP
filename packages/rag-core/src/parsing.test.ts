@@ -88,6 +88,7 @@ describe('parsing', () => {
 
     it('should throw if language is unsupported', () => {
       const code = 'some code';
+      // biome-ignore lint/suspicious/noExplicitAny: Intentionally using unsupported type for testing
       const unsupportedLang = 'cobol' as any; // Use any cast
 
       // Use a function wrapper for expect().toThrow() with synchronous code

@@ -38,9 +38,9 @@ async function processSingleWait(item: WaitInputItem): Promise<WaitResultItem> {
     await new Promise((resolve) => setTimeout(resolve, ms));
     resultItem.success = true;
     resultItem.durationWaitedMs = item.durationMs; // Assign the original value from item
-  } catch (e: any) {
+  } catch (e: unknown) {
     // This catch block is unlikely to be hit for setTimeout unless there's a very strange environment issue.
-    resultItem.error = `Wait failed: ${e.message}`;
+    resultItem.error = `Wait failed: ${e instanceof Error ? e.message : String(e)}`;
     resultItem.success = false;
   }
   return resultItem;
@@ -93,9 +93,9 @@ export const waitTool: McpTool<typeof waitToolInputSchema, WaitToolOutput> = {
         totalDurationWaitedMs: totalWaited, // Keep original field
         content: [{ type: 'text', text: contentText }], // Put JSON string in content
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Catch unexpected errors during the loop itself (should be rare)
-      const errorMsg = `Unexpected error during wait tool execution: ${e.message}`;
+      const errorMsg = `Unexpected error during wait tool execution: ${e instanceof Error ? e.message : String(e)}`;
       const errorContentText = JSON.stringify(
         {
           error: errorMsg,

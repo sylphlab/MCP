@@ -62,16 +62,17 @@ export const indexStatusTool: McpTool<typeof IndexStatusInput, IndexStatusOutput
         count: count,
         collectionName: collection.name,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       // Return a structured error output consistent with BaseMcpToolOutput
       const errorContent: McpContentPart = {
         type: 'text',
-        text: `Failed to get index status: ${error.message}`,
+        text: `Failed to get index status: ${errorMsg}`,
       };
       return {
         success: false,
         content: [errorContent],
-        error: error.message,
+        error: errorMsg,
         count: -1, // Indicate error state
         collectionName: '', // Indicate error state
       };

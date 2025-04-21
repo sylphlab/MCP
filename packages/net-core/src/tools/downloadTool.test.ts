@@ -6,8 +6,8 @@ import * as path from 'node:path'; // Add path import
 import type * as stream from 'node:stream'; // Keep type import for Readable
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { downloadTool } from './downloadTool';
-import type { DownloadToolInput } from './downloadTool.types';
+import { downloadTool } from './downloadTool.js';
+import type { DownloadToolInput } from './downloadTool.types.js'; // Import type from .types file
 
 // --- Mocks ---
 // Mock @sylphlab/mcp-core
@@ -84,7 +84,9 @@ describe('downloadTool', () => {
 
     // Push data and end stream asynchronously to better simulate real stream behavior
     setTimeout(() => {
-      bodyChunks.forEach((chunk) => responseStream.push(chunk));
+      for (const chunk of bodyChunks) {
+        responseStream.push(chunk);
+      }
       responseStream.push(null); // End the stream
       responseStream.emit('end'); // Explicitly emit end
       responseStream.emit('close'); // Also emit close for pipeline
@@ -95,7 +97,9 @@ describe('downloadTool', () => {
   };
 
   // Helper function to extract URL and Callback from https.get args
+  // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
   const getUrlAndCallback = (
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     args: any[],
   ): { url: string | URL | undefined; callback: ((res: IncomingMessage) => void) | undefined } => {
     let url: string | URL | undefined;
@@ -151,6 +155,7 @@ describe('downloadTool', () => {
     vi.mocked(unlink).mockResolvedValue(undefined); // Use vi.mocked
 
     // Set default implementation for httpsGet here
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     vi.mocked(httpsGet).mockImplementation((...args: any[]) => {
       // Default implementation can be simple or simulate success
       const { callback } = getUrlAndCallback(args);
@@ -181,6 +186,7 @@ describe('downloadTool', () => {
   it('should download a file successfully', async () => {
     const responseStream = mockHttpsResponseStream(200, {}, ['file ', 'content']);
     // Override default implementation for this specific test
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { callback } = getUrlAndCallback(args);
       if (callback) callback(responseStream);
@@ -213,6 +219,7 @@ describe('downloadTool', () => {
     const finalResponseStream = mockHttpsResponseStream(200, {}, ['final content']);
 
     // Override for first call
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { url, callback } = getUrlAndCallback(args);
       const urlString = url?.toString();
@@ -225,6 +232,7 @@ describe('downloadTool', () => {
       return mockReq as unknown as ClientRequest;
     });
     // Override for second call
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { url, callback } = getUrlAndCallback(args);
       const urlString = url?.toString();
@@ -271,6 +279,7 @@ describe('downloadTool', () => {
     vi.mocked(access).mockResolvedValue(undefined); // Use vi.mocked
     const responseStream = mockHttpsResponseStream();
     // Override implementation
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { callback } = getUrlAndCallback(args);
       if (callback) callback(responseStream);
@@ -318,6 +327,7 @@ describe('downloadTool', () => {
   it('should fail on https request error (network)', async () => {
     const networkError = new Error('Network connection refused');
     // Make the mock implementation reject directly
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     vi.mocked(httpsGet).mockImplementationOnce((..._args: any[]) => {
       // Simulate the rejection that would happen from the 'error' event listener
       // in the actual code's new Promise wrapper by throwing.
@@ -342,6 +352,7 @@ describe('downloadTool', () => {
     // Pass an empty array for bodyChunks to match the actual error message
     const responseStream = mockHttpsResponseStream(404, {}, []);
     // Override implementation
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { callback } = getUrlAndCallback(args);
       if (callback) callback(responseStream);
@@ -365,6 +376,7 @@ describe('downloadTool', () => {
     vi.mocked(pipeline).mockRejectedValue(writeError); // Use vi.mocked
     const responseStream = mockHttpsResponseStream();
     // Override implementation
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { callback } = getUrlAndCallback(args);
       if (callback) callback(responseStream);
@@ -386,6 +398,7 @@ describe('downloadTool', () => {
 
   it('should fail if workspaceRoot is missing (though unlikely)', async () => {
     // Execute with null workspaceRoot in options
+    // biome-ignore lint/suspicious/noExplicitAny: Intentionally passing invalid options for testing
     const output = await downloadTool.execute(defaultInput, { workspaceRoot: null } as any); // Pass options object
 
     // Expect overall failure and specific error before loop starts
@@ -422,12 +435,14 @@ describe('downloadTool', () => {
     const responseStream1 = mockHttpsResponseStream(200, {}, ['zip ']);
     const responseStream2 = mockHttpsResponseStream(200, {}, ['img ']);
     // Override implementations
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     vi.mocked(httpsGet)
       .mockImplementationOnce((...args: any[]) => {
         const { callback } = getUrlAndCallback(args);
         if (callback) callback(responseStream1);
         return mockReq as unknown as ClientRequest;
       })
+      // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
       .mockImplementationOnce((...args: any[]) => {
         const { callback } = getUrlAndCallback(args);
         if (callback) callback(responseStream2);
@@ -473,6 +488,7 @@ describe('downloadTool', () => {
     // Pass empty array for error body
     const responseStream2 = mockHttpsResponseStream(404, {}, []);
     // Override implementations
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
     vi.mocked(httpsGet)
       .mockImplementationOnce((...args: any[]) => {
         const { callback } = getUrlAndCallback(args);

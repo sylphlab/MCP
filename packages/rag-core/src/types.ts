@@ -7,7 +7,7 @@ export interface Document {
   /** The full text content of the document. */
   content: string;
   /** Optional metadata associated with the document. */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**

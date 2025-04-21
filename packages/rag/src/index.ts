@@ -84,7 +84,7 @@ async function startIndexing() {
     }
     const allChunks: Chunk[] = [];
     for (const doc of documents) {
-      const language = detectLanguage(doc.metadata?.filePath || doc.id);
+      const language = detectLanguage((doc.metadata?.filePath as string | undefined) || doc.id);
       const chunks = await chunkCodeAst(doc.content, language, undefined, doc.metadata);
       allChunks.push(...chunks);
     }

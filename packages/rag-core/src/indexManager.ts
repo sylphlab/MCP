@@ -297,7 +297,7 @@ export class IndexManager {
           const ns = this.pineconeIndex.namespace(this.config.namespace || '');
           // Convert generic filter to Pinecone's metadata filter format
           // Example: { genre: 'drama', year: 2020 } -> { genre: {'$eq': 'drama'}, year: {'$eq': 2020} }
-          let pineconeFilter: Record<string, any> | undefined = undefined;
+          let pineconeFilter: Record<string, unknown> | undefined = undefined;
           if (filter) {
             pineconeFilter = {};
             for (const key in filter) {
@@ -366,11 +366,16 @@ export class IndexManager {
     for (const key in filter) {
       const filterValue = filter[key];
       // Check top-level properties first (like id, content - though filtering by content is unlikely)
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamically checking top-level keys
       if (key in item && (item as any)[key] === filterValue) {
         continue;
       }
-      // Then check metadata
-      if (item.metadata?.hasOwnProperty(key) && item.metadata[key] === filterValue) {
+      // Then check metadata using Object.hasOwn for safety
+      if (
+        item.metadata &&
+        Object.hasOwn(item.metadata, key) &&
+        item.metadata[key] === filterValue
+      ) {
         continue;
       }
       // If neither matches, the filter fails for this item

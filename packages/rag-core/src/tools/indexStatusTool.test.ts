@@ -17,6 +17,7 @@ vi.mock('../chroma.js', () => {
 
 // Get mock instance after mocking (needs await or top-level await)
 // Get it inside tests or beforeEach instead
+// biome-ignore lint/suspicious/noExplicitAny: Mock variable type
 let mockGetRagCollection: any;
 
 // --- Dynamic Import ---
@@ -43,6 +44,7 @@ describe('indexStatusTool', () => {
       count: mockCount,
       name: mockCollectionName,
       // Add other collection methods if needed, though only count and name are used
+      // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
     } as any); // Cast to any
 
     // Disable console logging
@@ -121,10 +123,12 @@ describe('indexStatusTool', () => {
     mockCount.mockResolvedValue(itemCount);
 
     // Modify the mock to capture the passed embedding function
+    // biome-ignore lint/suspicious/noExplicitAny: Variable to capture mock parameter
     let capturedEmbeddingFn: any;
     mockGetRagCollection.mockImplementation(async (embeddingFn: IEmbeddingFunction) => {
       // Add type
       capturedEmbeddingFn = embeddingFn;
+      // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
       return { count: mockCount, name: mockCollectionName } as any; // Cast to any
     });
 

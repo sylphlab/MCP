@@ -17,6 +17,7 @@ import fetch from 'node-fetch-native';
 
 // Mock the Vercel AI SDK's embedMany function at the top level
 vi.mock('ai', () => {
+  // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
   const embedManyMock = vi.fn(async ({ model, values }: { model: any; values: string[] }) => {
     // Add check for model validity
     if (!model || typeof model.provider !== 'string' || typeof model.modelId !== 'string') {
@@ -330,6 +331,7 @@ describe('embedding', () => {
   it('should throw error for unhandled provider (deprecated fn)', async () => {
     const chunks = ['unknown provider'];
     // Force an invalid config type to test the default case
+    // biome-ignore lint/suspicious/noExplicitAny: Intentionally invalid type for testing
     const invalidConfig = { provider: 'unknown-provider' } as any;
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

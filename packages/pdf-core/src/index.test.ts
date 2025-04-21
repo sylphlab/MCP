@@ -1,7 +1,8 @@
 import path from 'node:path'; // Import path for resolving
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 import { type Mocked, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'; // Import Mocked type
-import { type GetTextToolInput, getTextTool } from './index'; // Import the correct tool and input type
+import { type GetTextToolInput, getTextTool } from './index.js'; // Import the correct tool and input type
+import type { GetTextResultItem } from './tools/getTextTool.js'; // Import result item type
 // Import the real function for mocking its module - Assuming validateAndResolvePath is still used and not mocked here
 // import { validateAndResolvePath } from '@sylphlab/mcp-core';
 
@@ -81,6 +82,7 @@ describe('getTextTool.execute', () => {
     vi.clearAllMocks();
 
     // --- Reset mupdf mocks ---
+    // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
     vi.mocked(mupdfjs.PDFDocument.openDocument).mockReturnValue(mockMuPdfDoc as any); // Cast to any
     vi.mocked(mockMuPdfDoc.countPages).mockReturnValue(1);
     vi.mocked(mockMuPdfDoc.loadPage).mockImplementation((pageNum) => {
@@ -92,20 +94,23 @@ describe('getTextTool.execute', () => {
     // --- End Reset mupdf mocks ---
 
     // Setup default mock implementations for other external modules
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter type can be complex
     vi.mocked(readFile).mockImplementation(async (filePath: any) => {
       if (filePath === resolvedValidPath || filePath === resolvedOutsidePath) {
         return mockFileBuffer;
       }
       if (filePath === resolvedErrorPath) {
         // Simulate ENOENT for error path in the 'multiple operations' test
-        const error: any = new Error('ENOENT');
-        error.code = 'ENOENT';
+        const error = new Error('ENOENT');
+        // biome-ignore lint/suspicious/noExplicitAny: Dynamically adding property for mock error
+        (error as any).code = 'ENOENT'; // Add code property dynamically for mock
         throw error;
       }
       if (filePath === path.join(WORKSPACE_ROOT, 'nonexistent.pdf')) {
         // Simulate ENOENT for nonexistent path
-        const error: any = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
-        error.code = 'ENOENT';
+        const error = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
+        // biome-ignore lint/suspicious/noExplicitAny: Dynamically adding property for mock error
+        (error as any).code = 'ENOENT'; // Add code property dynamically for mock
         throw error;
       }
       if (filePath === path.join(WORKSPACE_ROOT, '')) {
@@ -113,8 +118,9 @@ describe('getTextTool.execute', () => {
       }
 
       // Default throw for unexpected paths
-      const error: any = new Error(`ENOENT: unexpected path '${filePath}'`);
-      error.code = 'ENOENT';
+      const error = new Error(`ENOENT: unexpected path '${filePath}'`);
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamically adding property for mock error
+      (error as any).code = 'ENOENT'; // Add code property dynamically for mock
       throw error;
     });
   });
@@ -254,6 +260,7 @@ describe('getTextTool.execute', () => {
       if (openDocCallCounter === 2) {
         throw openError;
       }
+      // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
       return mockMuPdfDoc as any; // Succeed for the first call
     });
 
@@ -266,6 +273,7 @@ describe('getTextTool.execute', () => {
 
     // Restore default mock behavior (always succeed) for the next call
     openDocCallCounter = 0; // Reset counter just in case
+    // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
     vi.mocked(mupdfjs.PDFDocument.openDocument).mockReturnValue(mockMuPdfDoc as any);
 
     // Re-execute the specific item that needs different options ('batch_outside_ok')
@@ -275,21 +283,25 @@ describe('getTextTool.execute', () => {
     const outputOutsideOk = await getTextTool.execute(outsideOkInput, allowOutsideOptions); // Pass options object
 
     // --- Assertions for outputDefault ---
-    const resOk = outputDefault.results.find((r) => r.id === 'batch_ok');
+    const resOk = outputDefault.results.find((r: GetTextResultItem) => r.id === 'batch_ok');
     expect(resOk?.success).toBe(true);
     expect(resOk?.result).toBe('Mock MuPDF text content');
 
-    const resEnoent = outputDefault.results.find((r) => r.id === 'batch_enoent');
+    const resEnoent = outputDefault.results.find((r: GetTextResultItem) => r.id === 'batch_enoent');
     expect(resEnoent?.success).toBe(false);
     expect(resEnoent?.error).toContain('File not found');
 
-    const resOutsideFail = outputDefault.results.find((r) => r.id === 'batch_outside_fail');
+    const resOutsideFail = outputDefault.results.find(
+      (r: GetTextResultItem) => r.id === 'batch_outside_fail',
+    );
     expect(resOutsideFail?.success).toBe(false);
     expect(resOutsideFail?.error).toContain('Path validation failed');
 
     // Note: batch_outside_ok would have failed path validation in outputDefault run
 
-    const resMupdfErr = outputDefault.results.find((r) => r.id === 'batch_mupdf_err');
+    const resMupdfErr = outputDefault.results.find(
+      (r: GetTextResultItem) => r.id === 'batch_mupdf_err',
+    );
     expect(resMupdfErr?.success).toBe(false);
     expect(resMupdfErr?.error).toContain('Mock MuPDF open failed for batch');
 
@@ -303,6 +315,7 @@ describe('getTextTool.execute', () => {
 
     // Restore original mock after test
     // Restore default mock behavior after test
+    // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
     vi.mocked(mupdfjs.PDFDocument.openDocument).mockReturnValue(mockMuPdfDoc as any);
   });
 });
