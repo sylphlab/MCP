@@ -20,36 +20,19 @@ import { type GetTextItemSchema, getTextToolInputSchema } from './getTextTool.sc
  */
 export async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
   const doc = mupdfjs.PDFDocument.openDocument(pdfBuffer, 'application/pdf');
-  let fullText = '';
   const numPages = doc.countPages();
+  const pageTexts: string[] = [];
+
   for (let i = 0; i < numPages; i++) {
     const page = doc.loadPage(i);
     try {
-      const structuredTextJson = page.toStructuredText('preserve-whitespace').asJSON();
-      const structuredText = JSON.parse(structuredTextJson);
-      let pageText = '';
-      if (structuredText?.blocks) {
-        for (const block of structuredText.blocks) {
-          if (block.lines) {
-            for (const line of block.lines) {
-              if (line.spans) {
-                for (const span of line.spans) {
-                  if (span.text) {
-                    pageText += span.text;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      fullText += `${pageText}\n`;
+      pageTexts.push(page.getText());
     } finally {
-      // MuPDF JS bindings might handle cleanup automatically. Monitor memory if needed.
+      // Cleanup logic if necessary
     }
   }
-  // Consider freeing doc if necessary/possible
-  return fullText.trim();
+
+  return pageTexts.join('\n').trim();
 }
 
 // --- TypeScript Types ---
@@ -98,10 +81,11 @@ async function processSinglePdfGetText(
 
   try {
     const buffer = await readFile(resolvedPath);
+    console.log(`Reading PDF file from: ${resolvedPath}`);
     const extractedText = await extractPdfText(buffer); // Call the core function
     resultItem.success = true;
     resultItem.result = extractedText;
-    resultItem.suggestion = 'Successfully extracted text from PDF.';
+    resultItem.suggestion = 'Successfully 5 extracted text from PDF.';
   } catch (e: unknown) {
     // Check if e is an object with a code property before accessing it
     if (e && typeof e === 'object' && 'code' in e) {

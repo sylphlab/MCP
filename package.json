@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "turbo run build",
+    "build:watch": "turbo watch build",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "lint": "biome check --write --unsafe ."
