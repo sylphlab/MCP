@@ -41,7 +41,6 @@
     "build": "tsup",
     "clean": "rd /s /q dist .turbo node_modules",
     "dev": "tsup --watch",
-    "lint": "eslint . --ext .ts",
     "test": "vitest run",
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
@@ -70,7 +69,6 @@
   "devDependencies": {
     "@types/node": "^20.17.30",
     "@vitest/coverage-v8": "^1.6.0",
-    "eslint": "^8.57.0",
     "glob": "^11.0.1",
     "tsup": "^8.2.2",
     "typescript": "^5.5.3",

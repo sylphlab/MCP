@@ -26,9 +26,10 @@
 - Avoid `any` and `unknown` types unless absolutely necessary and justified.
 - Use clear and descriptive type names.
 
-**Coding Style:**
-- Use `Prettier` for code formatting (install and configure).
-- Adhere to standard TypeScript/Node.js best practices.
+**Linting & Formatting:**
+- Use `Biome` exclusively for linting and formatting.
+- Configure via `biome.json`, extending the shared `@sylphlab/biome-config`.
+- Adhere to standard TypeScript/Node.js best practices enforced by Biome rules.
 
 **Commits:**
 - Follow the Conventional Commits specification (e.g., `feat:`, `fix:`, `chore:`, `docs:`, `test:`). (Tooling like commitlint can be added later).
