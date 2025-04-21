@@ -81,11 +81,10 @@ async function processSinglePdfGetText(
 
   try {
     const buffer = await readFile(resolvedPath);
-    console.log(`Reading PDF file from: ${resolvedPath}`);
     const extractedText = await extractPdfText(buffer); // Call the core function
     resultItem.success = true;
     resultItem.result = extractedText;
-    resultItem.suggestion = 'Successfully 5 extracted text from PDF.';
+    resultItem.suggestion = 'Successfully extracted text from PDF.';
   } catch (e: unknown) {
     // Check if e is an object with a code property before accessing it
     if (e && typeof e === 'object' && 'code' in e) {
