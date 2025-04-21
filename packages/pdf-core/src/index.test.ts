@@ -24,12 +24,9 @@ const mockStructuredTextJson = JSON.stringify({
   ],
 });
 
-const mockStructuredText = {
-  asJSON: vi.fn().mockReturnValue(mockStructuredTextJson),
-};
-
 const mockMuPdfPage = {
-  toStructuredText: vi.fn().mockReturnValue(mockStructuredText),
+  // toStructuredText: vi.fn().mockReturnValue(mockStructuredText), // REMOVED - Not used anymore
+  getText: vi.fn().mockReturnValue('Mock MuPDF text content'),
   // Add mock for free() or similar if needed for testing cleanup
 };
 
@@ -58,6 +55,7 @@ vi.mock('mupdf/mupdfjs', () => ({
 import { readFile } from 'node:fs/promises';
 // Import the mocked mupdf namespace
 import * as mupdfjs from 'mupdf/mupdfjs';
+import { get } from 'node:http';
 
 describe('getTextTool.execute', () => {
   // Update describe block
@@ -89,8 +87,9 @@ describe('getTextTool.execute', () => {
       if (pageNum === 0) return mockMuPdfPage; // 0-indexed
       throw new Error('Mock: Invalid page number');
     });
-    vi.mocked(mockMuPdfPage.toStructuredText).mockReturnValue(mockStructuredText);
-    vi.mocked(mockStructuredText.asJSON).mockReturnValue(mockStructuredTextJson);
+    // vi.mocked(mockMuPdfPage.toStructuredText).mockReturnValue(mockStructuredText); // REMOVED
+    // vi.mocked(mockStructuredText.asJSON).mockReturnValue(mockStructuredTextJson); // REMOVED
+    vi.mocked(mockMuPdfPage.getText).mockReturnValue('Mock MuPDF text content'); // Ensure getText mock is reset
     // --- End Reset mupdf mocks ---
 
     // Setup default mock implementations for other external modules
@@ -145,8 +144,9 @@ describe('getTextTool.execute', () => {
     );
     expect(mockMuPdfDoc.countPages).toHaveBeenCalled();
     expect(mockMuPdfDoc.loadPage).toHaveBeenCalledWith(0);
-    expect(mockMuPdfPage.toStructuredText).toHaveBeenCalledWith('preserve-whitespace');
-    expect(mockStructuredText.asJSON).toHaveBeenCalled();
+    // expect(mockMuPdfPage.toStructuredText).toHaveBeenCalledWith('preserve-whitespace'); // REMOVED
+    // expect(mockStructuredText.asJSON).toHaveBeenCalled(); // REMOVED
+    expect(mockMuPdfPage.getText).toHaveBeenCalled(); // ADDED - Check if getText was called
 
     expect(itemResult.success).toBe(true);
     expect(itemResult.id).toBe('pdf1');

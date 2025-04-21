@@ -25,11 +25,8 @@ export async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
 
   for (let i = 0; i < numPages; i++) {
     const page = doc.loadPage(i);
-    try {
-      pageTexts.push(page.getText());
-    } finally {
-      // Cleanup logic if necessary
-    }
+    pageTexts.push(page.getText());
+    // Note: You can also use page.getText('text') for more control over text extraction
   }
 
   return pageTexts.join('\n').trim();
@@ -86,6 +83,7 @@ async function processSinglePdfGetText(
     resultItem.result = extractedText;
     resultItem.suggestion = 'Successfully extracted text from PDF.';
   } catch (e: unknown) {
+    console.log(e);
     // Check if e is an object with a code property before accessing it
     if (e && typeof e === 'object' && 'code' in e) {
       if (e.code === 'ENOENT') {
