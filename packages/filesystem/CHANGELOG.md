@@ -1,5 +1,15 @@
 # @sylphlab/mcp-filesystem
 
+## 0.4.3
+
+### Patch Changes
+
+- Fix lint errors, test regressions, and build issues.
+- Updated dependencies
+  - @sylphlab/mcp-core@0.2.1
+  - @sylphlab/mcp-filesystem-core@0.4.3
+  - @sylphlab/mcp-utils@0.5.1
+
 ## 0.4.2
 
 ### Patch Changes

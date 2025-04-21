@@ -1,5 +1,16 @@
 # @sylphlab/mcp-net
 
+## 0.4.1
+
+### Patch Changes
+
+- Fix lint errors, test regressions, and build issues.
+- Updated dependencies
+  - @sylphlab/mcp-core@0.2.1
+  - @sylphlab/mcp-fetch-core@0.5.1
+  - @sylphlab/mcp-net-core@0.5.1
+  - @sylphlab/mcp-utils@0.5.1
+
 ## 0.4.0
 
 ### Minor Changes

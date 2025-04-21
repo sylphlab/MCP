@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-xml",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "MCP server providing XML tools",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -13,14 +13,20 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "bin": {
     "mcp-xml": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup"
   },
-  "keywords": ["mcp", "tool", "xml"],
+  "keywords": [
+    "mcp",
+    "tool",
+    "xml"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {

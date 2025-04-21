@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-wait",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "MCP server providing wait tool",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -13,7 +13,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "bin": {
     "mcp-wait": "./dist/index.js"
   },
@@ -21,7 +23,12 @@
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
   },
-  "keywords": ["mcp", "tool", "wait", "delay"],
+  "keywords": [
+    "mcp",
+    "tool",
+    "wait",
+    "delay"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {

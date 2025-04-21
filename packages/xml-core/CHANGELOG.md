@@ -1,5 +1,13 @@
 # @sylphlab/mcp-xml-core
 
+## 0.5.1
+
+### Patch Changes
+
+- Fix lint errors, test regressions, and build issues.
+- Updated dependencies
+  - @sylphlab/mcp-core@0.2.1
+
 ## 0.5.0
 
 ### Minor Changes

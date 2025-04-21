@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-rag",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP Server for RAG operations using rag-core",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -16,7 +16,13 @@
     "start": "node ./dist/index.js",
     "test": "vitest run --passWithNoTests"
   },
-  "keywords": ["mcp", "rag", "ai", "vector", "embedding"],
+  "keywords": [
+    "mcp",
+    "rag",
+    "ai",
+    "vector",
+    "embedding"
+  ],
   "author": "Sylph Lab <hi@sylphlab.com>",
   "license": "MIT",
   "dependencies": {
@@ -35,7 +41,9 @@
   "publishConfig": {
     "access": "public"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "import": "./dist/index.js",

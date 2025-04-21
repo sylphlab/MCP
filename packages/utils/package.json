@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-utils",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Shared utilities for MCP server packages",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -13,12 +13,18 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
   },
-  "keywords": ["mcp", "utils", "server"],
+  "keywords": [
+    "mcp",
+    "utils",
+    "server"
+  ],
   "author": "Sylph Lab <hi@sylphlab.com>",
   "license": "MIT",
   "devDependencies": {

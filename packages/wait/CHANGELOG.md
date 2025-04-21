@@ -1,5 +1,15 @@
 # @sylphlab/mcp-wait
 
+## 0.3.4
+
+### Patch Changes
+
+- Fix lint errors, test regressions, and build issues.
+- Updated dependencies
+  - @sylphlab/mcp-core@0.2.1
+  - @sylphlab/mcp-utils@0.5.1
+  - @sylphlab/mcp-wait-core@0.5.1
+
 ## 0.3.3
 
 ### Patch Changes

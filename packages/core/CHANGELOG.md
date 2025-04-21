@@ -1,5 +1,11 @@
 # @sylphlab/mcp-core
 
+## 0.2.1
+
+### Patch Changes
+
+- Fix lint errors, test regressions, and build issues.
+
 ## 0.2.0
 
 ### Minor Changes

@@ -1,5 +1,13 @@
 # @sylphlab/mcp-base64-core
 
+## 0.3.4
+
+### Patch Changes
+
+- Fix lint errors, test regressions, and build issues.
+- Updated dependencies
+  - @sylphlab/mcp-core@0.2.1
+
 ## 0.3.3
 
 ### Patch Changes
