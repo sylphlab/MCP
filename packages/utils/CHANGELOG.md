@@ -1,5 +1,12 @@
 # @sylphlab/mcp-utils
 
+## 0.5.3
+
+### Patch Changes
+
+- Updated dependencies [d0f53be]
+  - @sylphlab/mcp-core@0.2.3
+
 ## 0.5.2
 
 ### Patch Changes
