@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+// Remove direct SDK imports
+// import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+// import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { McpTool } from '@sylphlab/mcp-core';
-import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
+// Import the server start function
+import { startMcpServer } from '@sylphlab/mcp-utils';
 
 import { fetchTool } from '@sylphlab/mcp-fetch-core'; // Import fetchTool
 // Import tool objects from the core libraries
@@ -12,48 +14,34 @@ import {
   getInterfacesTool,
   getPublicIpTool,
 } from '@sylphlab/mcp-net-core';
+import { name, version, description } from '../package.json'; // Import metadata
 
 // --- Server Setup ---
 
-const serverName = 'net';
-// Updated description to reflect available tools
-const serverDescription =
-  'Provides tools for network operations (fetch, download, get public IP, list interfaces).';
-const serverVersion = '0.1.0'; // TODO: Update version as needed
-
-// Instantiate McpServer
-const mcpServer = new McpServer(
-  {
-    name: serverName,
-    version: serverVersion,
-    description: serverDescription,
-  },
-  {},
-);
-
 // Array of imported tool objects
-// biome-ignore lint/suspicious/noExplicitAny: Tool array holds diverse tools; types checked by registerTools
-const definedTools: McpTool<any, any>[] = [
+// biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
+const tools: McpTool<any, any>[] = [
   getPublicIpTool,
   getInterfacesTool,
-  fetchTool, // Added fetchTool
-  downloadTool, // Add downloadTool
+  fetchTool,
+  downloadTool,
 ];
 
-// Register tools using the helper function
-registerTools(mcpServer, definedTools);
-
 // --- Server Start ---
-async function startServer() {
+// Directly call startMcpServer at the top level
+(async () => {
   try {
-    const transport = new StdioServerTransport();
-    await mcpServer.server.connect(transport);
-  } catch (_error: unknown) {
+    await startMcpServer({
+      name, // Use name from package.json
+      version, // Use version from package.json
+      description, // Use description from package.json
+      tools,
+    });
+  } catch (_error) {
+    // Error handling is inside startMcpServer
     process.exit(1);
   }
-}
-
-startServer();
+})();
 
 // Graceful shutdown
 process.on('SIGINT', () => {

@@ -1,11 +1,12 @@
 import { cp } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
-  PathValidationError,
+  McpToolInput, // McpToolInput might not be needed directly
+  PathValidationError, // PathValidationError might not be needed directly
   validateAndResolvePath,
 } from '@sylphlab/mcp-core'; // Import base types and validation util
 import type { z } from 'zod';
@@ -44,32 +45,34 @@ export interface CopyItemsToolOutput extends BaseMcpToolOutput {
   results: CopyItemResult[];
 }
 
-// --- Tool Definition ---
+// --- Tool Definition using defineTool ---
 
-export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsToolOutput> = {
+export const copyItemsTool = defineTool({
   name: 'copyItemsTool',
   description:
     'Copies one or more files or folders within the workspace. Handles recursion. Use relative paths.',
   inputSchema: copyItemsToolInputSchema,
-  async execute(
+
+  execute: async ( // Core logic passed to defineTool
     input: CopyItemsToolInput,
     options: McpToolExecuteOptions,
-  ): Promise<CopyItemsToolOutput> {
-    // Remove workspaceRoot, require options
-    // Zod validation
+  ): Promise<CopyItemsToolOutput> => { // Still returns the specific output type
+
+    // Zod validation (throw error on failure)
     const parsed = copyItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
+      // Return error structure instead of throwing
       return {
         success: false,
         error: `Input validation failed: ${errorMessages}`,
-        results: [],
-        content: [], // Add required content field
+        results: [], // Ensure results is an empty array on validation failure
+        content: [{ type: 'text', text: `Input validation failed: ${errorMessages}` }],
       };
     }
-    const { items, overwrite } = parsed.data; // allowOutsideWorkspace comes from options
+    const { items, overwrite } = parsed.data;
 
     const results: CopyItemResult[] = [];
     let overallSuccess = true;
@@ -79,13 +82,15 @@ export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsTo
       let message: string | undefined;
       let error: string | undefined;
       let suggestion: string | undefined;
+      let sourceFullPath: string;
+      let destinationFullPath: string;
 
       // --- Validate and Resolve Paths ---
       const sourceValidationResult = validateAndResolvePath(
         item.sourcePath,
         options.workspaceRoot,
         options?.allowOutsideWorkspace,
-      ); // Use options.workspaceRoot
+      );
       if (typeof sourceValidationResult !== 'string') {
         error = sourceValidationResult.error;
         suggestion = sourceValidationResult.suggestion;
@@ -93,19 +98,17 @@ export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsTo
         results.push({
           sourcePath: item.sourcePath,
           destinationPath: item.destinationPath,
-          success: false,
-          error,
-          suggestion,
+          success: false, error, suggestion,
         });
-        continue;
+        continue; // Skip this item
       }
-      const sourceFullPath = sourceValidationResult;
+      sourceFullPath = sourceValidationResult;
 
       const destValidationResult = validateAndResolvePath(
         item.destinationPath,
         options.workspaceRoot,
         options?.allowOutsideWorkspace,
-      ); // Use options.workspaceRoot
+      );
       if (typeof destValidationResult !== 'string') {
         error = destValidationResult.error;
         suggestion = destValidationResult.suggestion;
@@ -113,15 +116,14 @@ export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsTo
         results.push({
           sourcePath: item.sourcePath,
           destinationPath: item.destinationPath,
-          success: false,
-          error,
-          suggestion,
+          success: false, error, suggestion,
         });
-        continue;
+        continue; // Skip this item
       }
-      const destinationFullPath = destValidationResult;
+      destinationFullPath = destValidationResult;
       // --- End Path Validation ---
 
+      // Keep try/catch for individual item copy errors
       try {
         await cp(sourceFullPath, destinationFullPath, {
           recursive: true,
@@ -132,6 +134,7 @@ export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsTo
         message = `Copied '${item.sourcePath}' to '${item.destinationPath}' successfully.`;
       } catch (e: unknown) {
         itemSuccess = false;
+        overallSuccess = false; // Mark overall as failed if any item fails
         // Check for system error codes
         if (e && typeof e === 'object' && 'code' in e) {
           const code = (e as { code: unknown }).code;
@@ -149,18 +152,18 @@ export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsTo
           error = `Failed to copy '${item.sourcePath}' to '${item.destinationPath}': ${errorMsg}`;
           suggestion = 'Check file paths, permissions, and available disk space.';
         }
-        overallSuccess = false;
       }
 
+      // Push result for this item
       results.push({
         sourcePath: item.sourcePath,
         destinationPath: item.destinationPath,
         success: itemSuccess,
         message: itemSuccess ? message : undefined,
         error,
-        suggestion: !itemSuccess ? suggestion : undefined, // Use suggestion calculated in catch block
+        suggestion: !itemSuccess ? suggestion : undefined,
       });
-    }
+    } // End for loop
 
     // Serialize the detailed results into the content field
     const contentText = JSON.stringify(
@@ -170,12 +173,16 @@ export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsTo
       },
       null,
       2,
-    ); // Pretty-print JSON
+    );
 
+    // Return the specific output structure
     return {
       success: overallSuccess,
-      results: results, // Keep original results field too
-      content: [{ type: 'text', text: contentText }], // Put JSON string in content
+      results: results,
+      content: [{ type: 'text', text: contentText }],
     };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { CopyItemsToolInput, CopyItemsToolOutput, CopyItemResult }; // Removed duplicate export

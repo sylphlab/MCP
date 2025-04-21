@@ -9,7 +9,8 @@
     "resolveJsonModule": true,
     "moduleDetection": "force",
     "isolatedModules": true,
-    "composite": true,
+    // "composite": true, // Removed as per instruction V.H for tsup builds
+    "allowSyntheticDefaultImports": true, // Often needed with resolveJsonModule
 
     /* Strictness */
     "strict": true,
@@ -25,6 +26,6 @@
     /* Type Checking */
     "types": ["node"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../package.json"], // Include package.json for import
   "exclude": ["node_modules", "dist"]
 }

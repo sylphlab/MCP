@@ -1,10 +1,11 @@
 // Remove incorrect McpToolContext import
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
   type McpContentPart,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
 } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
 import { z } from 'zod';
 import {
@@ -35,20 +36,21 @@ export const QueryIndexInputSchema = z.object({
 
 // Output schema is implicitly BaseMcpToolOutput, content will contain results
 
-export const queryIndexTool: McpTool<typeof QueryIndexInputSchema, BaseMcpToolOutput> = {
+export const queryIndexTool = defineTool({
   name: 'queryIndex',
   description: 'Embeds a query text and searches the index for similar content.',
   inputSchema: QueryIndexInputSchema,
 
-  // Correct signature based on type error: second param is workspaceRoot: string
-  async execute(
+  execute: async ( // Core logic passed to defineTool
     input: z.infer<typeof QueryIndexInputSchema>,
-    _options: McpToolExecuteOptions,
-  ): Promise<BaseMcpToolOutput> {
-    // Remove workspaceRoot, require options
+    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
+  ): Promise<BaseMcpToolOutput> => { // Return type is BaseMcpToolOutput
+
+    // Input validation is handled by registerTools/SDK
     const { queryText, topK, filter, embeddingConfig, vectorDbConfig } = input;
 
     // 1. Generate embedding for the query text
+    // Keep try/catch for specific embedding errors
     let queryVector: number[];
     // Define currentEmbeddingConfig here so it's accessible later
     const currentEmbeddingConfig = embeddingConfig ?? defaultEmbeddingConfig; // Use exported default
@@ -62,13 +64,12 @@ export const queryIndexTool: McpTool<typeof QueryIndexInputSchema, BaseMcpToolOu
       queryVector = queryEmbeddings[0];
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        content: [{ type: 'text', text: `Error generating query embedding: ${errorMessage}` }],
-      };
+      // Throw error for defineTool wrapper to catch and format consistently
+      throw new Error(`Error generating query embedding: ${errorMessage}`);
     }
 
     // 2. Initialize IndexManager and query the index
+    // Keep try/catch for specific index query errors
     // Provide default config if none is given in input
     const currentIndexConfig = vectorDbConfig ?? { provider: VectorDbProvider.InMemory };
     let results: QueryResult[];
@@ -93,10 +94,8 @@ export const queryIndexTool: McpTool<typeof QueryIndexInputSchema, BaseMcpToolOu
       results = await indexManager.queryIndex(queryVector, topK, filter);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        content: [{ type: 'text', text: `Error querying index: ${errorMessage}` }],
-      };
+      // Throw error for defineTool wrapper to catch and format consistently
+      throw new Error(`Error querying index: ${errorMessage}`);
     }
 
     // 3. Format the results
@@ -132,4 +131,7 @@ export const queryIndexTool: McpTool<typeof QueryIndexInputSchema, BaseMcpToolOu
       data: outputData, // Add structured results data
     };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { QueryIndexInputSchema, QueryResult }; // Removed duplicate export

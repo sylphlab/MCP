@@ -1,8 +1,9 @@
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
 } from '@sylphlab/mcp-core';
 import type { z } from 'zod';
 import {
@@ -68,65 +69,53 @@ async function processSingleJson(item: JsonInputItem): Promise<JsonResultItem> {
   return resultItem;
 }
 
-// --- Tool Definition ---
-export const jsonTool: McpTool<typeof jsonToolInputSchema, JsonToolOutput> = {
+// --- Tool Definition using defineTool ---
+export const jsonTool = defineTool({
   name: 'json',
   description: 'Performs JSON operations (parse or stringify) on one or more inputs.',
   inputSchema: jsonToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: JsonToolInput, _options: McpToolExecuteOptions): Promise<JsonToolOutput> {
-    // Remove workspaceRoot, require options
-    // Input validation happens before execute in the registerTools helper
+  execute: async ( // Core logic passed to defineTool
+    input: JsonToolInput,
+    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
+  ): Promise<JsonToolOutput> => { // Still returns the specific output type
+
+    // Input validation is handled by registerTools/SDK before execute is called
     const { items } = input;
-    // workspaceRoot is now in options.workspaceRoot if needed
+
     const results: JsonResultItem[] = [];
     let overallSuccess = true;
 
-    try {
-      // Process requests sequentially
-      for (const item of items) {
-        const result = await processSingleJson(item); // Process each item
-        results.push(result);
-        if (!result.success) {
-          overallSuccess = false;
-        }
+    // Removed the outermost try/catch block; defineTool handles unexpected errors
+
+    // Process requests sequentially
+    for (const item of items) {
+      // processSingleJson already includes its own try/catch for JSON errors
+      const result = await processSingleJson(item);
+      results.push(result);
+      if (!result.success) {
+        overallSuccess = false; // Mark overall as failed if any item fails
       }
-
-      // Serialize the detailed results into the content field
-      const contentText = JSON.stringify(
-        {
-          summary: `Processed ${items.length} JSON operations. Overall success: ${overallSuccess}`,
-          results: results,
-        },
-        null,
-        2,
-      ); // Pretty-print JSON
-
-      return {
-        success: overallSuccess,
-        results: results, // Keep original results field too
-        content: [{ type: 'text', text: contentText }], // Put JSON string in content
-      };
-    } catch (e: unknown) {
-      // Catch unexpected errors during the loop itself (should be rare)
-      const errorMsg =
-        e instanceof Error
-          ? `Unexpected error during JSON tool execution: ${e.message}`
-          : 'Unexpected error during JSON tool execution: Unknown error';
-      const errorContentText = JSON.stringify(
-        {
-          error: errorMsg,
-          results: results, // Include partial results in error content too
-        },
-        null,
-        2,
-      );
-      return {
-        success: false,
-        results: results, // Keep partial results here too
-        error: errorMsg, // Keep top-level error
-        content: [{ type: 'text', text: errorContentText }], // Put error JSON in content
-      };
     }
+
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify(
+      {
+        summary: `Processed ${items.length} JSON operations. Overall success: ${overallSuccess}`,
+        results: results,
+      },
+      null,
+      2,
+    );
+
+    // Return the specific output structure
+    return {
+      success: overallSuccess,
+      results: results,
+      content: [{ type: 'text', text: contentText }],
+    };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { JsonToolInput, JsonToolOutput, JsonResultItem, JsonInputItem, JsonOperation }; // Removed duplicate export

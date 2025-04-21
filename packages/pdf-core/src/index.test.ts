@@ -2,7 +2,7 @@ import path from 'node:path'; // Import path for resolving
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 import { type Mocked, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'; // Import Mocked type
 import { type GetTextToolInput, getTextTool } from './index.js'; // Import the correct tool and input type
-import type { GetTextResultItem } from './tools/getTextTool.js'; // Import result item type
+import type { GetTextResultItem, GetTextToolOutput } from './tools/getTextTool.js'; // Import result item type AND output type
 // Import the real function for mocking its module - Assuming validateAndResolvePath is still used and not mocked here
 // import { validateAndResolvePath } from '@sylphlab/mcp-core';
 
@@ -12,17 +12,8 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 // --- Mock mupdf/mupdfjs ---
-const mockStructuredTextJson = JSON.stringify({
-  blocks: [
-    {
-      lines: [
-        {
-          spans: [{ text: 'Mock MuPDF text content' }],
-        },
-      ],
-    },
-  ],
-});
+// Removed unused mockStructuredTextJson
+// const mockStructuredTextJson = JSON.stringify({ ... });
 
 const mockMuPdfPage = {
   // toStructuredText: vi.fn().mockReturnValue(mockStructuredText), // REMOVED - Not used anymore
@@ -134,8 +125,8 @@ describe('getTextTool.execute', () => {
     const output = await getTextTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
-    expect(output.results).toHaveLength(1);
-    const itemResult = output.results[0];
+    expect((output as GetTextToolOutput).results).toHaveLength(1);
+    const itemResult = (output as GetTextToolOutput).results[0];
 
     expect(readFile).toHaveBeenCalledWith(resolvedValidPath);
     expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(
@@ -160,8 +151,8 @@ describe('getTextTool.execute', () => {
     const output = await getTextTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false); // Overall fails
-    expect(output.results).toHaveLength(1);
-    const itemResult = output.results[0];
+    expect((output as GetTextToolOutput).results).toHaveLength(1);
+    const itemResult = (output as GetTextToolOutput).results[0];
 
     expect(readFile).toHaveBeenCalledWith(path.join(WORKSPACE_ROOT, 'nonexistent.pdf'));
     expect(mupdfjs.PDFDocument.openDocument).not.toHaveBeenCalled();
@@ -183,8 +174,8 @@ describe('getTextTool.execute', () => {
     const output = await getTextTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false); // Overall fails
-    expect(output.results).toHaveLength(1);
-    const itemResult = output.results[0];
+    expect((output as GetTextToolOutput).results).toHaveLength(1);
+    const itemResult = (output as GetTextToolOutput).results[0];
 
     expect(readFile).toHaveBeenCalledWith(resolvedValidPath);
     expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(
@@ -205,8 +196,8 @@ describe('getTextTool.execute', () => {
     const output = await getTextTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false); // Overall fails
-    expect(output.results).toHaveLength(1);
-    const itemResult = output.results[0];
+    expect((output as GetTextToolOutput).results).toHaveLength(1);
+    const itemResult = (output as GetTextToolOutput).results[0];
 
     expect(itemResult.success).toBe(false);
     expect(itemResult.id).toBe('pdf4');
@@ -223,8 +214,8 @@ describe('getTextTool.execute', () => {
     const output = await getTextTool.execute(input, allowOutsideOptions); // Pass options object
 
     expect(output.success).toBe(true);
-    expect(output.results).toHaveLength(1);
-    const itemResult = output.results[0];
+    expect((output as GetTextToolOutput).results).toHaveLength(1);
+    const itemResult = (output as GetTextToolOutput).results[0];
 
     expect(readFile).toHaveBeenCalledWith(resolvedOutsidePath);
     expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(
@@ -268,7 +259,7 @@ describe('getTextTool.execute', () => {
     const outputDefault = await getTextTool.execute(input, defaultOptions); // Pass options object
 
     expect(outputDefault.success).toBe(false); // Overall fails because some items fail
-    expect(outputDefault.results).toHaveLength(5);
+    expect((outputDefault as GetTextToolOutput).results).toHaveLength(5);
     expect(outputDefault.error).toBeUndefined();
 
     // Restore default mock behavior (always succeed) for the next call
@@ -283,15 +274,15 @@ describe('getTextTool.execute', () => {
     const outputOutsideOk = await getTextTool.execute(outsideOkInput, allowOutsideOptions); // Pass options object
 
     // --- Assertions for outputDefault ---
-    const resOk = outputDefault.results.find((r: GetTextResultItem) => r.id === 'batch_ok');
+    const resOk = (outputDefault as GetTextToolOutput).results.find((r: GetTextResultItem) => r.id === 'batch_ok');
     expect(resOk?.success).toBe(true);
     expect(resOk?.result).toBe('Mock MuPDF text content');
 
-    const resEnoent = outputDefault.results.find((r: GetTextResultItem) => r.id === 'batch_enoent');
+    const resEnoent = (outputDefault as GetTextToolOutput).results.find((r: GetTextResultItem) => r.id === 'batch_enoent');
     expect(resEnoent?.success).toBe(false);
     expect(resEnoent?.error).toContain('File not found');
 
-    const resOutsideFail = outputDefault.results.find(
+    const resOutsideFail = (outputDefault as GetTextToolOutput).results.find(
       (r: GetTextResultItem) => r.id === 'batch_outside_fail',
     );
     expect(resOutsideFail?.success).toBe(false);
@@ -299,7 +290,7 @@ describe('getTextTool.execute', () => {
 
     // Note: batch_outside_ok would have failed path validation in outputDefault run
 
-    const resMupdfErr = outputDefault.results.find(
+    const resMupdfErr = (outputDefault as GetTextToolOutput).results.find(
       (r: GetTextResultItem) => r.id === 'batch_mupdf_err',
     );
     expect(resMupdfErr?.success).toBe(false);
@@ -307,8 +298,8 @@ describe('getTextTool.execute', () => {
 
     // --- Assertions for outputOutsideOk ---
     expect(outputOutsideOk.success).toBe(true);
-    expect(outputOutsideOk.results).toHaveLength(1);
-    const resOutsideOk = outputOutsideOk.results[0];
+    expect((outputOutsideOk as GetTextToolOutput).results).toHaveLength(1);
+    const resOutsideOk = (outputOutsideOk as GetTextToolOutput).results[0];
     expect(resOutsideOk?.success).toBe(true);
     expect(resOutsideOk?.id).toBe('batch_outside_ok');
     expect(resOutsideOk?.result).toBe('Mock MuPDF text content');

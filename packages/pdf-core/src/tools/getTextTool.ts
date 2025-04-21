@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
   validateAndResolvePath,
 } from '@sylphlab/mcp-core';
 import * as mupdfjs from 'mupdf/mupdfjs';
@@ -83,7 +84,7 @@ async function processSinglePdfGetText(
     resultItem.result = extractedText;
     resultItem.suggestion = 'Successfully extracted text from PDF.';
   } catch (e: unknown) {
-    console.log(e);
+    // console.log(e); // Removed console.log
     // Check if e is an object with a code property before accessing it
     if (e && typeof e === 'object' && 'code' in e) {
       if (e.code === 'ENOENT') {
@@ -112,65 +113,53 @@ async function processSinglePdfGetText(
   return resultItem;
 }
 
-// --- Tool Definition ---
-export const getTextTool: McpTool<typeof getTextToolInputSchema, GetTextToolOutput> = {
+// --- Tool Definition using defineTool ---
+export const getTextTool = defineTool({
   name: 'getText',
   description: 'Extracts text content from one or more PDF files.',
   inputSchema: getTextToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(
+  execute: async ( // Core logic passed to defineTool
     input: GetTextToolInput,
-    options: McpToolExecuteOptions,
-  ): Promise<GetTextToolOutput> {
-    // Remove workspaceRoot, require options
-    // Input validation happens before execute in the registerTools helper
+    options: McpToolExecuteOptions, // Options are received here
+  ): Promise<GetTextToolOutput> => { // Still returns the specific output type
+
+    // Input validation is handled by registerTools/SDK
     const { items } = input;
-    // workspaceRoot and allowOutsideWorkspace are now in options
+
     const results: GetTextResultItem[] = [];
-    let overallSuccess = true;
+    let overallSuccess = true; // Assume success until a failure occurs
 
-    try {
-      // Process requests sequentially (file I/O and PDF parsing can be intensive)
-      for (const item of items) {
-        const result = await processSinglePdfGetText(item, options); // Pass options object directly
-        results.push(result);
-        if (!result.success) {
-          overallSuccess = false;
-        }
+    // Removed the outermost try/catch block; defineTool handles unexpected errors
+
+    // Process requests sequentially
+    for (const item of items) {
+      // processSinglePdfGetText handles its own errors for individual file processing
+      const result = await processSinglePdfGetText(item, options);
+      results.push(result);
+      if (!result.success) {
+        overallSuccess = false; // Mark overall as failed if any item fails
       }
-
-      // Serialize the detailed results into the content field
-      const contentText = JSON.stringify(
-        {
-          summary: `Processed ${items.length} PDF text extraction requests. Overall success: ${overallSuccess}`,
-          results: results,
-        },
-        null,
-        2,
-      ); // Pretty-print JSON for readability
-
-      return {
-        success: overallSuccess,
-        results: results, // Keep original results field too
-        content: [{ type: 'text', text: contentText }], // Put JSON string in content
-      };
-    } catch (e: unknown) {
-      // Catch unexpected errors during the loop itself (should be rare)
-      const errorMsg = `Unexpected error during PDF getText tool execution: ${e instanceof Error ? e.message : String(e)}`;
-      const errorContentText = JSON.stringify(
-        {
-          error: errorMsg,
-          results: results, // Include partial results in error content too
-        },
-        null,
-        2,
-      );
-      return {
-        success: false,
-        results: results, // Keep partial results here too
-        error: errorMsg, // Keep top-level error
-        content: [{ type: 'text', text: errorContentText }], // Put error JSON in content
-      };
     }
+
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify(
+      {
+        summary: `Processed ${items.length} PDF text extraction requests. Overall success: ${overallSuccess}`,
+        results: results,
+      },
+      null,
+      2,
+    );
+
+    // Return the specific output structure
+    return {
+      success: overallSuccess,
+      results: results,
+      content: [{ type: 'text', text: contentText }],
+    };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { GetTextToolInput, GetTextToolOutput, GetTextResultItem, GetTextInputItem }; // Removed duplicate export

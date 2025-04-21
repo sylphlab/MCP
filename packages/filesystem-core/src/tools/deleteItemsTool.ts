@@ -1,11 +1,12 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
-  PathValidationError,
+  McpToolInput, // McpToolInput might not be needed directly
+  PathValidationError, // PathValidationError might not be needed directly
   validateAndResolvePath,
 } from '@sylphlab/mcp-core';
 import trash from 'trash';
@@ -30,29 +31,30 @@ export interface DeleteItemsToolOutput extends BaseMcpToolOutput {
   results: DeleteItemResult[];
 }
 
-// --- Tool Definition ---
-export const deleteItemsTool: McpTool<typeof deleteItemsToolInputSchema, DeleteItemsToolOutput> = {
+// --- Tool Definition using defineTool ---
+export const deleteItemsTool = defineTool({
   name: 'deleteItemsTool',
   description:
     'Deletes specified files or directories (supports globs - TODO: implement glob support). Uses trash by default.',
   inputSchema: deleteItemsToolInputSchema,
 
-  async execute(
+  execute: async ( // Core logic passed to defineTool
     input: DeleteItemsToolInput,
     options: McpToolExecuteOptions,
-  ): Promise<DeleteItemsToolOutput> {
-    // Remove workspaceRoot, require options
-    // Zod validation
+  ): Promise<DeleteItemsToolOutput> => { // Still returns the specific output type
+
+    // Zod validation (throw error on failure)
     const parsed = deleteItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
+      // Return error structure instead of throwing
       return {
         success: false,
         error: `Input validation failed: ${errorMessages}`,
-        results: [],
-        content: [],
+        results: [], // Ensure results is an empty array on validation failure
+        content: [{ type: 'text', text: `Input validation failed: ${errorMessages}` }],
       };
     }
     const { paths: inputPaths, recursive, useTrash } = parsed.data;
@@ -69,23 +71,25 @@ export const deleteItemsTool: McpTool<typeof deleteItemsToolInputSchema, DeleteI
       let error: string | undefined;
       let suggestion: string | undefined;
       const deleteMethod = useTrash ? 'trash' : 'delete permanently';
+      let fullPath: string;
 
       // --- Validate and Resolve Path ---
       const validationResult = validateAndResolvePath(
         itemPath,
         options.workspaceRoot,
         options?.allowOutsideWorkspace,
-      ); // Use options.workspaceRoot
+      );
       if (typeof validationResult !== 'string') {
         error = validationResult.error;
         suggestion = validationResult.suggestion;
-        overallSuccess = false;
+        overallSuccess = false; // Mark overall as failed if path validation fails
         results.push({ path: itemPath, success: false, error, suggestion });
         continue; // Skip to next itemPath
       }
-      const fullPath = validationResult;
+      fullPath = validationResult;
       // --- End Path Validation ---
 
+      // Keep try/catch for individual item deletion errors
       try {
         if (useTrash) {
           await trash(fullPath);
@@ -97,12 +101,13 @@ export const deleteItemsTool: McpTool<typeof deleteItemsToolInputSchema, DeleteI
         message = `Item '${itemPath}' deleted (${deleteMethod}) successfully.`;
       } catch (e: unknown) {
         itemSuccess = false;
-        overallSuccess = false;
+        overallSuccess = false; // Mark overall as failed if any item fails
         const errorMsg = e instanceof Error ? e.message : 'Unknown error';
         error = `Failed to ${deleteMethod} '${itemPath}': ${errorMsg}`;
         suggestion = `Check permissions for '${itemPath}' and its parent directories. Ensure the file/folder exists if using 'rm' without 'force: true'.`;
       }
 
+      // Push result for this item
       results.push({
         path: itemPath,
         success: itemSuccess,
@@ -110,7 +115,7 @@ export const deleteItemsTool: McpTool<typeof deleteItemsToolInputSchema, DeleteI
         error,
         suggestion: !itemSuccess ? suggestion : undefined,
       });
-    }
+    } // End for loop
 
     // Serialize the detailed results into the content field
     const contentText = JSON.stringify(
@@ -120,12 +125,16 @@ export const deleteItemsTool: McpTool<typeof deleteItemsToolInputSchema, DeleteI
       },
       null,
       2,
-    ); // Pretty-print JSON
+    );
 
+    // Return the specific output structure
     return {
-      success: overallSuccess, // Keep original success logic
-      results: results, // Keep original results field too
-      content: [{ type: 'text', text: contentText }], // Put JSON string in content
+      success: overallSuccess,
+      results: results,
+      content: [{ type: 'text', text: contentText }],
     };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { DeleteItemsToolInput, DeleteItemsToolOutput, DeleteItemResult }; // Removed duplicate export

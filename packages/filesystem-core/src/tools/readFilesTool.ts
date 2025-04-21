@@ -1,12 +1,13 @@
 import type { Stats } from 'node:fs'; // Import Stats type
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
-  PathValidationError,
+  McpToolInput, // McpToolInput might not be needed directly
+  PathValidationError, // PathValidationError might not be needed directly
   validateAndResolvePath,
 } from '@sylphlab/mcp-core'; // Import base types and validation util
 import type { z } from 'zod';
@@ -42,36 +43,30 @@ export interface ReadFilesToolOutput extends BaseMcpToolOutput {
   results: ReadFileResult[];
 }
 
-// --- Tool Definition (following SDK pattern) ---
+// --- Tool Definition using defineTool ---
 
-export const readFilesTool: McpTool<typeof readFilesToolInputSchema, ReadFilesToolOutput> = {
+export const readFilesTool = defineTool({
   name: 'readFilesTool',
   description: 'Reads the content of one or more files within the workspace.',
   inputSchema: readFilesToolInputSchema,
 
-  async execute(
+  execute: async ( // Core logic passed to defineTool
     input: ReadFilesToolInput,
     options: McpToolExecuteOptions,
-  ): Promise<ReadFilesToolOutput> {
-    // Remove workspaceRoot, require options
-    // Zod validation
+  ): Promise<ReadFilesToolOutput> => { // Still returns the specific output type
+
+    // Zod validation (throw error on failure)
     const parsed = readFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
-      return {
-        success: false,
-        error: `Input validation failed: ${errorMessages}`,
-        results: [],
-        content: [], // Add required content field
-      };
+      throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { paths: inputPaths, encoding, includeStats } = parsed.data; // allowOutsideWorkspace comes from options
-    // --- End Zod Validation ---
+    const { paths: inputPaths, encoding, includeStats } = parsed.data;
 
     const results: ReadFileResult[] = [];
-    let anySuccess = false;
+    let anySuccess = false; // True if at least one file is read successfully
 
     for (const itemPath of inputPaths) {
       let itemSuccess = false;
@@ -83,86 +78,76 @@ export const readFilesTool: McpTool<typeof readFilesToolInputSchema, ReadFilesTo
 
       // --- Validate Path ---
       const validationResult = validateAndResolvePath(
-        itemPath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
-      ); // Use options.workspaceRoot
+        itemPath, options.workspaceRoot, options?.allowOutsideWorkspace,
+      );
       if (typeof validationResult !== 'string') {
         error = `Path validation failed: ${validationResult.error}`;
         suggestionForError = validationResult.suggestion;
         results.push({ path: itemPath, success: false, error, suggestion: suggestionForError });
-        // anySuccess remains false or keeps previous value
         continue; // Skip to next itemPath
       }
-      fullPath = validationResult; // Path is valid and resolved
+      fullPath = validationResult;
       // --- End Path Validation ---
 
-      // Proceed only if path is valid
-      if (fullPath) {
-        try {
-          // Optionally get stats first
-          if (includeStats) {
-            itemStat = await stat(fullPath); // Use validated path
-            // Ensure it's a file if stats are requested
-            if (!itemStat.isFile()) {
-              throw new Error(`Path '${itemPath}' is not a file.`);
-            }
+      // Keep try/catch for individual file read errors
+      try {
+        // Optionally get stats first
+        if (includeStats) {
+          itemStat = await stat(fullPath);
+          if (!itemStat.isFile()) {
+            throw new Error(`Path '${itemPath}' is not a file.`);
           }
+        }
 
-          // Read the file content with specified encoding
-          const fileBuffer = await readFile(fullPath); // Use validated path
-          content = fileBuffer.toString(encoding);
+        // Read the file content with specified encoding
+        const fileBuffer = await readFile(fullPath);
+        content = fileBuffer.toString(encoding);
 
-          itemSuccess = true;
-          anySuccess = true; // Mark overall success if at least one works
-        } catch (e: unknown) {
-          itemSuccess = false;
-          let errorCode: string | null = null;
-          let errorMsg = 'Unknown error';
+        itemSuccess = true;
+        anySuccess = true; // Mark overall success if at least one works
 
-          if (e && typeof e === 'object') {
-            if ('code' in e) {
-              errorCode = String((e as { code: unknown }).code);
-            }
-          }
-          if (e instanceof Error) {
-            errorMsg = e.message;
-          }
+      } catch (e: unknown) {
+        itemSuccess = false;
+        let errorCode: string | null = null;
+        let errorMsg = 'Unknown error';
 
-          // Provide specific errors based on code
-          if (errorCode === 'ENOENT') {
-            error = `Failed to read '${itemPath}': File not found.`;
-          } else if (errorCode === 'EISDIR') {
-            error = `Failed to read '${itemPath}': Path is a directory, not a file.`;
-          } else {
-            // Use the extracted message for other errors
-            error = `Failed to read '${itemPath}': ${errorMsg}`;
-          }
+        if (e && typeof e === 'object') {
+          if ('code' in e) errorCode = String((e as { code: unknown }).code);
+        }
+        if (e instanceof Error) errorMsg = e.message;
 
-          // Add suggestion based on error code or message
-          if (errorCode === 'ENOENT') {
-            const parentDir = path.dirname(itemPath);
-            suggestionForError = `Ensure the file path '${itemPath}' is correct and the file exists. You could try listing the directory contents using listFilesTool on '${parentDir === '.' ? '.' : parentDir}' to check available files.`;
-          } else if (errorCode === 'EISDIR' || errorMsg.includes('is not a file')) {
-            suggestionForError = `The path '${itemPath}' points to a directory. Provide a path to a file.`;
-          } else if (errorCode === 'EACCES') {
-            suggestionForError = `Check read permissions for the file '${itemPath}'.`;
-          } else {
-            suggestionForError = 'Check the file path and permissions.';
-          }
-          // Assign suggestion to the result object later
+        // Provide specific errors based on code
+        if (errorCode === 'ENOENT') {
+          error = `Failed to read '${itemPath}': File not found.`;
+        } else if (errorCode === 'EISDIR') {
+          error = `Failed to read '${itemPath}': Path is a directory, not a file.`;
+        } else {
+          error = `Failed to read '${itemPath}': ${errorMsg}`;
+        }
+
+        // Add suggestion based on error code or message
+        if (errorCode === 'ENOENT') {
+          const parentDir = path.dirname(itemPath);
+          suggestionForError = `Ensure the file path '${itemPath}' is correct and the file exists. You could try listing the directory contents using listFilesTool on '${parentDir === '.' ? '.' : parentDir}' to check available files.`;
+        } else if (errorCode === 'EISDIR' || errorMsg.includes('is not a file')) {
+          suggestionForError = `The path '${itemPath}' points to a directory. Provide a path to a file.`;
+        } else if (errorCode === 'EACCES') {
+          suggestionForError = `Check read permissions for the file '${itemPath}'.`;
+        } else {
+          suggestionForError = 'Check the file path and permissions.';
         }
       }
 
+      // Push result for this file
       results.push({
         path: itemPath,
         success: itemSuccess,
         content,
         stat: itemStat,
         error,
-        suggestion: !itemSuccess ? suggestionForError : undefined, // Use the suggestion calculated in the catch block
+        suggestion: !itemSuccess ? suggestionForError : undefined,
       });
-    }
+    } // End for loop
 
     // Serialize the detailed results into the content field
     const contentText = JSON.stringify(
@@ -172,12 +157,16 @@ export const readFilesTool: McpTool<typeof readFilesToolInputSchema, ReadFilesTo
       },
       null,
       2,
-    ); // Pretty-print JSON
+    );
 
+    // Return the specific output structure
     return {
-      success: anySuccess, // Keep original success logic
-      results: results, // Keep original results field too
-      content: [{ type: 'text', text: contentText }], // Put JSON string in content
+      success: anySuccess, // Success is true if at least one file was read
+      results: results,
+      content: [{ type: 'text', text: contentText }],
     };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { ReadFilesToolInput, ReadFilesToolOutput, ReadFileResult }; // Removed duplicate export

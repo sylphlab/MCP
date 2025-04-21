@@ -7,7 +7,8 @@ import type * as stream from 'node:stream'; // Keep type import for Readable
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { downloadTool } from './downloadTool.js';
-import type { DownloadToolInput } from './downloadTool.types.js'; // Import type from .types file
+// Import types from .types file
+import type { DownloadToolInput, DownloadToolOutput } from './downloadTool.types.js';
 
 // --- Mocks ---
 // Mock @sylphlab/mcp-core
@@ -97,9 +98,9 @@ describe('downloadTool', () => {
   };
 
   // Helper function to extract URL and Callback from https.get args
-  // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+  // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
   const getUrlAndCallback = (
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     args: any[],
   ): { url: string | URL | undefined; callback: ((res: IncomingMessage) => void) | undefined } => {
     let url: string | URL | undefined;
@@ -155,7 +156,7 @@ describe('downloadTool', () => {
     vi.mocked(unlink).mockResolvedValue(undefined); // Use vi.mocked
 
     // Set default implementation for httpsGet here
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     vi.mocked(httpsGet).mockImplementation((...args: any[]) => {
       // Default implementation can be simple or simulate success
       const { callback } = getUrlAndCallback(args);
@@ -186,7 +187,7 @@ describe('downloadTool', () => {
   it('should download a file successfully', async () => {
     const responseStream = mockHttpsResponseStream(200, {}, ['file ', 'content']);
     // Override default implementation for this specific test
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { callback } = getUrlAndCallback(args);
       if (callback) callback(responseStream);
@@ -196,8 +197,8 @@ describe('downloadTool', () => {
     const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true); // Overall success
-    expect(output.results).toHaveLength(1);
-    const result = output.results[0];
+    expect((output as DownloadToolOutput).results).toHaveLength(1);
+    const result = (output as DownloadToolOutput).results[0];
     expect(result.success).toBe(true);
     expect(result.id).toBe(defaultItem.id);
     expect(result.path).toBe(defaultItem.destinationPath);
@@ -219,7 +220,7 @@ describe('downloadTool', () => {
     const finalResponseStream = mockHttpsResponseStream(200, {}, ['final content']);
 
     // Override for first call
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { url, callback } = getUrlAndCallback(args);
       const urlString = url?.toString();
@@ -232,7 +233,7 @@ describe('downloadTool', () => {
       return mockReq as unknown as ClientRequest;
     });
     // Override for second call
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { url, callback } = getUrlAndCallback(args);
       const urlString = url?.toString();
@@ -247,8 +248,8 @@ describe('downloadTool', () => {
     const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
-    expect(output.results).toHaveLength(1);
-    const result = output.results[0];
+    expect((output as DownloadToolOutput).results).toHaveLength(1);
+    const result = (output as DownloadToolOutput).results[0];
     expect(result.success).toBe(true);
     expect(result.message).toContain('Successfully downloaded');
     expect(vi.mocked(validateAndResolvePath)).toHaveBeenCalledTimes(1); // Use vi.mocked
@@ -265,8 +266,8 @@ describe('downloadTool', () => {
     const output = await downloadTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false); // Overall success is false if only item fails
-    expect(output.results).toHaveLength(1);
-    const result = output.results[0];
+    expect((output as DownloadToolOutput).results).toHaveLength(1);
+    const result = (output as DownloadToolOutput).results[0];
     expect(result.success).toBe(false);
     expect(result.error).toContain('File already exists');
     expect(result.message).toContain('File already exists');
@@ -279,7 +280,7 @@ describe('downloadTool', () => {
     vi.mocked(access).mockResolvedValue(undefined); // Use vi.mocked
     const responseStream = mockHttpsResponseStream();
     // Override implementation
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { callback } = getUrlAndCallback(args);
       if (callback) callback(responseStream);
@@ -290,8 +291,8 @@ describe('downloadTool', () => {
     const output = await downloadTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
-    expect(output.results).toHaveLength(1);
-    const result = output.results[0];
+    expect((output as DownloadToolOutput).results).toHaveLength(1);
+    const result = (output as DownloadToolOutput).results[0];
     expect(result.success).toBe(true);
     expect(result.message).toContain('Successfully downloaded');
     expect(vi.mocked(validateAndResolvePath)).toHaveBeenCalledWith(
@@ -310,8 +311,8 @@ describe('downloadTool', () => {
     const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false);
-    expect(output.results).toHaveLength(1);
-    const result = output.results[0];
+    expect((output as DownloadToolOutput).results).toHaveLength(1);
+    const result = (output as DownloadToolOutput).results[0];
     expect(result.success).toBe(false);
     expect(result.error).toContain('Path validation failed: Invalid path');
     expect(result.message).toContain('Path validation failed: Invalid path');
@@ -327,7 +328,7 @@ describe('downloadTool', () => {
   it('should fail on https request error (network)', async () => {
     const networkError = new Error('Network connection refused');
     // Make the mock implementation reject directly
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     vi.mocked(httpsGet).mockImplementationOnce((..._args: any[]) => {
       // Simulate the rejection that would happen from the 'error' event listener
       // in the actual code's new Promise wrapper by throwing.
@@ -337,8 +338,8 @@ describe('downloadTool', () => {
     const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false);
-    expect(output.results).toHaveLength(1);
-    const result = output.results[0];
+    expect((output as DownloadToolOutput).results).toHaveLength(1);
+    const result = (output as DownloadToolOutput).results[0];
     expect(result.success).toBe(false);
     // Error message now comes directly from the catch block, including item details
     expect(result.error).toContain(
@@ -352,7 +353,7 @@ describe('downloadTool', () => {
     // Pass an empty array for bodyChunks to match the actual error message
     const responseStream = mockHttpsResponseStream(404, {}, []);
     // Override implementation
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { callback } = getUrlAndCallback(args);
       if (callback) callback(responseStream);
@@ -362,8 +363,8 @@ describe('downloadTool', () => {
     const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false);
-    expect(output.results).toHaveLength(1);
-    const result = output.results[0];
+    expect((output as DownloadToolOutput).results).toHaveLength(1);
+    const result = (output as DownloadToolOutput).results[0];
     expect(result.success).toBe(false);
     // Adjust assertion to match the actual error message (without body part)
     expect(result.error).toContain('Download failed. Status Code: 404.');
@@ -376,7 +377,7 @@ describe('downloadTool', () => {
     vi.mocked(pipeline).mockRejectedValue(writeError); // Use vi.mocked
     const responseStream = mockHttpsResponseStream();
     // Override implementation
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     vi.mocked(httpsGet).mockImplementationOnce((...args: any[]) => {
       const { callback } = getUrlAndCallback(args);
       if (callback) callback(responseStream);
@@ -386,8 +387,8 @@ describe('downloadTool', () => {
     const output = await downloadTool.execute(defaultInput, defaultOptions); // Pass options object
 
     expect(output.success).toBe(false);
-    expect(output.results).toHaveLength(1);
-    const result = output.results[0];
+    expect((output as DownloadToolOutput).results).toHaveLength(1);
+    const result = (output as DownloadToolOutput).results[0];
     expect(result.success).toBe(false);
     // Correct the assertion to match the error message format
     expect(result.error).toContain(
@@ -399,7 +400,7 @@ describe('downloadTool', () => {
   it('should fail if workspaceRoot is missing (though unlikely)', async () => {
     // Execute with null workspaceRoot in options
     // biome-ignore lint/suspicious/noExplicitAny: Intentionally passing invalid options for testing
-    const output = await downloadTool.execute(defaultInput, { workspaceRoot: null } as any); // Pass options object
+    const output = await downloadTool.execute(defaultInput, { workspaceRoot: null } as any);
 
     // Expect overall failure and specific error before loop starts
     expect(output.success).toBe(false);
@@ -435,14 +436,14 @@ describe('downloadTool', () => {
     const responseStream1 = mockHttpsResponseStream(200, {}, ['zip ']);
     const responseStream2 = mockHttpsResponseStream(200, {}, ['img ']);
     // Override implementations
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     vi.mocked(httpsGet)
       .mockImplementationOnce((...args: any[]) => {
         const { callback } = getUrlAndCallback(args);
         if (callback) callback(responseStream1);
         return mockReq as unknown as ClientRequest;
       })
-      // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+      // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
       .mockImplementationOnce((...args: any[]) => {
         const { callback } = getUrlAndCallback(args);
         if (callback) callback(responseStream2);
@@ -453,9 +454,9 @@ describe('downloadTool', () => {
     const output = await downloadTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true);
-    expect(output.results).toHaveLength(2);
-    expect(output.results[0].success).toBe(true);
-    expect(output.results[1].success).toBe(true);
+    expect((output as DownloadToolOutput).results).toHaveLength(2);
+    expect((output as DownloadToolOutput).results[0].success).toBe(true);
+    expect((output as DownloadToolOutput).results[1].success).toBe(true);
     expect(vi.mocked(validateAndResolvePath)).toHaveBeenCalledTimes(2); // Use vi.mocked
     expect(vi.mocked(access)).toHaveBeenCalledTimes(2); // Use vi.mocked
     expect(vi.mocked(httpsGet)).toHaveBeenCalledTimes(2); // Use vi.mocked
@@ -488,13 +489,14 @@ describe('downloadTool', () => {
     // Pass empty array for error body
     const responseStream2 = mockHttpsResponseStream(404, {}, []);
     // Override implementations
-    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation parameter
+    // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
     vi.mocked(httpsGet)
       .mockImplementationOnce((...args: any[]) => {
         const { callback } = getUrlAndCallback(args);
         if (callback) callback(responseStream1);
         return mockReq as unknown as ClientRequest;
       })
+      // biome-ignore lint/suspicious/noExplicitAny: Mock implementation signature
       .mockImplementationOnce((...args: any[]) => {
         const { callback } = getUrlAndCallback(args);
         if (callback) callback(responseStream2);
@@ -505,11 +507,11 @@ describe('downloadTool', () => {
     const output = await downloadTool.execute(input, defaultOptions); // Pass options object
 
     expect(output.success).toBe(true); // Overall success is true because one succeeded
-    expect(output.results).toHaveLength(2);
-    expect(output.results[0].success).toBe(true);
-    expect(output.results[1].success).toBe(false);
+    expect((output as DownloadToolOutput).results).toHaveLength(2);
+    expect((output as DownloadToolOutput).results[0].success).toBe(true);
+    expect((output as DownloadToolOutput).results[1].success).toBe(false);
     // Adjust assertion
-    expect(output.results[1].error).toContain('Download failed. Status Code: 404.');
+    expect((output as DownloadToolOutput).results[1].error).toContain('Download failed. Status Code: 404.');
     expect(vi.mocked(validateAndResolvePath)).toHaveBeenCalledTimes(2); // Use vi.mocked
     expect(vi.mocked(access)).toHaveBeenCalledTimes(2); // Use vi.mocked
     expect(vi.mocked(httpsGet)).toHaveBeenCalledTimes(2); // Use vi.mocked

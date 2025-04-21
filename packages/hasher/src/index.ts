@@ -1,46 +1,36 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+// Remove direct SDK imports
+// import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+// import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { McpTool } from '@sylphlab/mcp-core';
-import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
+// Import the server start function
+import { startMcpServer } from '@sylphlab/mcp-utils';
 
 // Import the tool object from the core library
 import { hashTool } from '@sylphlab/mcp-hasher-core';
+import { name, version, description } from '../package.json'; // Import metadata
 
 // --- Server Setup ---
 
-const serverName = 'hasher';
-const serverDescription = 'Provides a tool for computing cryptographic hashes.';
-const serverVersion = '0.1.0'; // TODO: Update version as needed
-
-// Instantiate McpServer
-const mcpServer = new McpServer(
-  {
-    name: serverName,
-    version: serverVersion,
-    description: serverDescription,
-  },
-  {},
-);
-
-// Array of imported tool objects
-const definedTools = [hashTool];
-
-// Register tools using the helper function
-registerTools(mcpServer, definedTools);
+// biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
+const tools: McpTool<any, any>[] = [hashTool];
 
 // --- Server Start ---
-async function startServer() {
+// Directly call startMcpServer at the top level
+(async () => {
   try {
-    const transport = new StdioServerTransport();
-    await mcpServer.server.connect(transport);
-  } catch (_error: unknown) {
+    await startMcpServer({
+      name, // Use name from package.json
+      version, // Use version from package.json
+      description, // Use description from package.json
+      tools,
+    });
+  } catch (_error) {
+    // Error handling is inside startMcpServer
     process.exit(1);
   }
-}
-
-startServer();
+})();
 
 // Graceful shutdown
 process.on('SIGINT', () => {

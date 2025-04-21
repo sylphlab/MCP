@@ -1,9 +1,10 @@
 import path from 'node:path'; // Import path
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 // Correct imports based on core/src/index.ts
 import type {
   BaseMcpToolOutput,
   McpContentPart,
-  McpTool,
+  McpTool, // McpTool might not be needed directly
   McpToolExecuteOptions,
 } from '@sylphlab/mcp-core';
 // Removed VercelAIEmbeddingFunction import
@@ -20,62 +21,48 @@ interface IndexStatusOutput extends BaseMcpToolOutput {
   collectionName: string;
 }
 
-// Implement the tool
-export const indexStatusTool: McpTool<typeof IndexStatusInput, IndexStatusOutput> = {
+// Implement the tool using defineTool
+export const indexStatusTool = defineTool({
   name: 'getIndexStatus',
   description: 'Gets the status of the RAG index (e.g., number of items).',
   inputSchema: IndexStatusInput, // Use Zod schema directly
 
-  // Correct execute signature
-  async execute(
-    _input: z.infer<typeof IndexStatusInput>,
-    options: McpToolExecuteOptions,
-  ): Promise<IndexStatusOutput> {
-    // Remove workspaceRoot, require options
-    try {
-      // Determine chromaDbPath using options.workspaceRoot
-      const chromaDbPath = path.join(options.workspaceRoot, '.mcp', 'chroma_db'); // Use options.workspaceRoot
+  execute: async ( // Core logic passed to defineTool
+    _input: z.infer<typeof IndexStatusInput>, // Input is optional/empty
+    options: McpToolExecuteOptions, // Options are received here
+  ): Promise<IndexStatusOutput> => { // Still returns the specific output type
 
-      // Create a minimal dummy embedding function locally just to satisfy getRagCollection's type requirement
-      // This avoids needing to import/configure a real embedding model for a simple status check.
-      // TODO: Consider refactoring getRagCollection or ChromaClient interaction if possible
-      // to avoid needing an embedding function for metadata operations like count().
-      const dummyEmbeddingFn: IEmbeddingFunction = {
-        // Provide a minimal implementation or leave empty if generate is not called by getRagCollection for count()
-        generate: async (texts: string[]) => {
-          return texts.map(() => []); // Return empty arrays of the correct type
-        },
-      };
-      const collection = await getRagCollection(
-        dummyEmbeddingFn,
-        options.workspaceRoot,
-        chromaDbPath,
-      ); // Use options.workspaceRoot
+    // Removed try/catch, defineTool wrapper handles errors
 
-      const count = await collection.count();
-      const contentText = `Index contains ${count} items in collection "${collection.name}".`;
-      const contentPart: McpContentPart = { type: 'text', text: contentText };
+    // Determine chromaDbPath using options.workspaceRoot
+    const chromaDbPath = path.join(options.workspaceRoot, '.mcp', 'chroma_db');
 
-      return {
-        success: true,
-        content: [contentPart], // Must include content array
-        count: count,
-        collectionName: collection.name,
-      };
-    } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      // Return a structured error output consistent with BaseMcpToolOutput
-      const errorContent: McpContentPart = {
-        type: 'text',
-        text: `Failed to get index status: ${errorMsg}`,
-      };
-      return {
-        success: false,
-        content: [errorContent],
-        error: errorMsg,
-        count: -1, // Indicate error state
-        collectionName: '', // Indicate error state
-      };
-    }
+    // Create a minimal dummy embedding function locally
+    // TODO: Refactor getRagCollection to not require embeddingFn for count()
+    const dummyEmbeddingFn: IEmbeddingFunction = {
+      generate: async (texts: string[]) => texts.map(() => []),
+    };
+
+    // Get collection and count (errors here will be caught by defineTool)
+    const collection = await getRagCollection(
+      dummyEmbeddingFn,
+      options.workspaceRoot,
+      chromaDbPath,
+    );
+    const count = await collection.count();
+
+    // Construct success output
+    const contentText = `Index contains ${count} items in collection "${collection.name}".`;
+    const contentPart: McpContentPart = { type: 'text', text: contentText };
+
+    return {
+      success: true,
+      content: [contentPart], // Must include content array
+      count: count,
+      collectionName: collection.name,
+    };
   },
-};
+});
+
+// Ensure necessary types are still exported
+export type { IndexStatusInput, IndexStatusOutput };

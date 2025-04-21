@@ -1,47 +1,37 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+// Remove direct SDK imports
+// import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+// import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { McpTool } from '@sylphlab/mcp-core';
-import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
+// Import the server start function
+import { startMcpServer } from '@sylphlab/mcp-utils';
 
 // Import the tool object from the core library
 import { waitTool } from '@sylphlab/mcp-wait-core';
+import { name, version, description } from '../package.json'; // Import metadata
 
 // --- Server Setup ---
 
-const serverName = 'wait';
-const serverDescription = 'Provides a tool to pause execution for a specified duration.';
-const serverVersion = '0.1.0'; // TODO: Update version as needed
-
-// Instantiate McpServer
-const mcpServer = new McpServer(
-  {
-    name: serverName,
-    version: serverVersion,
-    description: serverDescription,
-  },
-  {}, // No options needed here
-);
-
-// Array of imported tool objects (only one for this package)
-// biome-ignore lint/suspicious/noExplicitAny: Tool array holds diverse tools; types checked by registerTools
-const definedTools: McpTool<any, any>[] = [waitTool];
-
-// Register tools using the helper function
-registerTools(mcpServer, definedTools);
+// Array of imported tool objects
+// biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
+const tools: McpTool<any, any>[] = [waitTool];
 
 // --- Server Start ---
-async function startServer() {
+// Directly call startMcpServer at the top level
+(async () => {
   try {
-    const transport = new StdioServerTransport();
-    await mcpServer.server.connect(transport);
-  } catch (_error: unknown) {
+    await startMcpServer({
+      name, // Use name from package.json
+      version, // Use version from package.json
+      description, // Use description from package.json
+      tools,
+    });
+  } catch (_error) {
+    // Error handling is inside startMcpServer
     process.exit(1);
   }
-}
-
-startServer();
+})();
 
 // Graceful shutdown
 process.on('SIGINT', () => {

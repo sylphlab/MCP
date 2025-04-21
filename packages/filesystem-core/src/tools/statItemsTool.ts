@@ -1,11 +1,12 @@
 import type { Stats } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
   validateAndResolvePath,
 } from '@sylphlab/mcp-core';
 import type { z } from 'zod';
@@ -26,32 +27,28 @@ export interface StatItemsToolOutput extends BaseMcpToolOutput {
   results: StatItemResult[];
 }
 
-export const statItemsTool: McpTool<typeof statItemsToolInputSchema, StatItemsToolOutput> = {
+export const statItemsTool = defineTool({
   name: 'statItemsTool',
   description: 'Gets file system stats for one or more specified paths within the workspace.',
   inputSchema: statItemsToolInputSchema,
 
-  async execute(
+  execute: async ( // Core logic passed to defineTool
     input: StatItemsToolInput,
     options: McpToolExecuteOptions,
-  ): Promise<StatItemsToolOutput> {
-    // Remove workspaceRoot, require options
+  ): Promise<StatItemsToolOutput> => { // Still returns the specific output type
+
+    // Zod validation (throw error on failure)
     const parsed = statItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
-      return {
-        success: false,
-        error: `Input validation failed: ${errorMessages}`,
-        results: [],
-        content: [],
-      };
+      throw new Error(`Input validation failed: ${errorMessages}`);
     }
     const { paths: inputPaths } = parsed.data;
 
     const results: StatItemResult[] = [];
-    let anySuccess = false;
+    let anySuccess = false; // True if at least one path is stat'd successfully
 
     for (const itemPath of inputPaths) {
       let itemSuccess = false;
@@ -60,78 +57,79 @@ export const statItemsTool: McpTool<typeof statItemsToolInputSchema, StatItemsTo
       let suggestion: string | undefined;
       let resolvedPath: string | undefined;
 
-      // Correct argument order: relativePathInput, workspaceRoot
+      // --- Validate Path ---
       const validationResult = validateAndResolvePath(
-        itemPath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
-      ); // Use options.workspaceRoot
-
-      // Check if validation succeeded (result is a string)
-      if (typeof validationResult === 'string') {
-        resolvedPath = validationResult;
-
-        try {
-          itemStat = await stat(resolvedPath);
-          itemSuccess = true;
-          anySuccess = true;
-        } catch (e: unknown) {
-          itemSuccess = false;
-          let errorCode: string | null = null;
-          let errorMsg = 'Unknown error';
-
-          if (e && typeof e === 'object') {
-            if ('code' in e) {
-              errorCode = String((e as { code: unknown }).code);
-            }
-          }
-          if (e instanceof Error) {
-            errorMsg = e.message;
-          }
-
-          if (errorCode === 'ENOENT') {
-            error = `Path '${itemPath}' not found.`;
-            suggestion = `Ensure the path '${itemPath}' exists.`;
-          } else {
-            error = `Failed to get stats for '${itemPath}': ${errorMsg}`;
-            if (errorCode === 'EACCES') {
-              suggestion = `Check permissions for the path '${itemPath}'.`;
-            } else {
-              suggestion = 'Check the path and permissions.';
-            }
-          }
-        }
-        results.push({
-          path: itemPath,
-          success: itemSuccess,
-          stat: itemStat,
-          error,
-          suggestion,
-        });
-      } else {
-        // Validation failed, result is the error object (or unexpected format)
-        error = validationResult?.error ?? 'Unknown path validation error'; // Access .error
+        itemPath, options.workspaceRoot, options?.allowOutsideWorkspace,
+      );
+      if (typeof validationResult !== 'string') {
+        error = validationResult?.error ?? 'Unknown path validation error';
         suggestion = validationResult?.suggestion ?? 'Review path and workspace settings.';
         results.push({ path: itemPath, success: false, error, suggestion });
+        // Don't mark overallSuccess as false for path validation failure
+        continue; // Skip this path
       }
+      resolvedPath = validationResult;
+      // --- End Path Validation ---
+
+      // Keep try/catch for individual stat errors
+      try {
+        itemStat = await stat(resolvedPath);
+        itemSuccess = true;
+        anySuccess = true; // Mark overall success if at least one works
+      } catch (e: unknown) {
+        itemSuccess = false;
+        // Don't mark overallSuccess as false for individual stat failure
+        let errorCode: string | null = null;
+        let errorMsg = 'Unknown error';
+
+        if (e && typeof e === 'object') {
+          if ('code' in e) errorCode = String((e as { code: unknown }).code);
+        }
+        if (e instanceof Error) errorMsg = e.message;
+
+        if (errorCode === 'ENOENT') {
+          error = `Path '${itemPath}' not found.`;
+          suggestion = `Ensure the path '${itemPath}' exists.`;
+        } else {
+          error = `Failed to get stats for '${itemPath}': ${errorMsg}`;
+          if (errorCode === 'EACCES') {
+            suggestion = `Check permissions for the path '${itemPath}'.`;
+          } else {
+            suggestion = 'Check the path and permissions.';
+          }
+        }
+      }
+
+      // Push result for this path
+      results.push({
+        path: itemPath, success: itemSuccess, stat: itemStat, error, suggestion: !itemSuccess ? suggestion : undefined,
+      });
     } // End loop
 
     // Serialize the detailed results into the content field
-    // Note: Stats objects might not serialize perfectly with JSON.stringify,
-    // but it's better than losing the data entirely. Client might need specific parsing.
     const contentText = JSON.stringify(
       {
         summary: `Stat operation completed. Overall success (at least one): ${anySuccess}`,
         results: results,
       },
-      null,
-      2,
-    ); // Pretty-print JSON
+      (_key, value) => { // Prefix unused 'key' with underscore
+        // Custom replacer to handle BigInt in Stats object if present
+        if (typeof value === 'bigint') {
+          return value.toString(); // Convert BigInt to string
+        }
+        return value;
+      },
+      2, // Pretty-print JSON
+    );
 
+    // Return the specific output structure
     return {
-      success: anySuccess, // Keep original success logic
-      results: results, // Keep original results field too
-      content: [{ type: 'text', text: contentText }], // Put JSON string in content
+      success: anySuccess, // Success is true if at least one stat succeeded
+      results: results,
+      content: [{ type: 'text', text: contentText }],
     };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { StatItemsToolInput, StatItemsToolOutput, StatItemResult }; // Removed duplicate export

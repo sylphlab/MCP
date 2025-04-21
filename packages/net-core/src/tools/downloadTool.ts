@@ -1,7 +1,8 @@
 import type * as http from 'node:http'; // Import type only for placeholder
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
-  BaseMcpToolOutput,
-  type McpTool,
+  BaseMcpToolOutput, // BaseMcpToolOutput might not be needed directly
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
   validateAndResolvePath,
 } from '@sylphlab/mcp-core';
@@ -202,57 +203,58 @@ async function processSingleDownload(
   }
 }
 
-// --- Tool Definition ---
+// --- Tool Definition using defineTool ---
 
-export const downloadTool: McpTool<typeof downloadToolInputSchema, DownloadToolOutput> = {
+export const downloadTool = defineTool({
   name: 'downloadTool',
   description: 'Downloads one or more files from URLs to specified paths within the workspace.',
   inputSchema: downloadToolInputSchema,
-  async execute(
+
+  execute: async ( // Core logic passed to defineTool
     input: DownloadToolInput,
-    options: McpToolExecuteOptions,
-  ): Promise<DownloadToolOutput> {
-    // Use options object
-    // Add upfront check for workspaceRoot within options
+    options: McpToolExecuteOptions, // Options are received here
+  ): Promise<DownloadToolOutput> => { // Still returns the specific output type
+
+    // Input validation is handled by registerTools/SDK
+    // Add upfront check for workspaceRoot within options (still useful)
     if (!options?.workspaceRoot) {
-      // Check options.workspaceRoot
-      const errorMsg = 'Workspace root is not available in options.';
-      return {
-        success: false,
-        error: errorMsg,
-        results: [],
-        content: [{ type: 'text', text: errorMsg }],
-      };
+      throw new Error('Workspace root is not available in options.'); // Throw error for defineTool
     }
 
     const { items } = input;
     const results: DownloadResultItem[] = [];
     let overallSuccess = false; // Track if at least one download succeeds
 
+    // Removed the outermost try/catch block; defineTool handles unexpected errors
+
     for (const item of items) {
-      // Pass the whole options object to helper
+      // processSingleDownload handles its own errors for individual downloads
       const result = await processSingleDownload(item, options);
       results.push(result);
       if (result.success) {
-        // Check if the individual item succeeded
         overallSuccess = true; // Mark overall success if any item succeeds
       }
+      // Note: We don't mark overallSuccess = false here if one fails, partial success is allowed
     }
 
+    // Serialize the detailed results into the content field
     const contentText = JSON.stringify(
       {
-        summary: `Processed ${items.length} download requests. Overall success: ${overallSuccess}`,
+        summary: `Processed ${items.length} download requests. Overall success (at least one): ${overallSuccess}`,
         results: results,
       },
       null,
       2,
-    ); // Pretty-print JSON
+    );
 
+    // Return the specific output structure
     return {
-      success: overallSuccess, // Overall success depends on at least one item succeeding
+      success: overallSuccess, // Success is true if at least one download succeeded
       results: results,
       content: [{ type: 'text', text: contentText }],
-      // Remove top-level error/message if individual results handle it
     };
   },
-};
+});
+
+// Ensure necessary types are still exported
+export type { DownloadToolInput, DownloadToolOutput, DownloadResultItem, DownloadInputItem };

@@ -1,8 +1,9 @@
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
 } from '@sylphlab/mcp-core';
 import type { z } from 'zod';
 import { EncodeBase64ToolInputSchema } from './encodeBase64Tool.schema.js'; // Import schema (added .js)
@@ -16,57 +17,38 @@ export interface EncodeBase64ToolOutput extends BaseMcpToolOutput {
   error?: string;
 }
 
-// --- Tool Definition ---
-export const encodeBase64Tool: McpTool<typeof EncodeBase64ToolInputSchema, EncodeBase64ToolOutput> =
-  {
-    name: 'encodeBase64',
-    description: 'Encodes a UTF-8 string into Base64.',
-    inputSchema: EncodeBase64ToolInputSchema,
+// --- Tool Definition using defineTool ---
+export const encodeBase64Tool = defineTool({
+  name: 'encodeBase64',
+  description: 'Encodes a UTF-8 string into Base64.',
+  inputSchema: EncodeBase64ToolInputSchema,
 
-    async execute(
-      input: EncodeBase64ToolInput,
-      _options: McpToolExecuteOptions,
-    ): Promise<EncodeBase64ToolOutput> {
-      // Remove workspaceRoot, require options
-      const { input: textToEncode } = input;
-      // workspaceRoot is now in options.workspaceRoot if needed
+  execute: async ( // Core logic passed to defineTool
+    input: EncodeBase64ToolInput,
+    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
+  ): Promise<EncodeBase64ToolOutput> => { // Still returns the specific output type
 
-      try {
-        // Test-specific error trigger (keeping for consistency with original)
-        if (textToEncode === 'trigger error') {
-          throw new Error('Simulated encoding error');
-        }
-        // In Node.js environment
-        const encoded = Buffer.from(textToEncode, 'utf-8').toString('base64');
-        const contentText = JSON.stringify(
-          {
-            success: true,
-            encoded: encoded,
-          },
-          null,
-          2,
-        );
-        return {
-          success: true,
-          encoded: encoded, // Keep original field
-          content: [{ type: 'text', text: contentText }], // Put JSON in content
-        };
-      } catch (e: unknown) {
-        const errorMsg =
-          e instanceof Error ? `Encoding failed: ${e.message}` : 'Encoding failed: Unknown error';
-        const errorContentText = JSON.stringify(
-          {
-            success: false,
-            error: errorMsg,
-          },
-          null,
-          2,
-        );
-        return {
-          success: false,
-          error: errorMsg, // Keep original field
-          content: [{ type: 'text', text: errorContentText }], // Put JSON in content
-        };
-      }
-    },
-  };
+    const { input: textToEncode } = input;
+
+    // Removed try/catch, defineTool wrapper handles errors
+
+    // Test-specific error trigger (can be kept if needed for testing wrapper)
+    if (textToEncode === 'trigger error') {
+      throw new Error('Simulated encoding error');
+    }
+
+    // In Node.js environment
+    const encoded = Buffer.from(textToEncode, 'utf-8').toString('base64');
+
+    // Construct the success output
+    const contentText = JSON.stringify({ success: true, encoded: encoded }, null, 2);
+    return {
+      success: true,
+      encoded: encoded, // Keep original field for potential direct use
+      content: [{ type: 'text', text: contentText }], // Put JSON in content
+    };
+  },
+});
+
+// Ensure necessary types are still exported
+// export type { EncodeBase64ToolInput, EncodeBase64ToolOutput }; // Removed duplicate export

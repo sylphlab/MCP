@@ -1,9 +1,10 @@
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
   type McpContentPart,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
 } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
 import hljs from 'highlight.js'; // Import highlight.js
 import { z } from 'zod';
@@ -53,17 +54,18 @@ export const IndexContentInputSchema = z.object({
 // Output type is defined by the return value of execute, conforming to BaseMcpToolOutput
 // No separate output schema definition needed on the tool object itself.
 
-export const indexContentTool: McpTool<typeof IndexContentInputSchema, BaseMcpToolOutput> = {
+export const indexContentTool = defineTool({
   name: 'indexContent',
   description: 'Chunks, embeds, and indexes provided text content.',
   inputSchema: IndexContentInputSchema,
   // outputSchema property removed
 
-  async execute(
+  execute: async ( // Core logic passed to defineTool
     input: z.infer<typeof IndexContentInputSchema>,
-    _options: McpToolExecuteOptions,
-  ): Promise<BaseMcpToolOutput> {
-    // Remove context, require options
+    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
+  ): Promise<BaseMcpToolOutput> => { // Return type is BaseMcpToolOutput
+
+    // Input validation is handled by registerTools/SDK
     const { items, chunkingOptions, embeddingConfig, vectorDbConfig } = input;
 
     // Provide default config if none is given in input
@@ -160,17 +162,18 @@ export const indexContentTool: McpTool<typeof IndexContentInputSchema, BaseMcpTo
     } // End of loop through items
 
     // 6. Upsert items into the index
+    // Keep try/catch for upsert error, return specific error message
     if (allIndexedItems.length > 0) {
       try {
         await indexManager.upsertItems(allIndexedItems);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        return {
-          success: false,
-          content: [{ type: 'text', text: `Error upserting items into index: ${errorMessage}` }],
-        };
+        // Throw error for defineTool wrapper to catch and format consistently
+        throw new Error(`Error upserting items into index: ${errorMessage}`);
       }
     } else {
+      // If no items were processed successfully to be indexed, maybe indicate this?
+      // For now, just proceed to success summary.
     }
 
     // Construct a more structured output
@@ -196,7 +199,10 @@ export const indexContentTool: McpTool<typeof IndexContentInputSchema, BaseMcpTo
       // Include structured data in the output (assuming BaseMcpToolOutput allows extra props or has a data field)
       // If BaseMcpToolOutput is strict, we might need to serialize 'outputData' into a text content part.
       // For now, assume extra properties are allowed or will be handled by the SDK layer.
-      data: outputData,
+      data: outputData, // Keep additional data field
     };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { IndexContentInputSchema, IndexContentInputItemSchema, ChunkingOptionsSchema }; // Removed duplicate export

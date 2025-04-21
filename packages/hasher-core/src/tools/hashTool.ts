@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
 } from '@sylphlab/mcp-core';
 import type { z } from 'zod';
 import {
@@ -55,65 +56,53 @@ async function processSingleHash(item: HashInputItem): Promise<HashResultItem> {
   return resultItem;
 }
 
-// --- Tool Definition ---
-export const hashTool: McpTool<typeof hashToolInputSchema, HashToolOutput> = {
+// --- Tool Definition using defineTool ---
+export const hashTool = defineTool({
   name: 'hash',
   description: 'Computes cryptographic hashes for one or more input strings.',
   inputSchema: hashToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: HashToolInput, _options: McpToolExecuteOptions): Promise<HashToolOutput> {
-    // Remove workspaceRoot, require options
-    // Input validation happens before execute in the registerTools helper
+  execute: async ( // Core logic passed to defineTool
+    input: HashToolInput,
+    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
+  ): Promise<HashToolOutput> => { // Still returns the specific output type
+
+    // Input validation is handled by registerTools/SDK before execute is called
     const { items } = input;
-    // workspaceRoot is now in options.workspaceRoot if needed
+
     const results: HashResultItem[] = [];
     let overallSuccess = true;
 
-    try {
-      // Process requests sequentially (hashing is usually fast, parallel might not be worth complexity)
-      for (const item of items) {
-        const result = await processSingleHash(item); // Process each item
-        results.push(result);
-        if (!result.success) {
-          overallSuccess = false;
-        }
+    // Removed the outermost try/catch block; defineTool handles unexpected errors
+
+    // Process requests sequentially
+    for (const item of items) {
+      // processSingleHash already includes its own try/catch for hashing errors
+      const result = await processSingleHash(item);
+      results.push(result);
+      if (!result.success) {
+        overallSuccess = false; // Mark overall as failed if any item fails
       }
-
-      // Serialize the detailed results into the content field
-      const contentText = JSON.stringify(
-        {
-          summary: `Processed ${items.length} hash requests. Overall success: ${overallSuccess}`,
-          results: results,
-        },
-        null,
-        2,
-      ); // Pretty-print JSON
-
-      return {
-        success: overallSuccess,
-        results: results, // Keep original results field too
-        content: [{ type: 'text', text: contentText }], // Put JSON string in content
-      };
-    } catch (e: unknown) {
-      // Catch unexpected errors during the loop itself (should be rare)
-      const errorMsg =
-        e instanceof Error
-          ? `Unexpected error during hash tool execution: ${e.message}`
-          : 'Unexpected error during hash tool execution: Unknown error';
-      const errorContentText = JSON.stringify(
-        {
-          error: errorMsg,
-          results: results, // Include partial results in error content too
-        },
-        null,
-        2,
-      );
-      return {
-        success: false,
-        results: results, // Keep partial results here too
-        error: errorMsg, // Keep top-level error
-        content: [{ type: 'text', text: errorContentText }], // Put error JSON in content
-      };
     }
+
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify(
+      {
+        summary: `Processed ${items.length} hash requests. Overall success: ${overallSuccess}`,
+        results: results,
+      },
+      null,
+      2,
+    );
+
+    // Return the specific output structure
+    return {
+      success: overallSuccess,
+      results: results,
+      content: [{ type: 'text', text: contentText }],
+    };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { HashToolInput, HashToolOutput, HashResultItem, HashInputItem, HashAlgorithm }; // Removed duplicate export

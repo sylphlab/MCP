@@ -1,46 +1,36 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+// Remove direct SDK imports
+// import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+// import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { McpTool } from '@sylphlab/mcp-core';
-import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
+// Import the server start function
+import { startMcpServer } from '@sylphlab/mcp-utils';
 
 // Import the tool object from the core library
-import { fetchTool } from '@sylphlab/mcp-fetch-core'; // Changed back
+import { fetchTool } from '@sylphlab/mcp-fetch-core';
+import { name, version, description } from '../package.json'; // Import metadata
 
 // --- Server Setup ---
 
-const serverName = 'fetch';
-const serverDescription = 'Provides a tool to perform HTTP fetch requests.';
-const serverVersion = '0.1.0'; // TODO: Update version as needed
-
-// Instantiate McpServer
-const mcpServer = new McpServer(
-  {
-    name: serverName,
-    version: serverVersion,
-    description: serverDescription,
-  },
-  {}, // No options needed here
-);
-
-// Array of imported tool objects (only one for this package)
-const definedTools = [fetchTool];
-
-// Register tools using the helper function
-registerTools(mcpServer, definedTools);
+// biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
+const tools: McpTool<any, any>[] = [fetchTool];
 
 // --- Server Start ---
-async function startServer() {
+// Directly call startMcpServer at the top level
+(async () => {
   try {
-    const transport = new StdioServerTransport();
-    await mcpServer.server.connect(transport);
-  } catch (_error: unknown) {
-    process.exit(1);
+    await startMcpServer({
+      name, // Use name from package.json
+      version, // Use version from package.json
+      description, // Use description from package.json
+      tools,
+    });
+  } catch (_error) {
+    // Error handling is inside startMcpServer
+    process.exit(1); // Still exit if startMcpServer re-throws (which it shouldn't now)
   }
-}
-
-startServer();
+})();
 
 // Graceful shutdown
 process.on('SIGINT', () => {

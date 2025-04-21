@@ -1,8 +1,9 @@
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
 } from '@sylphlab/mcp-core';
 import type { z } from 'zod';
 import { type WaitItemSchema, waitToolInputSchema } from './waitTool.schema'; // Import schema (fixed name)
@@ -46,72 +47,58 @@ async function processSingleWait(item: WaitInputItem): Promise<WaitResultItem> {
   return resultItem;
 }
 
-// --- Tool Definition ---
-export const waitTool: McpTool<typeof waitToolInputSchema, WaitToolOutput> = {
+// --- Tool Definition using defineTool ---
+export const waitTool = defineTool({
   name: 'wait',
   description: 'Waits sequentially for one or more specified durations in milliseconds.',
   inputSchema: waitToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: WaitToolInput, _options: McpToolExecuteOptions): Promise<WaitToolOutput> {
-    // Remove workspaceRoot, require options
-    // Input validation happens before execute in the registerTools helper
+  execute: async ( // Core logic passed to defineTool
+    input: WaitToolInput,
+    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
+  ): Promise<WaitToolOutput> => { // Still returns the specific output type
+
+    // Input validation is handled by registerTools/SDK
     const { items } = input;
-    // workspaceRoot is now in options.workspaceRoot if needed
+
     const results: WaitResultItem[] = [];
     let overallSuccess = true;
     let totalWaited = 0;
 
-    try {
-      // Process waits sequentially
-      for (const item of items) {
-        const result = await processSingleWait(item); // Process each item
-        results.push(result);
-        // Check for success AND that durationWaitedMs is a number (including 0)
-        if (result.success && typeof result.durationWaitedMs === 'number') {
-          totalWaited += result.durationWaitedMs;
-        } else if (!result.success) {
-          // Only set overallSuccess to false if an item actually failed
-          overallSuccess = false;
-          // Optionally break here if one wait fails? For now, continue processing others.
-        }
+    // Removed the outermost try/catch block; defineTool handles unexpected errors
+
+    // Process waits sequentially
+    for (const item of items) {
+      // processSingleWait handles its own errors (though unlikely for setTimeout)
+      const result = await processSingleWait(item);
+      results.push(result);
+      if (result.success && typeof result.durationWaitedMs === 'number') {
+        totalWaited += result.durationWaitedMs;
+      } else if (!result.success) {
+        overallSuccess = false; // Mark overall as failed if any item fails
       }
-
-      // Serialize the detailed results into the content field
-      const contentText = JSON.stringify(
-        {
-          summary: `Processed ${items.length} wait operations. Total duration waited: ${totalWaited}ms. Overall success: ${overallSuccess}`,
-          totalDurationWaitedMs: totalWaited,
-          results: results,
-        },
-        null,
-        2,
-      ); // Pretty-print JSON
-
-      return {
-        success: overallSuccess,
-        results: results, // Keep original results field too
-        totalDurationWaitedMs: totalWaited, // Keep original field
-        content: [{ type: 'text', text: contentText }], // Put JSON string in content
-      };
-    } catch (e: unknown) {
-      // Catch unexpected errors during the loop itself (should be rare)
-      const errorMsg = `Unexpected error during wait tool execution: ${e instanceof Error ? e.message : String(e)}`;
-      const errorContentText = JSON.stringify(
-        {
-          error: errorMsg,
-          totalDurationWaitedMs: totalWaited, // Include partial duration
-          results: results, // Include partial results in error content too
-        },
-        null,
-        2,
-      );
-      return {
-        success: false,
-        results: results, // Keep partial results here too
-        totalDurationWaitedMs: totalWaited, // Keep partial duration here too
-        error: errorMsg, // Keep top-level error
-        content: [{ type: 'text', text: errorContentText }], // Put error JSON in content
-      };
     }
+
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify(
+      {
+        summary: `Processed ${items.length} wait operations. Total duration waited: ${totalWaited}ms. Overall success: ${overallSuccess}`,
+        totalDurationWaitedMs: totalWaited,
+        results: results,
+      },
+      null,
+      2,
+    );
+
+    // Return the specific output structure
+    return {
+      success: overallSuccess,
+      results: results,
+      totalDurationWaitedMs: totalWaited, // Keep original field
+      content: [{ type: 'text', text: contentText }],
+    };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { WaitToolInput, WaitToolOutput, WaitResultItem, WaitInputItem }; // Removed duplicate export

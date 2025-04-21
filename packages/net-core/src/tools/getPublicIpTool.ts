@@ -1,8 +1,9 @@
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
 } from '@sylphlab/mcp-core';
 import type { z } from 'zod';
 import { GetPublicIpToolInputSchema } from './getPublicIpTool.schema.js'; // Import schema (added .js)
@@ -48,63 +49,45 @@ async function fetchPublicIp(): Promise<{ ip: string | null; error: string | nul
   }
 }
 
-export const getPublicIpTool: McpTool<typeof GetPublicIpToolInputSchema, GetPublicIpToolOutput> = {
+export const getPublicIpTool = defineTool({
   name: 'getPublicIp',
   description: 'Retrieves the public IP address of the machine running the MCP server.',
   inputSchema: GetPublicIpToolInputSchema,
 
-  async execute(
+  execute: async ( // Core logic passed to defineTool
     input: GetPublicIpToolInput,
-    _options: McpToolExecuteOptions,
-  ): Promise<GetPublicIpToolOutput> {
-    // Remove workspaceRoot, require options
-    const { id } = input;
-    // workspaceRoot is now in options.workspaceRoot if needed
+    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
+  ): Promise<GetPublicIpToolOutput> => { // Still returns the specific output type
 
-    try {
-      const publicIpInfo = await fetchPublicIp();
-      if (publicIpInfo.error) {
-        throw new Error(publicIpInfo.error);
-      }
-      if (publicIpInfo.ip) {
-        const contentText = JSON.stringify(
-          {
-            success: true,
-            id: id,
-            result: publicIpInfo.ip,
-          },
-          null,
-          2,
-        );
-        return {
-          success: true,
-          id: id,
-          result: publicIpInfo.ip, // Keep original field
-          content: [{ type: 'text', text: contentText }], // Put JSON in content
-        };
-      }
-      // Should be caught by the error check above, but as a safeguard
-      throw new Error('Public IP could not be determined.');
-    } catch (e: unknown) {
-      const errorMsg = `Failed to get public IP: ${e instanceof Error ? e.message : String(e)}`;
-      const suggestion = 'Check internet connection and firewall settings.';
-      const errorContentText = JSON.stringify(
-        {
-          success: false,
-          id: id,
-          error: errorMsg,
-          suggestion: suggestion,
-        },
+    const { id } = input;
+
+    // Removed try/catch, defineTool wrapper handles errors
+
+    const publicIpInfo = await fetchPublicIp(); // fetchPublicIp handles its own errors/fallbacks
+
+    if (publicIpInfo.error) {
+      // Throw the error for defineTool to catch and format
+      throw new Error(publicIpInfo.error);
+    }
+
+    if (publicIpInfo.ip) {
+      const contentText = JSON.stringify(
+        { success: true, id: id, result: publicIpInfo.ip },
         null,
         2,
       );
       return {
-        success: false,
+        success: true,
         id: id,
-        error: errorMsg, // Keep original field
-        suggestion: suggestion, // Keep original field
-        content: [{ type: 'text', text: errorContentText }], // Put JSON in content
+        result: publicIpInfo.ip, // Keep original field
+        content: [{ type: 'text', text: contentText }], // Put JSON in content
       };
     }
+
+    // If ip is null and no error was thrown (shouldn't happen with current fetchPublicIp logic)
+    throw new Error('Public IP could not be determined.');
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { GetPublicIpToolInput, GetPublicIpToolOutput }; // Removed duplicate export

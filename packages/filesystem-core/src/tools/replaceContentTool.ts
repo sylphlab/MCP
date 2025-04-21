@@ -1,11 +1,12 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
-  PathValidationError,
+  McpToolInput, // McpToolInput might not be needed directly
+  PathValidationError, // PathValidationError might not be needed directly
   validateAndResolvePath,
 } from '@sylphlab/mcp-core'; // Import base types and validation util
 import glob from 'fast-glob'; // Import fast-glob
@@ -45,95 +46,80 @@ export interface ReplaceContentToolOutput extends BaseMcpToolOutput {
   results: FileReplaceResult[];
 }
 
-// --- Tool Definition (following SDK pattern) ---
+// --- Tool Definition using defineTool ---
 
-export const replaceContentTool: McpTool<
-  typeof replaceContentToolInputSchema,
-  ReplaceContentToolOutput
-> = {
+export const replaceContentTool = defineTool({
   name: 'replaceContentTool',
   description: 'Performs search and replace operations across multiple files (supports globs).',
   inputSchema: replaceContentToolInputSchema,
 
-  async execute(
+  execute: async ( // Core logic passed to defineTool
     input: ReplaceContentToolInput,
     options: McpToolExecuteOptions,
-  ): Promise<ReplaceContentToolOutput> {
-    // Remove workspaceRoot, require options
-    // Zod validation
+  ): Promise<ReplaceContentToolOutput> => { // Still returns the specific output type
+
+    // Zod validation (throw error on failure)
     const parsed = replaceContentToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
-      return {
-        success: false,
-        error: `Input validation failed: ${errorMessages}`,
-        results: [],
-        content: [], // Add required content field
-      };
+      throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { paths: pathPatterns, operations } = parsed.data; // allowOutsideWorkspace comes from options
-    // --- End Zod Validation ---
+    const { paths: pathPatterns, operations } = parsed.data;
 
     const fileResults: FileReplaceResult[] = [];
-    let overallSuccess = true;
+    let overallSuccess = true; // Assume success until a failure occurs
     let resolvedFilePaths: string[] = [];
 
+    // Keep try/catch for glob errors, as this is setup before the main loop
     try {
-      // Expand globs, ensuring paths are relative to workspaceRoot for security
       resolvedFilePaths = await glob(pathPatterns, {
-        cwd: options.workspaceRoot, // Use options.workspaceRoot
-        absolute: false, // Keep paths relative to cwd
-        onlyFiles: true, // Only operate on files
-        dot: true, // Include dotfiles
-        ignore: ['**/node_modules/**', '**/.git/**'], // Sensible defaults
+        cwd: options.workspaceRoot,
+        absolute: false,
+        onlyFiles: true,
+        dot: true,
+        ignore: ['**/node_modules/**', '**/.git/**'],
       });
 
       if (resolvedFilePaths.length === 0) {
-        // Return success=true but empty results if no files match
-        return { success: true, results: [], content: [] }; // Add content
+        // If no files match, it's not an error, just return empty results
+        return { success: true, results: [], content: [] };
       }
     } catch (globError: unknown) {
+      // If glob itself fails, throw an error for defineTool to catch
       const errorMsg = globError instanceof Error ? globError.message : 'Unknown glob error';
-      return {
-        success: false,
-        error: `Glob pattern error: ${errorMsg}`,
-        results: [],
-        content: [],
-      }; // Add content
+      throw new Error(`Glob pattern error: ${errorMsg}`);
     }
 
+    // Removed the outermost try/catch block for file processing loop
+
     for (const relativeFilePath of resolvedFilePaths) {
-      const fullPath = path.resolve(options.workspaceRoot, relativeFilePath); // Use options.workspaceRoot
+      const fullPath = path.resolve(options.workspaceRoot, relativeFilePath);
       let fileSuccess = true;
       let fileError: string | undefined;
       let totalReplacementsMade = 0;
       let contentChanged = false;
       let suggestion: string | undefined;
 
-      // Double-check security (glob should handle this, but belt-and-suspenders)
-      // Skip this check if allowOutsideWorkspace is true
-      const relativeCheck = path.relative(options.workspaceRoot, fullPath); // Use options.workspaceRoot
+      // --- Path Validation (Keep this check) ---
+      const relativeCheck = path.relative(options.workspaceRoot, fullPath);
       if (
         !options?.allowOutsideWorkspace &&
         (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck))
       ) {
         fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
+        suggestion = `Ensure the path pattern '${pathPatterns.join(', ')}' does not resolve to paths outside the workspace.`;
         fileSuccess = false;
         overallSuccess = false;
-        const suggestion = `Ensure the path pattern '${pathPatterns.join(', ')}' does not resolve to paths outside the workspace.`;
         fileResults.push({
-          path: relativeFilePath,
-          success: false,
-          replacementsMade: 0,
-          contentChanged: false,
-          error: fileError,
-          suggestion,
+          path: relativeFilePath, success: false, replacementsMade: 0, contentChanged: false, error: fileError, suggestion,
         });
         continue; // Skip this file
       }
+      // --- End Path Validation ---
 
+      // Keep try/catch for individual file processing errors
       try {
         const originalContent = await readFile(fullPath, 'utf-8');
         let currentContent = originalContent;
@@ -142,78 +128,65 @@ export const replaceContentTool: McpTool<
           let operationReplacements = 0;
           let tempContent = '';
           if (op.isRegex) {
-            try {
+            try { // Keep try/catch for regex compilation errors
               const regex = new RegExp(op.search, op.flags ?? '');
               tempContent = currentContent.replace(regex, op.replace);
-              // Note: Counting regex replacements accurately can be tricky without global flag + matchAll
-              // This simple check assumes at least one replacement if content changed.
               if (tempContent !== currentContent) {
-                operationReplacements = (currentContent.match(regex) || []).length; // Better count for regex
+                operationReplacements = (currentContent.match(regex) || []).length;
               }
             } catch (e: unknown) {
               const errorMsg = e instanceof Error ? e.message : 'Unknown regex error';
+              // Throw specific error for this operation within the file processing try/catch
               throw new Error(`Invalid regex '${op.search}': ${errorMsg}`);
             }
           } else {
-            // Simple text replacement
             const searchString = op.search;
-            // Count occurrences before replacing
             operationReplacements = currentContent.split(searchString).length - 1;
             if (operationReplacements > 0) {
               tempContent = currentContent.replaceAll(searchString, op.replace);
             } else {
-              tempContent = currentContent; // No change
+              tempContent = currentContent;
             }
           }
 
           if (tempContent !== currentContent) {
             currentContent = tempContent;
-            totalReplacementsMade += operationReplacements; // Add (potentially inaccurate regex) count
+            totalReplacementsMade += operationReplacements;
           }
         } // End operations loop
 
-        // Write file only if content actually changed
         if (currentContent !== originalContent) {
-          await writeFile(fullPath, currentContent, 'utf-8'); // Use validated path
+          await writeFile(fullPath, currentContent, 'utf-8');
           contentChanged = true;
-        } else {
         }
+
       } catch (e: unknown) {
+        // Handle file read/write or regex errors gracefully
         fileSuccess = false;
         overallSuccess = false;
         let errorCode: string | null = null;
         let errorMsg = 'Unknown error';
 
         if (e && typeof e === 'object') {
-          if ('code' in e) {
-            errorCode = String((e as { code: unknown }).code);
-          }
+          if ('code' in e) errorCode = String((e as { code: unknown }).code);
         }
-        if (e instanceof Error) {
-          errorMsg = e.message;
-        }
+        if (e instanceof Error) errorMsg = e.message;
 
         fileError = `Error processing file '${relativeFilePath}': ${errorMsg}`;
-        // let suggestion: string | undefined; // Already declared above
         if (errorCode === 'ENOENT') {
-          suggestion = `Ensure the file path '${relativeFilePath}' is correct and the file exists.`; // Assign to outer suggestion
+          suggestion = `Ensure the file path '${relativeFilePath}' is correct and the file exists.`;
         } else if (errorCode === 'EACCES') {
-          suggestion = `Check read/write permissions for the file '${relativeFilePath}'.`; // Assign to outer suggestion
+          suggestion = `Check read/write permissions for the file '${relativeFilePath}'.`;
         } else if (errorMsg.includes('Invalid regex')) {
-          suggestion = 'Verify the regex pattern syntax in the operations.'; // Assign to outer suggestion
+          suggestion = 'Verify the regex pattern syntax in the operations.';
         } else {
-          suggestion = 'Check file path, permissions, and operation details.'; // Assign to outer suggestion
+          suggestion = 'Check file path, permissions, and operation details.';
         }
       }
 
+      // Push result for this file
       fileResults.push({
-        path: relativeFilePath,
-        success: fileSuccess,
-        replacementsMade: totalReplacementsMade,
-        contentChanged: contentChanged,
-        error: fileError,
-        // Use suggestion populated during validation or catch block
-        suggestion: !fileSuccess ? suggestion : undefined,
+        path: relativeFilePath, success: fileSuccess, replacementsMade: totalReplacementsMade, contentChanged: contentChanged, error: fileError, suggestion: !fileSuccess ? suggestion : undefined,
       });
     } // End files loop
 
@@ -225,12 +198,16 @@ export const replaceContentTool: McpTool<
       },
       null,
       2,
-    ); // Pretty-print JSON
+    );
 
+    // Return the specific output structure
     return {
       success: overallSuccess,
-      results: fileResults, // Keep original results field too
-      content: [{ type: 'text', text: contentText }], // Put JSON string in content
+      results: fileResults,
+      content: [{ type: 'text', text: contentText }],
     };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { ReplaceContentToolInput, ReplaceContentToolOutput, FileReplaceResult, ReplaceOperation }; // Removed duplicate export

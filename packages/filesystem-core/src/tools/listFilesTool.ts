@@ -1,12 +1,13 @@
 import type { Stats } from 'node:fs'; // Import Stats type
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { defineTool } from '@sylphlab/mcp-core'; // Import from package root
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly if only defineTool is used
   type McpToolExecuteOptions,
-  McpToolInput,
-  PathValidationError,
+  McpToolInput, // McpToolInput might not be needed directly
+  PathValidationError, // PathValidationError might not be needed directly
   validateAndResolvePath,
 } from '@sylphlab/mcp-core'; // Import base types and validation util
 import type { z } from 'zod';
@@ -104,148 +105,147 @@ async function listDirectoryRecursive(
   return entries;
 }
 
-// --- Tool Definition (following SDK pattern) ---
+// --- Tool Definition using defineTool ---
 
-export const listFilesTool: McpTool<typeof listFilesToolInputSchema, ListFilesToolOutput> = {
+export const listFilesTool = defineTool({
   name: 'listFilesTool',
   description: 'Lists files and directories within one or more specified paths in the workspace.',
   inputSchema: listFilesToolInputSchema,
 
-  async execute(
+  execute: async ( // The core logic is now the execute function passed to defineTool
     input: ListFilesToolInput,
     options: McpToolExecuteOptions,
-  ): Promise<ListFilesToolOutput> {
-    // Remove workspaceRoot, require options
-    // Zod validation
+  ): Promise<ListFilesToolOutput> => { // Still returns the specific output type
+
+    // Zod validation (kept inside, throw error on failure)
     const parsed = listFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
-      return {
-        success: false,
-        error: `Input validation failed: ${errorMessages}`,
-        results: {},
-        content: [], // Add required content field
-      };
+      // Throw error for defineTool wrapper to catch
+      throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { paths: inputPaths, recursive, maxDepth, includeStats } = parsed.data; // allowOutsideWorkspace comes from options
-    // --- End Zod Validation ---
+    const { paths: inputPaths, recursive, maxDepth, includeStats } = parsed.data;
 
     const results: { [inputPath: string]: PathListResult } = {};
     let anySuccess = false;
 
     for (const inputPath of inputPaths) {
-      // const fullPath = path.resolve(workspaceRoot, inputPath); // Remove original declaration
       let pathSuccess = false;
       let pathEntries: ListEntry[] | undefined = undefined;
       let pathError: string | undefined;
-      let pathSuggestion: string | undefined; // Declare pathSuggestion here
+      let pathSuggestion: string | undefined;
+      let fullPath: string;
 
       // --- Validate and Resolve Path ---
       const validationResult = validateAndResolvePath(
         inputPath,
         options.workspaceRoot,
         options?.allowOutsideWorkspace,
-      ); // Use options.workspaceRoot
-      let fullPath: string; // Declare fullPath here
+      );
       if (typeof validationResult !== 'string') {
         pathError = validationResult.error;
-        pathSuggestion = validationResult.suggestion; // Assign suggestion from validation
+        pathSuggestion = validationResult.suggestion;
         results[inputPath] = { success: false, error: pathError, suggestion: pathSuggestion };
-        // anySuccess remains false or keeps previous value
         continue; // Skip to next inputPath
       }
       fullPath = validationResult; // Path is valid and resolved
       // --- End Path Validation ---
-      try {
-        // Check if path exists and is a directory before reading
-        const pathStat = await stat(fullPath); // Use validated fullPath
-        if (!pathStat.isDirectory()) {
-          throw new Error(`Path '${inputPath}' is not a directory.`);
-        }
 
-        if (recursive) {
-          pathEntries = await listDirectoryRecursive(
-            fullPath,
-            options.workspaceRoot,
-            0,
-            maxDepth,
-            includeStats,
-          ); // Use options.workspaceRoot
-        } else {
-          // Non-recursive: read only the top level
-          const dirents = await readdir(fullPath, { withFileTypes: true });
-          pathEntries = [];
-          for (const dirent of dirents) {
-            const entryFullPath = path.join(fullPath, dirent.name);
-            const entryRelativePath = path.relative(options.workspaceRoot, entryFullPath); // Use options.workspaceRoot
-            let entryStat: Stats | undefined = undefined;
-            if (includeStats) {
-              try {
-                entryStat = await stat(entryFullPath);
-              } catch (_statError: unknown) {}
+      // Removed the main try/catch block, let defineTool handle errors
+      try { // Keep try/catch *within* the loop for path-specific errors we want to report gracefully
+          const pathStat = await stat(fullPath);
+          if (!pathStat.isDirectory()) {
+            throw new Error(`Path '${inputPath}' is not a directory.`);
+          }
+
+          if (recursive) {
+              pathEntries = await listDirectoryRecursive(
+                fullPath,
+                options.workspaceRoot,
+                0,
+                maxDepth,
+                includeStats,
+              );
+          } else {
+            // Non-recursive logic
+            const dirents = await readdir(fullPath, { withFileTypes: true });
+            pathEntries = [];
+            for (const dirent of dirents) {
+              const entryFullPath = path.join(fullPath, dirent.name);
+              const entryRelativePath = path.relative(options.workspaceRoot, entryFullPath);
+              let entryStat: Stats | undefined = undefined;
+              if (includeStats) {
+                try { // Keep try/catch for individual stat calls
+                  entryStat = await stat(entryFullPath);
+                } catch (_statError: unknown) {}
+              }
+              pathEntries.push({
+                name: dirent.name,
+                path: entryRelativePath,
+                isDirectory: dirent.isDirectory(),
+                isFile: dirent.isFile(),
+                stat: entryStat,
+              });
             }
-            pathEntries.push({
-              name: dirent.name,
-              path: entryRelativePath,
-              isDirectory: dirent.isDirectory(),
-              isFile: dirent.isFile(),
-              stat: entryStat,
-            });
           }
-        }
-        pathSuccess = true;
-        anySuccess = true; // Mark overall success if at least one works
+          pathSuccess = true;
+          anySuccess = true; // Mark overall success if at least one works
+
       } catch (e: unknown) {
-        pathSuccess = false;
-        let errorCode: string | null = null;
-        let errorMsg = 'Unknown error';
+          // Handle path-specific errors gracefully within the loop
+          pathSuccess = false;
+          let errorCode: string | null = null;
+          let errorMsg = 'Unknown error';
 
-        if (e && typeof e === 'object') {
-          if ('code' in e) {
-            errorCode = String((e as { code: unknown }).code);
+          if (e && typeof e === 'object') {
+            if ('code' in e) {
+              errorCode = String((e as { code: unknown }).code);
+            }
           }
-        }
-        if (e instanceof Error) {
-          errorMsg = e.message;
-        }
+          if (e instanceof Error) {
+            errorMsg = e.message;
+          }
 
-        pathError = `Error listing path '${inputPath}': ${errorMsg}`;
-        // Add suggestion based on error
-        // let suggestion: string | undefined; // pathSuggestion already declared above
-        if (errorCode === 'ENOENT') {
-          pathSuggestion = `Ensure the path '${inputPath}' exists.`; // Assign directly
-        } else if (errorMsg.includes('is not a directory')) {
-          pathSuggestion = `The path '${inputPath}' points to a file, not a directory. Provide a directory path.`; // Assign directly
-        } else {
-          pathSuggestion = `Check permissions for '${inputPath}' and ensure it is a valid directory path.`; // Assign directly
-        }
+          pathError = `Error listing path '${inputPath}': ${errorMsg}`;
+          if (errorCode === 'ENOENT') {
+            pathSuggestion = `Ensure the path '${inputPath}' exists.`;
+          } else if (errorMsg.includes('is not a directory')) {
+            pathSuggestion = `The path '${inputPath}' points to a file, not a directory. Provide a directory path.`;
+          } else {
+            pathSuggestion = `Check permissions for '${inputPath}' and ensure it is a valid directory path.`;
+          }
       }
 
-      // Assign result, including suggestion if an error occurred
+
+      // Assign result for this path
       results[inputPath] = {
         success: pathSuccess,
         entries: pathEntries,
         error: pathError,
         suggestion: pathSuggestion,
       };
-    }
+    } // End for loop
 
     // Serialize the detailed results into the content field
     const contentText = JSON.stringify(
       {
         summary: `List operation completed. Overall success (at least one): ${anySuccess}`,
-        results: results, // Results is an object map here
+        results: results,
       },
       null,
       2,
-    ); // Pretty-print JSON
+    );
 
+    // Return the specific output structure, defineTool wrapper handles BaseMcpToolOutput aspects
     return {
-      success: anySuccess, // Keep original success logic
-      results: results, // Keep original results field too
-      content: [{ type: 'text', text: contentText }], // Put JSON string in content
+      success: anySuccess,
+      results: results,
+      content: [{ type: 'text', text: contentText }],
     };
   },
-};
+});
+
+// Ensure necessary types are still exported for consumers
+// export type { ListFilesToolInput, ListFilesToolOutput, ListEntry, PathListResult }; // Removed duplicate export

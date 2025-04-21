@@ -1,8 +1,9 @@
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
 } from '@sylphlab/mcp-core';
 import type { z } from 'zod';
 import {
@@ -70,66 +71,54 @@ async function processSingleXml(item: XmlInputItem): Promise<XmlResultItem> {
   return resultItem;
 }
 
-// --- Tool Definition ---
-export const xmlTool: McpTool<typeof xmlToolInputSchema, XmlToolOutput> = {
+// --- Tool Definition using defineTool ---
+export const xmlTool = defineTool({
   name: 'xml',
   description:
     'Performs XML operations (currently parse with placeholder logic) on one or more inputs.',
   inputSchema: xmlToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: XmlToolInput, _options: McpToolExecuteOptions): Promise<XmlToolOutput> {
-    // Remove workspaceRoot, require options
-    // Input validation happens before execute in the registerTools helper
+  execute: async ( // Core logic passed to defineTool
+    input: XmlToolInput,
+    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
+  ): Promise<XmlToolOutput> => { // Still returns the specific output type
+
+    // Input validation is handled by registerTools/SDK
     const { items } = input;
-    // workspaceRoot is now in options.workspaceRoot if needed
+
     const results: XmlResultItem[] = [];
     let overallSuccess = true;
 
-    try {
-      // Process requests sequentially
-      for (const item of items) {
-        const result = await processSingleXml(item); // Process each item
-        results.push(result);
-        if (!result.success) {
-          overallSuccess = false;
-        }
+    // Removed the outermost try/catch block; defineTool handles unexpected errors
+
+    // Process requests sequentially
+    for (const item of items) {
+      // processSingleXml handles its own errors for XML operations
+      const result = await processSingleXml(item);
+      results.push(result);
+      if (!result.success) {
+        overallSuccess = false; // Mark overall as failed if any item fails
       }
-
-      // Serialize the detailed results into the content field
-      const contentText = JSON.stringify(
-        {
-          summary: `Processed ${items.length} XML operations. Overall success: ${overallSuccess}`,
-          results: results,
-        },
-        null,
-        2,
-      ); // Pretty-print JSON
-
-      return {
-        success: overallSuccess,
-        results: results, // Keep original results field too
-        content: [{ type: 'text', text: contentText }], // Put JSON string in content
-      };
-    } catch (e: unknown) {
-      // Catch unexpected errors during the loop itself (should be rare)
-      const errorMsg =
-        e instanceof Error
-          ? `Unexpected error during XML tool execution: ${e.message}`
-          : 'Unexpected error during XML tool execution: Unknown error';
-      const errorContentText = JSON.stringify(
-        {
-          error: errorMsg,
-          results: results, // Include partial results in error content too
-        },
-        null,
-        2,
-      );
-      return {
-        success: false,
-        results: results, // Keep partial results here too
-        error: errorMsg, // Keep top-level error
-        content: [{ type: 'text', text: errorContentText }], // Put error JSON in content
-      };
     }
+
+    // Serialize the detailed results into the content field
+    const contentText = JSON.stringify(
+      {
+        summary: `Processed ${items.length} XML operations. Overall success: ${overallSuccess}`,
+        results: results,
+      },
+      null,
+      2,
+    );
+
+    // Return the specific output structure
+    return {
+      success: overallSuccess,
+      results: results,
+      content: [{ type: 'text', text: contentText }],
+    };
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { XmlToolInput, XmlToolOutput, XmlResultItem, XmlInputItem, XmlOperation }; // Removed duplicate export

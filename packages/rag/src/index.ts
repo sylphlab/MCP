@@ -1,9 +1,11 @@
 // Import version from package.json
 import { createRequire } from 'node:module';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { registerTools } from '@sylphlab/mcp-utils';
+// Remove direct SDK imports
+// import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+// import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'; // Stdio handled by factory
+import { startMcpServer } from '@sylphlab/mcp-utils'; // Import start function
 const require = createRequire(import.meta.url);
-const packageJson = require('../package.json');
+const { name, version, description } = require('../package.json'); // Import metadata directly
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 // Import specific functions and types directly from rag-core
@@ -26,6 +28,7 @@ import {
   queryIndexTool,
   // No longer need getRagCollection directly
 } from '@sylphlab/mcp-rag-core';
+import type { McpTool } from '@sylphlab/mcp-core'; // Import McpTool type
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
@@ -47,16 +50,9 @@ const embeddingConfig = {
 };
 
 // --- Server Setup ---
-const server = new McpServer({
-  name: packageJson.name,
-  version: packageJson.version,
-  description: packageJson.description,
-});
 
-// --- Tool Registration ---
-const toolsToRegister = [indexContentTool, queryIndexTool, indexStatusTool];
-
-registerTools(server, toolsToRegister);
+// biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
+const tools: McpTool<any, any>[] = [indexContentTool, queryIndexTool, indexStatusTool];
 
 // --- Startup Indexing ---
 async function startIndexing() {
@@ -117,12 +113,28 @@ async function startIndexing() {
 }
 
 // --- Start Server ---
+// Modify startServer to also start the MCP server after indexing
 async function startServer() {
+  // Keep existing try/catch for startIndexing failure
   try {
     await startIndexing();
-  } catch (_error) {
-    process.exit(1);
+  } catch (indexError) {
+    // biome-ignore lint/suspicious/noConsole: Log indexing error before exit
+    console.error('Failed during startup indexing:', indexError);
+    process.exit(1); // Exit if indexing fails
   }
+
+  // Now start the MCP server (startMcpServer handles its own connection errors/exit)
+  await startMcpServer({
+    name, // Use name from package.json
+    version, // Use version from package.json
+    description, // Use description from package.json
+    tools,
+  });
 }
 
-startServer();
+// Use an async IIFE to call the combined startServer function
+(async () => {
+  await startServer();
+  // If startServer completes without exiting, the server is running.
+})();

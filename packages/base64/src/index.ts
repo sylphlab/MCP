@@ -1,46 +1,36 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+// Remove direct SDK imports, factory handles them
+// import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+// import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { McpTool } from '@sylphlab/mcp-core';
-import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
+// Import the server start function
+import { startMcpServer } from '@sylphlab/mcp-utils';
 
 // Import tool objects from the core library
 import { decodeBase64Tool, encodeBase64Tool } from '@sylphlab/mcp-base64-core';
+import { name, version, description } from '../package.json'; // Import metadata
 
 // --- Server Setup ---
 
-const serverName = 'base64';
-const serverDescription = 'Provides tools for Base64 encoding and decoding.';
-const serverVersion = '0.1.0'; // TODO: Update version as needed
-
-// Instantiate McpServer
-const mcpServer = new McpServer(
-  {
-    name: serverName,
-    version: serverVersion,
-    description: serverDescription,
-  },
-  {},
-);
-
-// Array of imported tool objects
-const definedTools = [encodeBase64Tool, decodeBase64Tool];
-
-// Register tools using the helper function
-registerTools(mcpServer, definedTools);
+// biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
+const tools: McpTool<any, any>[] = [encodeBase64Tool, decodeBase64Tool];
 
 // --- Server Start ---
-async function startServer() {
+// Use an async IIFE to handle top-level await for CJS compatibility
+(async () => {
   try {
-    const transport = new StdioServerTransport();
-    await mcpServer.server.connect(transport);
-  } catch (_error: unknown) {
+    await startMcpServer({
+      name, // Use name from package.json
+      version, // Use version from package.json
+  description, // Use description from package.json
+      tools,
+    });
+  } catch (_error) {
+    // Error handling is inside startMcpServer
     process.exit(1);
   }
-}
-
-startServer();
+})();
 
 // Graceful shutdown
 process.on('SIGINT', () => {

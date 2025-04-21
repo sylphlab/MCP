@@ -79,6 +79,8 @@ export interface BaseMcpToolOutput {
 export interface McpToolExecuteOptions {
   /** If true, allows the tool to access paths outside the workspace root. Defaults to false. */
   allowOutsideWorkspace?: boolean;
+  /** Optional limit on the total character count of the tool's output content. */
+  maxOutputChars?: number;
   /** The absolute path to the workspace root directory. */
   workspaceRoot: string;
   // Add other internal options as needed
@@ -170,3 +172,5 @@ export function validateAndResolvePath(
 // PathValidationError is already exported via `export interface`
 // Server logic removed - should reside in server implementations
 // McpToolExecuteOptions is already exported via `export interface`
+
+export * from './defineTool.js'; // Export the defineTool helper

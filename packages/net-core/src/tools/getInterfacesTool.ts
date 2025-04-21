@@ -1,9 +1,10 @@
 import os from 'node:os';
+import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
   type BaseMcpToolOutput,
-  type McpTool,
+  type McpTool, // McpTool might not be needed directly
   type McpToolExecuteOptions,
-  McpToolInput,
+  McpToolInput, // McpToolInput might not be needed directly
 } from '@sylphlab/mcp-core';
 import type { z } from 'zod';
 import { GetInterfacesToolInputSchema } from './getInterfacesTool.schema.js'; // Import schema (added .js)
@@ -23,67 +24,49 @@ export interface GetInterfacesToolOutput extends BaseMcpToolOutput {
   suggestion?: string;
 }
 
-// --- Tool Definition ---
-export const getInterfacesTool: McpTool<
-  typeof GetInterfacesToolInputSchema,
-  GetInterfacesToolOutput
-> = {
+// --- Tool Definition using defineTool ---
+export const getInterfacesTool = defineTool({
   name: 'getInterfaces',
   description: 'Retrieves details about the network interfaces on the machine.',
   inputSchema: GetInterfacesToolInputSchema,
 
-  async execute(
+  execute: async ( // Core logic passed to defineTool
     input: GetInterfacesToolInput,
-    _options: McpToolExecuteOptions,
-  ): Promise<GetInterfacesToolOutput> {
-    // Use options object
+    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
+  ): Promise<GetInterfacesToolOutput> => { // Still returns the specific output type
+
     const { id } = input;
-    // workspaceRoot is now in options.workspaceRoot if needed
 
-    try {
-      const interfaces = os.networkInterfaces();
+    // Removed try/catch, defineTool wrapper handles errors
 
-      const contentText = JSON.stringify(
-        {
-          success: true,
-          id: id,
-          result: interfaces,
-          suggestion: 'Result contains local network interface details.',
-        },
-        null,
-        2,
-      );
-      return {
+    const interfaces = os.networkInterfaces();
+
+    // Construct the success output
+    const contentText = JSON.stringify(
+      {
         success: true,
         id: id,
-        result: interfaces, // Keep original field
-        content: [{ type: 'text', text: contentText }], // Put JSON in content
-        suggestion: 'Result contains local network interface details.', // Keep original field
-      };
-    } catch (e: unknown) {
-      // Errors are less likely here unless os module has issues
-      const errorMsg =
-        e instanceof Error
-          ? `Failed to get network interfaces: ${e.message}`
-          : 'Failed to get network interfaces: Unknown error';
-      const suggestion = 'Check system permissions or Node.js environment.';
-      const errorContentText = JSON.stringify(
-        {
-          success: false,
-          id: id,
-          error: errorMsg,
-          suggestion: suggestion,
-        },
-        null,
-        2,
-      );
-      return {
-        success: false,
-        id: id,
-        error: errorMsg, // Keep original field
-        suggestion: suggestion, // Keep original field
-        content: [{ type: 'text', text: errorContentText }], // Put JSON in content
-      };
-    }
+        result: interfaces,
+        suggestion: 'Result contains local network interface details.',
+      },
+      (_key, value) => { // Handle potential BigInts if any interface info contains them
+        if (typeof value === 'bigint') {
+          return value.toString();
+        }
+        return value;
+      },
+      2,
+    );
+    return {
+      success: true,
+      id: id,
+      result: interfaces, // Keep original field
+      content: [{ type: 'text', text: contentText }], // Put JSON in content
+      suggestion: 'Result contains local network interface details.', // Keep original field
+    };
+    // Errors during os.networkInterfaces() are unlikely but will be caught by defineTool
   },
-};
+});
+
+// Ensure necessary types are still exported
+// export type { GetInterfacesToolInput, GetInterfacesToolOutput, NetworkInterfaces }; // Removed duplicate export
