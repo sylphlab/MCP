@@ -1,26 +1,10 @@
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-
-// --- Zod Schemas ---
-
-// Schema for a single fetch request item
-const FetchInputItemSchema = z.object({
-  id: z.string().optional(),
-  url: z.string().url('Invalid URL format'),
-  method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']).default('GET'),
-  headers: z.record(z.string()).optional(),
-  body: z.string().optional(), // Assuming string body for simplicity
-  responseType: z.enum(['text', 'json', 'ignore']).default('text'),
-});
-
-// Main input schema: an array of fetch items
-export const FetchToolInputSchema = z.object({
-  items: z.array(FetchInputItemSchema).min(1, 'At least one fetch item is required.'),
-});
+import { fetchToolInputSchema, FetchItemSchema } from './fetchTool.schema.js'; // Import schemas (re-added .js)
 
 // --- TypeScript Types ---
-export type FetchInputItem = z.infer<typeof FetchInputItemSchema>;
-export type FetchToolInput = z.infer<typeof FetchToolInputSchema>;
+export type FetchInputItem = z.infer<typeof FetchItemSchema>;
+export type FetchToolInput = z.infer<typeof fetchToolInputSchema>;
 
 // Interface for a single fetch result item
 export interface FetchResultItem {
@@ -123,10 +107,10 @@ async function processSingleFetch(item: FetchInputItem): Promise<FetchResultItem
 }
 
 
-export const fetchTool: McpTool<typeof FetchToolInputSchema, FetchToolOutput> = {
+export const fetchTool: McpTool<typeof fetchToolInputSchema, FetchToolOutput> = {
   name: 'fetch', // Keep tool name simple
   description: 'Performs one or more HTTP fetch requests sequentially.',
-  inputSchema: FetchToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: fetchToolInputSchema, // Schema expects { items: [...] }
 
   async execute(input: FetchToolInput, options: McpToolExecuteOptions): Promise<FetchToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper

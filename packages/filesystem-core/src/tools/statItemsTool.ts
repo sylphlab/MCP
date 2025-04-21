@@ -3,16 +3,9 @@ import path from 'node:path';
 import { Stats } from 'node:fs';
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import { statItemsToolInputSchema } from './statItemsTool.schema.js'; // Import schema (added .js)
 
-export const StatItemsToolInputSchema = z.object({
-  paths: z.array(
-      z.string({ required_error: 'Each path must be a string' })
-       .min(1, 'Path cannot be empty')
-    )
-    .min(1, 'paths array cannot be empty'),
-});
-
-export type StatItemsToolInput = z.infer<typeof StatItemsToolInputSchema>;
+export type StatItemsToolInput = z.infer<typeof statItemsToolInputSchema>;
 
 export interface StatItemResult {
   path: string;
@@ -27,13 +20,13 @@ export interface StatItemsToolOutput extends BaseMcpToolOutput {
   results: StatItemResult[];
 }
 
-export const statItemsTool: McpTool<typeof StatItemsToolInputSchema, StatItemsToolOutput> = {
+export const statItemsTool: McpTool<typeof statItemsToolInputSchema, StatItemsToolOutput> = {
   name: 'statItemsTool',
   description: 'Gets file system stats for one or more specified paths within the workspace.',
-  inputSchema: StatItemsToolInputSchema,
+  inputSchema: statItemsToolInputSchema,
 
   async execute(input: StatItemsToolInput, options: McpToolExecuteOptions): Promise<StatItemsToolOutput> { // Remove workspaceRoot, require options
-    const parsed = StatItemsToolInputSchema.safeParse(input);
+    const parsed = statItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)

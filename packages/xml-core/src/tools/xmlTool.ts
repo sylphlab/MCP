@@ -1,27 +1,11 @@
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-
-// --- Zod Schemas ---
-
-export const XmlOperationEnum = z.enum(['parse']); // Add 'build' later
-
-// Schema for a single XML operation item
-const XmlInputItemSchema = z.object({
-  id: z.string().optional(),
-  operation: XmlOperationEnum,
-  data: z.string({ required_error: 'Input data for "parse" operation must be a string.' }),
-  // Add options for parsing/building later
-});
-
-// Main input schema: an array of XML operation items
-export const XmlToolInputSchema = z.object({
-  items: z.array(XmlInputItemSchema).min(1, 'At least one XML operation item is required.'),
-});
+import { xmlToolInputSchema, XmlInputItemSchema, XmlOperationEnum } from './xmlTool.schema'; // Import schema
 
 // --- TypeScript Types ---
 export type XmlOperation = z.infer<typeof XmlOperationEnum>;
 export type XmlInputItem = z.infer<typeof XmlInputItemSchema>;
-export type XmlToolInput = z.infer<typeof XmlToolInputSchema>;
+export type XmlToolInput = z.infer<typeof xmlToolInputSchema>;
 
 // Interface for a single XML result item
 export interface XmlResultItem {
@@ -80,10 +64,10 @@ async function processSingleXml(item: XmlInputItem): Promise<XmlResultItem> {
 
 
 // --- Tool Definition ---
-export const xmlTool: McpTool<typeof XmlToolInputSchema, XmlToolOutput> = {
+export const xmlTool: McpTool<typeof xmlToolInputSchema, XmlToolOutput> = {
   name: 'xml',
   description: 'Performs XML operations (currently parse with placeholder logic) on one or more inputs.',
-  inputSchema: XmlToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: xmlToolInputSchema, // Schema expects { items: [...] }
 
   async execute(input: XmlToolInput, options: McpToolExecuteOptions): Promise<XmlToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper

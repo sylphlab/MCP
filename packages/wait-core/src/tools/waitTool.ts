@@ -1,22 +1,10 @@
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-
-// --- Zod Schemas ---
-
-// Schema for a single wait item
-const WaitInputItemSchema = z.object({
-  id: z.string().optional(),
-  ms: z.number().int().min(0, 'Milliseconds must be a non-negative integer.'),
-});
-
-// Main input schema: an array of wait items
-export const WaitToolInputSchema = z.object({
-  items: z.array(WaitInputItemSchema).min(1, 'At least one wait duration is required.'),
-});
+import { waitToolInputSchema, WaitItemSchema } from './waitTool.schema'; // Import schema (fixed name)
 
 // --- TypeScript Types ---
-export type WaitInputItem = z.infer<typeof WaitInputItemSchema>;
-export type WaitToolInput = z.infer<typeof WaitToolInputSchema>;
+export type WaitInputItem = z.infer<typeof WaitItemSchema>; // Use correct schema name
+export type WaitToolInput = z.infer<typeof waitToolInputSchema>;
 
 // Interface for a single wait result item
 export interface WaitResultItem {
@@ -38,7 +26,7 @@ export interface WaitToolOutput extends BaseMcpToolOutput {
 
 // Helper function to process a single wait item
 async function processSingleWait(item: WaitInputItem): Promise<WaitResultItem> {
-  const { id, ms } = item;
+  const { id, durationMs: ms } = item; // Destructure with rename
   const resultItem: WaitResultItem = { id, success: false };
 
   try {
@@ -46,7 +34,7 @@ async function processSingleWait(item: WaitInputItem): Promise<WaitResultItem> {
     await new Promise(resolve => setTimeout(resolve, ms));
     console.log(`Wait finished for ${ms}ms. (ID: ${id ?? 'N/A'})`);
     resultItem.success = true;
-    resultItem.durationWaitedMs = ms;
+    resultItem.durationWaitedMs = item.durationMs; // Assign the original value from item
   } catch (e: any) {
     // This catch block is unlikely to be hit for setTimeout unless there's a very strange environment issue.
     resultItem.error = `Wait failed: ${e.message}`;
@@ -58,10 +46,10 @@ async function processSingleWait(item: WaitInputItem): Promise<WaitResultItem> {
 
 
 // --- Tool Definition ---
-export const waitTool: McpTool<typeof WaitToolInputSchema, WaitToolOutput> = {
+export const waitTool: McpTool<typeof waitToolInputSchema, WaitToolOutput> = {
   name: 'wait',
   description: 'Waits sequentially for one or more specified durations in milliseconds.',
-  inputSchema: WaitToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: waitToolInputSchema, // Schema expects { items: [...] }
 
   async execute(input: WaitToolInput, options: McpToolExecuteOptions): Promise<WaitToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper

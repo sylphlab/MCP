@@ -1,17 +1,28 @@
 // src/index.ts for @sylphlab/mcp-filesystem-core
 
 // Export available tool implementations and Zod schemas
-export { copyItemsTool, CopyItemsToolInputSchema } from './tools/copyItemsTool.js';
-export { createFolderTool, CreateFolderToolInputSchema } from './tools/createFolderTool.js';
-export { deleteItemsTool, DeleteItemsToolInputSchema } from './tools/deleteItemsTool.js';
-export { editFileTool, EditFileToolInputSchema } from './tools/editFileTool.js'; // Exporting the schema constant
-export { listFilesTool, ListFilesToolInputSchema } from './tools/listFilesTool.js';
-export { moveRenameItemsTool, MoveRenameItemsToolInputSchema } from './tools/moveRenameItemsTool.js';
-export { readFilesTool, ReadFilesToolInputSchema } from './tools/readFilesTool.js';
-export { replaceContentTool, ReplaceContentToolInputSchema } from './tools/replaceContentTool.js';
-export { searchContentTool, SearchContentToolInputSchema } from './tools/searchContentTool.js';
-export { statItemsTool, StatItemsToolInputSchema } from './tools/statItemsTool.js';
-export { writeFilesTool, WriteFilesToolInputSchema } from './tools/writeFilesTool.js';
+export { copyItemsTool } from './tools/copyItemsTool.js';
+export { copyItemsToolInputSchema } from './tools/copyItemsTool.schema.js';
+export { createFolderTool } from './tools/createFolderTool.js';
+export { createFolderToolInputSchema } from './tools/createFolderTool.schema.js';
+export { deleteItemsTool } from './tools/deleteItemsTool.js';
+export { deleteItemsToolInputSchema } from './tools/deleteItemsTool.schema.js';
+export { editFileTool } from './tools/editFileTool.js';
+export { editFileToolInputSchema } from './tools/editFileTool.schema.js';
+export { listFilesTool } from './tools/listFilesTool.js';
+export { listFilesToolInputSchema } from './tools/listFilesTool.schema.js';
+export { moveRenameItemsTool } from './tools/moveRenameItemsTool.js';
+export { moveRenameItemsToolInputSchema } from './tools/moveRenameItemsTool.schema.js';
+export { readFilesTool } from './tools/readFilesTool.js';
+export { readFilesToolInputSchema } from './tools/readFilesTool.schema.js';
+export { replaceContentTool } from './tools/replaceContentTool.js';
+export { replaceContentToolInputSchema } from './tools/replaceContentTool.schema.js';
+export { searchContentTool } from './tools/searchContentTool.js';
+export { searchContentToolInputSchema } from './tools/searchContentTool.schema.js';
+export { statItemsTool } from './tools/statItemsTool.js';
+export { statItemsToolInputSchema } from './tools/statItemsTool.schema.js';
+export { writeFilesTool } from './tools/writeFilesTool.js';
+export { writeFilesToolInputSchema } from './tools/writeFilesTool.schema.js';
 
 // Also export inferred types for convenience if needed by consumers
 export type { CopyItemsToolInput } from './tools/copyItemsTool.js';

@@ -9,7 +9,7 @@ describe('waitTool.execute', () => {
   it('should resolve after the specified time (single item batch)', async () => {
     const startTime = Date.now();
     const waitTime = 50; // Use a small wait time for the test
-    const input: WaitToolInput = { items: [{ id: 'wait1', ms: waitTime }] };
+    const input: WaitToolInput = { items: [{ id: 'wait1', durationMs: waitTime }] }; // Use durationMs
     const consoleSpy = vi.spyOn(console, 'log');
 
     const result = await waitTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
@@ -43,7 +43,7 @@ describe('waitTool.execute', () => {
   });
 
   it('should handle zero wait time (single item batch)', async () => {
-    const input: WaitToolInput = { items: [{ id: 'wait0', ms: 0 }] };
+    const input: WaitToolInput = { items: [{ id: 'wait0', durationMs: 0 }] }; // Use durationMs
     const result = await waitTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(result.success).toBe(true);
@@ -66,7 +66,7 @@ describe('waitTool.execute', () => {
 
   it('should handle errors during the wait operation (single item batch)', async () => {
     // This tests the unlikely scenario where the setTimeout promise itself rejects
-    const input: WaitToolInput = { items: [{ id: 'wait_err', ms: 10 }] };
+    const input: WaitToolInput = { items: [{ id: 'wait_err', durationMs: 10 }] }; // Use durationMs
     const mockError = new Error('Internal timer error');
 
     // Mock the Promise constructor or setTimeout behavior to simulate rejection
@@ -110,8 +110,8 @@ describe('waitTool.execute', () => {
     const waitTime2 = 20;
     const input: WaitToolInput = {
       items: [
-        { id: 'batch_wait1', ms: waitTime1 },
-        { id: 'batch_wait2', ms: waitTime2 },
+        { id: 'batch_wait1', durationMs: waitTime1 }, // Use durationMs
+        { id: 'batch_wait2', durationMs: waitTime2 }, // Use durationMs
       ]
     };
     const startTime = Date.now();

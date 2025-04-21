@@ -374,7 +374,7 @@ describe('editFileTool', () => {
     expect(result.success).toBe(true);
     expect(result.results[0]?.success).toBe(true);
     expect(result.results[0]?.edit_results[0]?.success).toBe(true);
-    expect(result.results[0]?.edit_results[0]?.message).toContain('0 replacement(s)');
+    expect(result.results[0]?.edit_results[0]?.message).toBe('No replacements needed between lines 1 and 1.'); // Match exact message
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
@@ -403,7 +403,7 @@ describe('editFileTool', () => {
       path: 'file.txt',
       edits: [{ operation: 'insert', start_line: 1, content: 'new line' }],
     }]);
-    const expectedContent = 'new line\n';
+    const expectedContent = 'new line'; // Code now writes without trailing newline for single line insert
 
     const result = await editFileTool.execute(input, defaultOptions); // Pass options object
 

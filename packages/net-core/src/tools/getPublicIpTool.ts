@@ -1,12 +1,6 @@
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-
-// --- Zod Schemas ---
-
-// Input schema - no parameters needed for this specific tool
-export const GetPublicIpToolInputSchema = z.object({
-  id: z.string().optional(), // Keep id for correlation if used in batch by server
-});
+import { GetPublicIpToolInputSchema } from './getPublicIpTool.schema.js'; // Import schema (added .js)
 
 // --- TypeScript Types ---
 export type GetPublicIpToolInput = z.infer<typeof GetPublicIpToolInputSchema>;

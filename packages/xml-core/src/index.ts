@@ -1,7 +1,8 @@
 // src/index.ts for @sylphlab/mcp-xml-core
 
 // Export the tool implementation, Zod schema, and inferred types
-export { xmlTool, XmlToolInputSchema, XmlOperationEnum } from './tools/xmlTool.js';
+export { xmlTool } from './tools/xmlTool.js';
+export { xmlToolInputSchema, XmlOperationEnum } from './tools/xmlTool.schema.js'; // Export schema from schema file
 export type {
   XmlToolInput,
   XmlToolOutput,

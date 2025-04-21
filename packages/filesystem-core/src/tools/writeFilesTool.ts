@@ -2,24 +2,14 @@ import { writeFile, appendFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
+import { writeFilesToolInputSchema, WriteFileItemSchema } from './writeFilesTool.schema.js'; // Import schema (added .js)
 
 // Define BufferEncoding type for Zod schema
 type BufferEncoding = 'utf-8' | 'base64'; // Add others if needed
 
-// --- Zod Schema for Input Validation ---
-const WriteItemSchema = z.object({
-  path: z.string({ required_error: 'path is required' }).min(1, 'path cannot be empty'),
-  content: z.string({ required_error: 'content is required' }), // Content is always string
-});
-
-export const WriteFilesToolInputSchema = z.object({
-  items: z.array(WriteItemSchema).min(1, 'items array cannot be empty'),
-  encoding: z.enum(['utf-8', 'base64']).optional().default('utf-8'),
-  append: z.boolean().optional().default(false),
-});
-
 // Infer the TypeScript type from the Zod schema
-export type WriteFilesToolInput = z.infer<typeof WriteFilesToolInputSchema>;
+export type WriteFilesToolInput = z.infer<typeof writeFilesToolInputSchema>;
+type WriteFileItem = z.infer<typeof WriteFileItemSchema>; // Infer internal type
 
 // --- Output Types ---
 export interface WriteFileResult {
@@ -38,13 +28,13 @@ export interface WriteFilesToolOutput extends BaseMcpToolOutput {
 
 // --- Tool Definition (following SDK pattern) ---
 
-export const writeFilesTool: McpTool<typeof WriteFilesToolInputSchema, WriteFilesToolOutput> = {
+export const writeFilesTool: McpTool<typeof writeFilesToolInputSchema, WriteFilesToolOutput> = {
   name: 'writeFilesTool',
   description: 'Writes or appends content to one or more files within the workspace.',
-  inputSchema: WriteFilesToolInputSchema,
+  inputSchema: writeFilesToolInputSchema,
 
   async execute(input: WriteFilesToolInput, options: McpToolExecuteOptions): Promise<WriteFilesToolOutput> { // Remove workspaceRoot, require options
-    const parsed = WriteFilesToolInputSchema.safeParse(input);
+    const parsed = writeFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)

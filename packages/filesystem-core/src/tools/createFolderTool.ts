@@ -2,19 +2,10 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
-
-// --- Zod Schema for Input Validation ---
-export const CreateFolderToolInputSchema = z.object({
-  folderPaths: z.array(
-      z.string({ required_error: 'Each path must be a string' })
-       .min(1, 'Folder path cannot be empty')
-    )
-    .min(1, 'folderPaths array cannot be empty'),
- // allowOutsideWorkspace removed from schema
-});
+import { createFolderToolInputSchema } from './createFolderTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
-export type CreateFolderToolInput = z.infer<typeof CreateFolderToolInputSchema>;
+export type CreateFolderToolInput = z.infer<typeof createFolderToolInputSchema>;
 
 // --- Output Types ---
 export interface CreateFolderResult {
@@ -32,14 +23,14 @@ export interface CreateFolderToolOutput extends BaseMcpToolOutput {
 }
 
 // --- Tool Definition ---
-export const createFolderTool: McpTool<typeof CreateFolderToolInputSchema, CreateFolderToolOutput> = {
+export const createFolderTool: McpTool<typeof createFolderToolInputSchema, CreateFolderToolOutput> = {
   name: 'createFolderTool',
   description: 'Creates one or more new folders at the specified paths within the workspace.',
-  inputSchema: CreateFolderToolInputSchema,
+  inputSchema: createFolderToolInputSchema,
 
   async execute(input: CreateFolderToolInput, options: McpToolExecuteOptions): Promise<CreateFolderToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
-    const parsed = CreateFolderToolInputSchema.safeParse(input);
+    const parsed = createFolderToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)

@@ -3,30 +3,10 @@ import path from 'node:path';
 import { z } from 'zod';
 import glob from 'fast-glob'; // Import fast-glob
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-
-// --- Zod Schema for Input Validation ---
-const ReplaceOperationSchema = z.object({
-    search: z.string().min(1, 'search pattern cannot be empty'),
-    replace: z.string(),
-    isRegex: z.boolean().optional().default(false),
-    flags: z.string().optional(), // e.g., 'g', 'i', 'm', 'gi'
-}).refine(data => !data.isRegex || data.flags === undefined || /^[gimyus]+$/.test(data.flags), {
-    message: "Invalid regex flags provided. Only 'g', 'i', 'm', 'y', 'u', 's' are allowed.",
-    path: ['flags'],
-});
-
-export const ReplaceContentToolInputSchema = z.object({
-  paths: z.array(
-      z.string({ required_error: 'Each path/glob must be a string' })
-       .min(1, 'Path/glob cannot be empty')
-    )
-    .min(1, 'paths array cannot be empty'),
-  operations: z.array(ReplaceOperationSchema).min(1, 'operations array cannot be empty'),
-  // allowOutsideWorkspace removed from schema
-});
+import { replaceContentToolInputSchema, ReplaceOperationSchema } from './replaceContentTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
-export type ReplaceContentToolInput = z.infer<typeof ReplaceContentToolInputSchema>;
+export type ReplaceContentToolInput = z.infer<typeof replaceContentToolInputSchema>;
 export type ReplaceOperation = z.infer<typeof ReplaceOperationSchema>;
 
 // --- Output Types ---
@@ -57,14 +37,14 @@ export interface ReplaceContentToolOutput extends BaseMcpToolOutput {
 
 // --- Tool Definition (following SDK pattern) ---
 
-export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, ReplaceContentToolOutput> = {
+export const replaceContentTool: McpTool<typeof replaceContentToolInputSchema, ReplaceContentToolOutput> = {
   name: 'replaceContentTool',
   description: 'Performs search and replace operations across multiple files (supports globs).',
-  inputSchema: ReplaceContentToolInputSchema,
+  inputSchema: replaceContentToolInputSchema,
 
   async execute(input: ReplaceContentToolInput, options: McpToolExecuteOptions): Promise<ReplaceContentToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
-    const parsed = ReplaceContentToolInputSchema.safeParse(input);
+    const parsed = replaceContentToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
@@ -141,7 +121,7 @@ export const replaceContentTool: McpTool<typeof ReplaceContentToolInputSchema, R
                         // Note: Counting regex replacements accurately can be tricky without global flag + matchAll
                         // This simple check assumes at least one replacement if content changed.
                         if (tempContent !== currentContent) {
-                            operationReplacements = 1; // Simplistic count for now
+                            operationReplacements = (currentContent.match(regex) || []).length; // Better count for regex
                         }
                     } catch (e: any) {
                         throw new Error(`Invalid regex '${op.search}': ${e.message}`);

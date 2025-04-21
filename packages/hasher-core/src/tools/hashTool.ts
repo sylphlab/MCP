@@ -1,32 +1,12 @@
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-import { createHash, getHashes } from 'crypto';
-
-// --- Zod Schemas ---
-
-// Get available algorithms dynamically for validation
-const supportedAlgorithms = getHashes();
-// Ensure the array is not empty before creating the enum
-const HashAlgorithmEnum = supportedAlgorithms.length > 0
-  ? z.enum(supportedAlgorithms as [string, ...string[]])
-  : z.string().refine(() => false, { message: "No hash algorithms available on the system" }); // Fallback if no hashes found
-
-// Schema for a single hash request item
-const HashInputItemSchema = z.object({
-  id: z.string().optional(),
-  algorithm: HashAlgorithmEnum,
-  data: z.string(), // Assuming string input
-});
-
-// Main input schema: an array of hash items
-export const HashToolInputSchema = z.object({
-  items: z.array(HashInputItemSchema).min(1, 'At least one hash item is required.'),
-});
+import { createHash } from 'crypto';
+import { hashToolInputSchema, HashItemSchema, HashAlgorithmEnum } from './hashTool.schema.js'; // Import schema (added .js)
 
 // --- TypeScript Types ---
 export type HashAlgorithm = z.infer<typeof HashAlgorithmEnum>;
-export type HashInputItem = z.infer<typeof HashInputItemSchema>;
-export type HashToolInput = z.infer<typeof HashToolInputSchema>;
+export type HashInputItem = z.infer<typeof HashItemSchema>; // Fixed schema name
+export type HashToolInput = z.infer<typeof hashToolInputSchema>;
 
 // Interface for a single hash result item
 export interface HashResultItem {
@@ -72,10 +52,10 @@ async function processSingleHash(item: HashInputItem): Promise<HashResultItem> {
 
 
 // --- Tool Definition ---
-export const hashTool: McpTool<typeof HashToolInputSchema, HashToolOutput> = {
+export const hashTool: McpTool<typeof hashToolInputSchema, HashToolOutput> = {
   name: 'hash',
   description: 'Computes cryptographic hashes for one or more input strings.',
-  inputSchema: HashToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: hashToolInputSchema, // Schema expects { items: [...] }
 
   async execute(input: HashToolInput, options: McpToolExecuteOptions): Promise<HashToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper

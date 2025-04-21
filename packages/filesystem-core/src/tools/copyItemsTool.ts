@@ -2,30 +2,15 @@ import { cp } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
+import { copyItemsToolInputSchema, CopyItemSchema } from './copyItemsTool.schema.js'; // Import schema (added .js)
 
 // --- Input Types ---
 
-interface CopyItem {
-  /** Relative path of the file or folder to copy. */
-  sourcePath: string;
-  /** Relative path where the item should be copied. */
-  destinationPath: string;
-}
-
-// --- Zod Schema for Input Validation ---
-const CopyItemSchema = z.object({
-  sourcePath: z.string({ required_error: 'sourcePath is required' }).min(1, 'sourcePath cannot be empty'),
-  destinationPath: z.string({ required_error: 'destinationPath is required' }).min(1, 'destinationPath cannot be empty'),
-});
-
-export const CopyItemsToolInputSchema = z.object({
-  items: z.array(CopyItemSchema).min(1, 'items array cannot be empty'),
-  overwrite: z.boolean().optional().default(false),
-  // allowOutsideWorkspace removed - will be passed via options
-});
-
 // Infer the TypeScript type from the Zod schema
-export type CopyItemsToolInput = z.infer<typeof CopyItemsToolInputSchema>;
+export type CopyItemsToolInput = z.infer<typeof copyItemsToolInputSchema>;
+// Infer the single item type as well
+type CopyItem = z.infer<typeof CopyItemSchema>;
+
 
 // --- Output Types ---
 
@@ -56,13 +41,13 @@ export interface CopyItemsToolOutput extends BaseMcpToolOutput {
 
 // --- Tool Definition ---
 
-export const copyItemsTool: McpTool<typeof CopyItemsToolInputSchema, CopyItemsToolOutput> = {
+export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsToolOutput> = {
   name: 'copyItemsTool',
   description: 'Copies one or more files or folders within the workspace. Handles recursion. Use relative paths.',
-  inputSchema: CopyItemsToolInputSchema,
+  inputSchema: copyItemsToolInputSchema,
   async execute(input: CopyItemsToolInput, options: McpToolExecuteOptions): Promise<CopyItemsToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
-    const parsed = CopyItemsToolInputSchema.safeParse(input);
+    const parsed = copyItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)

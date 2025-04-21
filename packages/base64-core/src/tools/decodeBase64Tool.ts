@@ -1,10 +1,6 @@
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-
-// --- Zod Schema for Input ---
-export const DecodeBase64ToolInputSchema = z.object({
-  encoded: z.string(), // Base64 string to decode
-});
+import { DecodeBase64ToolInputSchema } from './decodeBase64Tool.schema.js'; // Import schema (added .js)
 
 // --- TypeScript Type from Schema ---
 export type DecodeBase64ToolInput = z.infer<typeof DecodeBase64ToolInputSchema>;

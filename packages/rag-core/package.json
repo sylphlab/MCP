@@ -39,7 +39,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "clean": "rm -rf dist .turbo node_modules",
+    "clean": "rd /s /q dist .turbo node_modules",
     "dev": "tsup --watch",
     "lint": "eslint . --ext .ts",
     "test": "vitest run",

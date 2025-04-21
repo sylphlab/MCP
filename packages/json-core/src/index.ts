@@ -1,7 +1,8 @@
 // src/index.ts for @sylphlab/mcp-json-core
 
 // Export the tool implementation, Zod schema, and inferred types
-export { jsonTool, JsonToolInputSchema, JsonOperationEnum } from './tools/jsonTool.js';
+export { jsonTool } from './tools/jsonTool.js';
+export { jsonToolInputSchema, JsonOperationEnum } from './tools/jsonTool.schema.js'; // Export schema from schema file
 export type {
   JsonToolInput,
   JsonToolOutput,

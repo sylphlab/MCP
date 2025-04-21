@@ -2,21 +2,11 @@ import { rename, mkdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-
-// --- Zod Schema for Input Validation ---
-const MoveRenameItemSchema = z.object({
-  sourcePath: z.string({ required_error: 'sourcePath is required' }).min(1, 'sourcePath cannot be empty'),
-  destinationPath: z.string({ required_error: 'destinationPath is required' }).min(1, 'destinationPath cannot be empty'),
-});
-
-export const MoveRenameItemsToolInputSchema = z.object({
-  items: z.array(MoveRenameItemSchema).min(1, 'items array cannot be empty'),
-  overwrite: z.boolean().optional().default(false),
-  // allowOutsideWorkspace removed from schema
-});
+import { moveRenameItemsToolInputSchema, MoveRenameItemSchema } from './moveRenameItemsTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
-export type MoveRenameItemsToolInput = z.infer<typeof MoveRenameItemsToolInputSchema>;
+export type MoveRenameItemsToolInput = z.infer<typeof moveRenameItemsToolInputSchema>;
+type MoveRenameItem = z.infer<typeof MoveRenameItemSchema>; // Infer internal type
 
 // --- Output Types ---
 export interface MoveRenameItemResult {
@@ -47,14 +37,14 @@ export interface MoveRenameItemsToolOutput extends BaseMcpToolOutput {
 
 // --- Tool Definition (following SDK pattern) ---
 
-export const moveRenameItemsTool: McpTool<typeof MoveRenameItemsToolInputSchema, MoveRenameItemsToolOutput> = {
+export const moveRenameItemsTool: McpTool<typeof moveRenameItemsToolInputSchema, MoveRenameItemsToolOutput> = {
   name: 'moveRenameItemsTool',
   description: 'Moves or renames one or more files or folders within the workspace. Use relative paths.',
-  inputSchema: MoveRenameItemsToolInputSchema,
+  inputSchema: moveRenameItemsToolInputSchema,
 
   async execute(input: MoveRenameItemsToolInput, options: McpToolExecuteOptions): Promise<MoveRenameItemsToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
-    const parsed = MoveRenameItemsToolInputSchema.safeParse(input);
+    const parsed = moveRenameItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)

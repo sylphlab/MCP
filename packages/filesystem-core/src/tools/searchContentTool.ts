@@ -3,27 +3,10 @@ import path from 'node:path';
 import { z } from 'zod';
 import glob from 'fast-glob'; // Import fast-glob
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-
-// --- Zod Schema for Input Validation ---
-export const SearchContentToolInputSchema = z.object({
-  paths: z.array(
-      z.string({ required_error: 'Each path/glob must be a string' })
-       .min(1, 'Path/glob cannot be empty')
-    )
-    .min(1, 'paths array cannot be empty'),
-  query: z.string().min(1, 'query cannot be empty'),
-  isRegex: z.boolean().optional().default(false),
-  matchCase: z.boolean().optional().default(true), // Default to case-sensitive
-  contextLinesBefore: z.number().int().min(0).optional().default(0),
-  contextLinesAfter: z.number().int().min(0).optional().default(0),
-  maxResultsPerFile: z.number().int().min(1).optional(),
-  // allowOutsideWorkspace removed from schema
-});
-// Removed refine check causing issues with isRegex:true and matchCase:true
-
+import { searchContentToolInputSchema } from './searchContentTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
-export type SearchContentToolInput = z.infer<typeof SearchContentToolInputSchema>;
+export type SearchContentToolInput = z.infer<typeof searchContentToolInputSchema>;
 
 // --- Output Types ---
 export interface SearchMatch {
@@ -64,14 +47,14 @@ export interface SearchContentToolOutput extends BaseMcpToolOutput {
 
 // --- Tool Definition (following SDK pattern) ---
 
-export const searchContentTool: McpTool<typeof SearchContentToolInputSchema, SearchContentToolOutput> = {
+export const searchContentTool: McpTool<typeof searchContentToolInputSchema, SearchContentToolOutput> = {
   name: 'searchContentTool',
   description: 'Searches for content within multiple files (supports globs).',
-  inputSchema: SearchContentToolInputSchema,
+  inputSchema: searchContentToolInputSchema,
 
   async execute(input: SearchContentToolInput, options: McpToolExecuteOptions): Promise<SearchContentToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
-    const parsed = SearchContentToolInputSchema.safeParse(input);
+    const parsed = searchContentToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)

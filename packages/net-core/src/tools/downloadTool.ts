@@ -1,7 +1,7 @@
 import { McpTool, BaseMcpToolOutput, McpToolExecuteOptions, validateAndResolvePath } from '@sylphlab/mcp-core';
 import type * as http from 'node:http'; // Import type only for placeholder
 import type { DownloadToolInput, DownloadInputItem, DownloadResultItem, DownloadToolOutput } from './downloadTool.types'; // Import new types
-import { downloadToolInputSchema } from './downloadTool.schema';
+import { downloadToolInputSchema } from './downloadTool.schema.js'; // Added .js
 
 import * as fs from 'node:fs'; // For createWriteStream
 import * as fsp from 'node:fs/promises'; // For access, mkdir, unlink

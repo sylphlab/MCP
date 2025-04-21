@@ -3,21 +3,10 @@ import path from 'node:path';
 import { Stats } from 'node:fs'; // Import Stats type
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-
-// --- Zod Schema for Input Validation ---
-export const ReadFilesToolInputSchema = z.object({
-  paths: z.array(
-      z.string({ required_error: 'Each path must be a string' })
-       .min(1, 'Path cannot be empty')
-    )
-    .min(1, 'paths array cannot be empty'),
-  encoding: z.enum(['utf-8', 'base64']).optional().default('utf-8'),
-  includeStats: z.boolean().optional().default(false),
-  // allowOutsideWorkspace removed from schema
-});
+import { readFilesToolInputSchema } from './readFilesTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
-export type ReadFilesToolInput = z.infer<typeof ReadFilesToolInputSchema>;
+export type ReadFilesToolInput = z.infer<typeof readFilesToolInputSchema>;
 
 // --- Output Types ---
 export interface ReadFileResult {
@@ -48,14 +37,14 @@ export interface ReadFilesToolOutput extends BaseMcpToolOutput {
 
 // --- Tool Definition (following SDK pattern) ---
 
-export const readFilesTool: McpTool<typeof ReadFilesToolInputSchema, ReadFilesToolOutput> = {
+export const readFilesTool: McpTool<typeof readFilesToolInputSchema, ReadFilesToolOutput> = {
   name: 'readFilesTool',
   description: 'Reads the content of one or more files within the workspace.',
-  inputSchema: ReadFilesToolInputSchema,
+  inputSchema: readFilesToolInputSchema,
 
   async execute(input: ReadFilesToolInput, options: McpToolExecuteOptions): Promise<ReadFilesToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
-    const parsed = ReadFilesToolInputSchema.safeParse(input);
+    const parsed = readFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)

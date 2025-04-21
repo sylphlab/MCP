@@ -3,22 +3,10 @@ import path from 'node:path';
 import { Stats } from 'node:fs'; // Import Stats type
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-
-// --- Zod Schema for Input Validation ---
-export const ListFilesToolInputSchema = z.object({
-  paths: z.array(
-      z.string({ required_error: 'Each path must be a string' })
-       .min(1, 'Path cannot be empty')
-    )
-    .min(1, 'paths array cannot be empty'),
-  recursive: z.boolean().optional().default(false),
-  maxDepth: z.number().int().min(0).optional(),
-  includeStats: z.boolean().optional().default(false),
-  // allowOutsideWorkspace removed from schema
-});
+import { listFilesToolInputSchema } from './listFilesTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
-export type ListFilesToolInput = z.infer<typeof ListFilesToolInputSchema>;
+export type ListFilesToolInput = z.infer<typeof listFilesToolInputSchema>;
 
 // --- Output Types ---
 export interface ListEntry {
@@ -114,14 +102,14 @@ async function listDirectoryRecursive(
 
 // --- Tool Definition (following SDK pattern) ---
 
-export const listFilesTool: McpTool<typeof ListFilesToolInputSchema, ListFilesToolOutput> = {
+export const listFilesTool: McpTool<typeof listFilesToolInputSchema, ListFilesToolOutput> = {
   name: 'listFilesTool',
   description: 'Lists files and directories within one or more specified paths in the workspace.',
-  inputSchema: ListFilesToolInputSchema,
+  inputSchema: listFilesToolInputSchema,
 
   async execute(input: ListFilesToolInput, options: McpToolExecuteOptions): Promise<ListFilesToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
-    const parsed = ListFilesToolInputSchema.safeParse(input);
+    const parsed = listFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)

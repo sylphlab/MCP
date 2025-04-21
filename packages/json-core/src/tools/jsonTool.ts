@@ -1,35 +1,11 @@
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-
-// --- Zod Schemas ---
-
-export const JsonOperationEnum = z.enum(['parse', 'stringify']);
-
-// Schema for a single JSON operation item
-const JsonInputItemSchema = z.discriminatedUnion('operation', [
-  z.object({
-    id: z.string().optional(),
-    operation: z.literal('parse'),
-    data: z.string({ required_error: 'Input data for "parse" operation must be a string.' }),
-  }),
-  z.object({
-    id: z.string().optional(),
-    operation: z.literal('stringify'),
-    data: z.any(), // Allow any serializable data for stringify
-    // Add options like space later: space: z.union([z.string(), z.number()]).optional(),
-  }),
-]);
-
-// Main input schema: an array of JSON operation items
-export const JsonToolInputSchema = z.object({
-  items: z.array(JsonInputItemSchema).min(1, 'At least one JSON operation item is required.'),
-});
-
+import { jsonToolInputSchema, JsonInputItemSchema, JsonOperationEnum } from './jsonTool.schema.js'; // Import schemas (added .js)
 
 // --- TypeScript Types ---
 export type JsonOperation = z.infer<typeof JsonOperationEnum>;
 export type JsonInputItem = z.infer<typeof JsonInputItemSchema>;
-export type JsonToolInput = z.infer<typeof JsonToolInputSchema>;
+export type JsonToolInput = z.infer<typeof jsonToolInputSchema>;
 
 // Interface for a single JSON result item
 export interface JsonResultItem {
@@ -91,10 +67,10 @@ async function processSingleJson(item: JsonInputItem): Promise<JsonResultItem> {
 
 
 // --- Tool Definition ---
-export const jsonTool: McpTool<typeof JsonToolInputSchema, JsonToolOutput> = {
+export const jsonTool: McpTool<typeof jsonToolInputSchema, JsonToolOutput> = {
   name: 'json',
   description: 'Performs JSON operations (parse or stringify) on one or more inputs.',
-  inputSchema: JsonToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: jsonToolInputSchema, // Schema expects { items: [...] }
 
   async execute(input: JsonToolInput, options: McpToolExecuteOptions): Promise<JsonToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper

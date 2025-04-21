@@ -3,21 +3,10 @@ import path from 'node:path';
 import { z } from 'zod';
 import trash from 'trash';
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-
-// --- Zod Schema for Input Validation ---
-export const DeleteItemsToolInputSchema = z.object({
-  paths: z.array(
-      z.string({ required_error: 'Each path must be a string' })
-       .min(1, 'Path cannot be empty')
-    )
-    .min(1, 'paths array cannot be empty'),
-  recursive: z.boolean().optional().default(true),
-  useTrash: z.boolean().optional().default(true),
-  // allowOutsideWorkspace removed from schema
-});
+import { deleteItemsToolInputSchema } from './deleteItemsTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
-export type DeleteItemsToolInput = z.infer<typeof DeleteItemsToolInputSchema>;
+export type DeleteItemsToolInput = z.infer<typeof deleteItemsToolInputSchema>;
 
 // --- Output Types ---
 export interface DeleteItemResult {
@@ -35,14 +24,14 @@ export interface DeleteItemsToolOutput extends BaseMcpToolOutput {
 }
 
 // --- Tool Definition ---
-export const deleteItemsTool: McpTool<typeof DeleteItemsToolInputSchema, DeleteItemsToolOutput> = {
+export const deleteItemsTool: McpTool<typeof deleteItemsToolInputSchema, DeleteItemsToolOutput> = {
   name: 'deleteItemsTool',
   description: 'Deletes specified files or directories (supports globs - TODO: implement glob support). Uses trash by default.',
-  inputSchema: DeleteItemsToolInputSchema,
+  inputSchema: deleteItemsToolInputSchema,
 
   async execute(input: DeleteItemsToolInput, options: McpToolExecuteOptions): Promise<DeleteItemsToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
-    const parsed = DeleteItemsToolInputSchema.safeParse(input);
+    const parsed = deleteItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)

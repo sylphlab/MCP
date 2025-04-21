@@ -108,7 +108,7 @@ describe('writeFilesTool', () => {
     const result = await writeFilesTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
-    expect(result.error).toContain('items array cannot be empty');
+    expect(result.error).toContain('At least one file item is required.'); // Match schema message
     expect(mockWriteFile).not.toHaveBeenCalled();
     expect(mockAppendFile).not.toHaveBeenCalled();
   });

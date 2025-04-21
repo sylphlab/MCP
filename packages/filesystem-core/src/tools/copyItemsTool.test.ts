@@ -74,7 +74,7 @@ describe('copyItemsTool', () => {
 
     // Assert
     expect(result.success).toBe(false);
-    expect(result.error).toContain('items array cannot be empty');
+    expect(result.error).toContain('At least one copy item is required.'); // Match schema message
     expect(result.results).toHaveLength(0);
     expect(mockCp).not.toHaveBeenCalled();
   });
@@ -94,7 +94,8 @@ describe('copyItemsTool', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
     expect(result.error).toContain('Input validation failed');
-    expect(result.error).toContain('sourcePath');
+    // Zod reports error on the array item level if a required field within an object is missing
+    expect(result.error).toContain('items: Required');
     expect(mockCp).not.toHaveBeenCalled();
   });
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions, validateAndResolvePath } from '@sylphlab/mcp-core';
 import { readFile } from 'node:fs/promises';
 import * as mupdfjs from "mupdf/mupdfjs";
+import { getTextToolInputSchema, GetTextItemSchema } from './getTextTool.schema.js'; // Import schema (added .js)
 
 // --- Core Logic Function ---
 
@@ -46,23 +47,9 @@ export async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
 }
 
 
-// --- Zod Schemas ---
-
-// Schema for a single PDF text extraction item
-const GetTextInputItemSchema = z.object({
-  id: z.string().optional(),
-  filePath: z.string().min(1, 'filePath cannot be empty'),
-  // Add options like page range later if needed
-});
-
-// Main input schema: an array of PDF text extraction items
-export const GetTextToolInputSchema = z.object({
-  items: z.array(GetTextInputItemSchema).min(1, 'At least one PDF file path is required.'),
-});
-
 // --- TypeScript Types ---
-export type GetTextInputItem = z.infer<typeof GetTextInputItemSchema>;
-export type GetTextToolInput = z.infer<typeof GetTextToolInputSchema>;
+export type GetTextInputItem = z.infer<typeof GetTextItemSchema>;
+export type GetTextToolInput = z.infer<typeof getTextToolInputSchema>;
 
 // Interface for a single PDF text extraction result item
 export interface GetTextResultItem {
@@ -135,10 +122,10 @@ async function processSinglePdfGetText(
 
 
 // --- Tool Definition ---
-export const getTextTool: McpTool<typeof GetTextToolInputSchema, GetTextToolOutput> = {
+export const getTextTool: McpTool<typeof getTextToolInputSchema, GetTextToolOutput> = {
   name: 'getText',
   description: 'Extracts text content from one or more PDF files.',
-  inputSchema: GetTextToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: getTextToolInputSchema, // Schema expects { items: [...] }
 
   async execute(input: GetTextToolInput, options: McpToolExecuteOptions): Promise<GetTextToolOutput> { // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper

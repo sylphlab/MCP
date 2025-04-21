@@ -2,82 +2,12 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-
-// --- Zod Schemas for Edit Operations ---
-
-const InsertOperationSchema = z.object({
-    operation: z.literal('insert'),
-    start_line: z.number().int().min(1, 'start_line must be 1 or greater'),
-    content: z.string(),
-});
-
-const DeleteLinesOperationSchema = z.object({
-    operation: z.literal('delete_lines'),
-    start_line: z.number().int().min(1, 'start_line must be 1 or greater'),
-    end_line: z.number().int().min(1, 'end_line must be 1 or greater'),
-});
-// Refinement moved to superRefine below
-
-const ReplaceLinesOperationSchema = z.object({
-    operation: z.literal('replace_lines'),
-    start_line: z.number().int().min(1, 'start_line must be 1 or greater'),
-    end_line: z.number().int().min(1, 'end_line must be 1 or greater'),
-    content: z.string(),
-});
-// Refinement moved to superRefine below
-
-const SearchReplaceTextOperationSchema = z.object({
-    operation: z.literal('search_replace_text'),
-    search: z.string().min(1, 'search pattern cannot be empty'),
-    replace: z.string(),
-    start_line: z.number().int().min(1).optional(),
-    end_line: z.number().int().min(1).optional(),
-});
-// Refinement moved to superRefine below
-
-const SearchReplaceRegexOperationSchema = z.object({
-    operation: z.literal('search_replace_regex'),
-    regex: z.string().min(1, 'regex pattern cannot be empty'),
-    replace: z.string(),
-    flags: z.string().optional(), // e.g., 'g', 'i', 'm', 'gi'
-    start_line: z.number().int().min(1).optional(),
-    end_line: z.number().int().min(1).optional(),
-});
-// Refinement moved to superRefine below
-
-// Discriminated union for all possible edit operations
-const EditOperationSchema = z.discriminatedUnion('operation', [
-    InsertOperationSchema,
-    DeleteLinesOperationSchema,
-    ReplaceLinesOperationSchema,
-    SearchReplaceTextOperationSchema,
-    SearchReplaceRegexOperationSchema,
-]).superRefine((data, ctx) => {
-    // Apply refinement for schemas that have start_line and end_line
-    if ('start_line' in data && 'end_line' in data && data.start_line && data.end_line) {
-        if (data.end_line < data.start_line) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'end_line must be greater than or equal to start_line',
-                path: ['end_line'],
-            });
-        }
-    }
-});
-
-const FileChangeSchema = z.object({
-    path: z.string().min(1, 'path cannot be empty'),
-    edits: z.array(EditOperationSchema).min(1, 'edits array cannot be empty'),
-});
-
-export const EditFileToolInputSchema = z.object({
-  changes: z.array(FileChangeSchema).min(1, 'changes array cannot be empty'),
-  // allowOutsideWorkspace is handled internally via options, not part of the input schema
-});
+import { editFileToolInputSchema, EditOperationSchema, FileChangeSchema } from './editFileTool.schema.js'; // Import schemas (added .js)
 
 // Infer the TypeScript type from the Zod schema
-export type EditFileToolInput = z.infer<typeof EditFileToolInputSchema>;
+export type EditFileToolInput = z.infer<typeof editFileToolInputSchema>;
 export type EditOperation = z.infer<typeof EditOperationSchema>;
+type FileChange = z.infer<typeof FileChangeSchema>; // Infer internal type
 
 // --- Output Types ---
 export interface EditResult {
@@ -85,7 +15,7 @@ export interface EditResult {
     editIndex: number;
     /** Whether this specific edit was applied successfully. */
     success: boolean;
-    /** Optional message (e.g., "Inserted content", "Replaced 3 occurrences"). */
+    /** Optional message (e.g., "Inserted content", "Replacements made"). */ // Updated message example
     message?: string;
     /** Optional error if this specific edit failed. */
     error?: string;
@@ -118,14 +48,14 @@ export interface EditFileToolOutput extends BaseMcpToolOutput {
 
 // --- Tool Definition (following SDK pattern) ---
 
-export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolOutput> = {
+export const editFileTool: McpTool<typeof editFileToolInputSchema, EditFileToolOutput> = {
   name: 'editFileTool',
   description: 'Applies selective edits (insert, delete, replace by line or search pattern) to one or more files.',
-  inputSchema: EditFileToolInputSchema,
+  inputSchema: editFileToolInputSchema,
 
   async execute(input: EditFileToolInput, options: McpToolExecuteOptions): Promise<EditFileToolOutput> { // Remove workspaceRoot, require options
     // Zod validation
-    const parsed = EditFileToolInputSchema.safeParse(input);
+    const parsed = editFileToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
@@ -169,24 +99,30 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
           try {
               // Read the file content
               const originalContent = await readFile(fullPath, 'utf-8');
-              let lines = originalContent.split(/\r?\n/);
+              let lines = originalContent === '' ? [] : originalContent.split(/\r?\n/);
+              // Handle potential trailing newline creating an empty last element
+              if (lines.length > 0 && lines[lines.length - 1] === '') {
+                  lines.pop();
+              }
               let currentLines = [...lines];
+
 
               for (const [index, edit] of change.edits.entries()) {
                   let editSuccess = false;
                   let editMessage: string | undefined;
                   let editError: string | undefined;
                   let suggestion: string | undefined;
-                  const currentLineCount = currentLines.length;
+                  const currentLineCount = currentLines.length; // Recalculate before each edit
 
                   try {
-                      const startLineIndex = edit.start_line ? edit.start_line - 1 : 0;
+                      const startLine = edit.start_line ?? 1; // Default start_line to 1 if omitted
+                      const startLineIndex = startLine - 1;
 
                       // --- Start Line Boundary Check ---
-                      const maxStartIndex = (edit.operation === 'insert') ? currentLineCount : currentLineCount -1;
+                      const maxStartIndex = (edit.operation === 'insert') ? currentLineCount : Math.max(0, currentLineCount - 1);
                       const maxStartLine = (edit.operation === 'insert') ? currentLineCount + 1 : currentLineCount;
-                      if (edit.start_line && (startLineIndex < 0 || startLineIndex > maxStartIndex)) {
-                           throw new Error(`start_line ${edit.start_line} is out of bounds (1-${maxStartLine}).`);
+                      if (startLineIndex < 0 || startLineIndex > maxStartIndex) {
+                           throw new Error(`start_line ${startLine} is out of bounds (1-${maxStartLine}).`);
                       }
                       // --- End Start Line Boundary Check ---
 
@@ -195,49 +131,41 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
                               const contentLines = edit.content.split(/\r?\n/);
                               const insertIndex = Math.min(startLineIndex, currentLineCount);
                               currentLines.splice(insertIndex, 0, ...contentLines);
-                              editMessage = `Inserted ${contentLines.length} line(s) at line ${edit.start_line}.`;
+                              editMessage = `Inserted ${contentLines.length} line(s) at line ${startLine}.`;
                               editSuccess = true;
                               break;
                           }
                           case 'delete_lines': {
-                              const endLineIndex = edit.end_line - 1;
+                              const endLine = edit.end_line; // Already validated by Zod to be >= start_line
+                              const endLineIndex = endLine - 1;
                               if (endLineIndex < 0 || endLineIndex >= currentLineCount) {
-                                  throw new Error(`end_line ${edit.end_line} is out of bounds (1-${currentLineCount}).`);
-                              }
-                               if (endLineIndex < startLineIndex) {
-                                  throw new Error(`end_line ${edit.end_line} cannot be less than start_line ${edit.start_line}.`);
+                                  throw new Error(`end_line ${endLine} is out of bounds (1-${currentLineCount}).`);
                               }
                               const deleteCount = endLineIndex - startLineIndex + 1;
-                              if (startLineIndex >= currentLineCount) throw new Error(`start_line ${edit.start_line} is out of bounds.`);
                               currentLines.splice(startLineIndex, deleteCount);
-                              editMessage = `Deleted ${deleteCount} line(s) from line ${edit.start_line}.`;
+                              editMessage = `Deleted ${deleteCount} line(s) from line ${startLine}.`;
                               editSuccess = true;
                               break;
                           }
                           case 'replace_lines': {
-                               const endLineIndex = edit.end_line - 1;
+                               const endLine = edit.end_line; // Already validated by Zod to be >= start_line
+                               const endLineIndex = endLine - 1;
                                if (endLineIndex < 0 || endLineIndex >= currentLineCount) {
-                                   throw new Error(`end_line ${edit.end_line} is out of bounds (1-${currentLineCount}).`);
-                               }
-                                if (endLineIndex < startLineIndex) {
-                                   throw new Error(`end_line ${edit.end_line} cannot be less than start_line ${edit.start_line}.`);
+                                   throw new Error(`end_line ${endLine} is out of bounds (1-${currentLineCount}).`);
                                }
                               const deleteCount = endLineIndex - startLineIndex + 1;
-                               if (startLineIndex >= currentLineCount) throw new Error(`start_line ${edit.start_line} is out of bounds.`);
                               const contentLines = edit.content.split(/\r?\n/);
                               currentLines.splice(startLineIndex, deleteCount, ...contentLines);
-                              editMessage = `Replaced ${deleteCount} line(s) starting at line ${edit.start_line} with ${contentLines.length} line(s).`;
+                              editMessage = `Replaced ${deleteCount} line(s) starting at line ${startLine} with ${contentLines.length} line(s).`;
                               editSuccess = true;
                               break;
                           }
                           case 'search_replace_text':
                           case 'search_replace_regex': {
-                               const endLineIndex = edit.end_line ? edit.end_line - 1 : currentLineCount - 1;
-                               if (edit.end_line && (endLineIndex < 0 || endLineIndex >= currentLineCount)) {
-                                   throw new Error(`end_line ${edit.end_line} is out of bounds (1-${currentLineCount}).`);
-                               }
-                                if (edit.start_line && edit.end_line && endLineIndex < startLineIndex) {
-                                   throw new Error(`end_line ${edit.end_line} cannot be less than start_line ${edit.start_line}.`);
+                               const endLine = edit.end_line ?? currentLineCount; // Default end_line to last line if omitted
+                               const endLineIndex = endLine - 1;
+                               if (endLineIndex < 0 || endLineIndex >= currentLineCount) {
+                                   throw new Error(`end_line ${endLine} is out of bounds (1-${currentLineCount}).`);
                                }
                               let replacementsMade = 0;
                               const effectiveStart = startLineIndex;
@@ -257,20 +185,37 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
                                   if (originalLine === undefined) continue;
 
                                   let modifiedLine: string;
+                                  let lineReplacements = 0;
                                   if (regex) {
+                                      // Schema only allows string replace, so no need to check for function
                                       modifiedLine = originalLine.replace(regex, edit.replace);
+                                      // Count replacements based on non-overlapping matches
+                                      // This is an approximation; complex regex might behave differently
+                                      lineReplacements = (originalLine.match(regex) || []).length;
                                   } else if (edit.operation === 'search_replace_text') {
-                                      modifiedLine = originalLine.replaceAll(edit.search, edit.replace);
+                                      const searchStr = edit.search;
+                                      const replaceStr = edit.replace;
+                                      // Use standard string replace for first occurrence only
+                                      modifiedLine = originalLine.replace(edit.search, edit.replace);
+                                      // Estimate replacements made for message consistency (crude)
+                                      if (originalLine !== modifiedLine) {
+                                           lineReplacements = 1; // Assume at least one if changed
+                                      }
+
                                   } else {
                                       modifiedLine = originalLine;
                                   }
 
                                   if (originalLine !== modifiedLine) {
                                       currentLines[i] = modifiedLine;
-                                      replacementsMade++;
+                                      replacementsMade += lineReplacements; // Count actual replacements
                                   }
                               }
-                              editMessage = `Made ${replacementsMade} replacement(s) between lines ${edit.start_line ?? 1} and ${edit.end_line ?? currentLineCount}.`;
+                              // Include replacement count in the message
+                              editMessage = `${replacementsMade} replacement(s) made between lines ${startLine} and ${endLine}.`;
+                              if (replacementsMade === 0) {
+                                  editMessage = `No replacements needed between lines ${startLine} and ${endLine}.`;
+                              }
                               editSuccess = true;
                               break;
                           }
@@ -293,11 +238,16 @@ export const editFileTool: McpTool<typeof EditFileToolInputSchema, EditFileToolO
                   // if (!editSuccess) break; // Temporarily remove break
               }
 
-              // If all edits for the file were successful, write back
+              // If all edits for the file were successful (or no edits failed), write back
               if (fileSuccess) {
-                  const modifiedContent = currentLines.join('\n');
-                  if (modifiedContent !== originalContent) {
-                      await writeFile(fullPath, modifiedContent, 'utf-8');
+                  // Compare content accurately, ignoring potential trailing newline differences for the check
+                  const modifiedContentJoined = currentLines.join('\n');
+                  // Remove potential single trailing newline from original content for comparison purposes ONLY
+                  const originalContentTrimmed = originalContent.replace(/\r?\n$/, '');
+
+                  if (modifiedContentJoined !== originalContentTrimmed) {
+                      // Write the joined content as is; fs.writeFile handles platform specifics
+                      await writeFile(fullPath, modifiedContentJoined, 'utf-8');
                       console.error(`Successfully applied edits to ${filePath}.`);
                   } else {
                        console.error(`No changes needed for ${filePath}.`);
