@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // Import the actual tool and its types
-import { xmlTool, XmlToolInput } from './index'; // Remove .js extension
+import { xmlTool, type XmlToolInput } from './index'; // Remove .js extension
 
 // Mock workspace root - not used by this tool's logic but required by execute signature
 const mockWorkspaceRoot = '';

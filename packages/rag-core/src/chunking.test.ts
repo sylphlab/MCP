@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 // Import Lezer types
-import { Tree, SyntaxNode } from '@lezer/common';
+import { type Tree, SyntaxNode } from '@lezer/common';
 // Import module under test
-import { chunkCodeAst, detectLanguage, ChunkingOptions } from './chunking.js';
+import { chunkCodeAst, detectLanguage, type ChunkingOptions } from './chunking.js';
 // Import SupportedLanguage directly from parsing.js
 import { SupportedLanguage, parseCode } from './parsing.js'; // Import parseCode to mock it
 // We will use the REAL parseCode now, no need to import it for mocking

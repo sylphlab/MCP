@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Import individual tools and types
 import {
-  getPublicIpTool, GetPublicIpToolInput, GetPublicIpToolOutput,
-  getInterfacesTool, GetInterfacesToolInput, GetInterfacesToolOutput
+  getPublicIpTool, type GetPublicIpToolInput, GetPublicIpToolOutput,
+  getInterfacesTool, type GetInterfacesToolInput, GetInterfacesToolOutput
 } from './index';
 import os from 'node:os'; // Import os for mocking
-import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 
 // Mock the os module for getInterfaces
 vi.mock('node:os');

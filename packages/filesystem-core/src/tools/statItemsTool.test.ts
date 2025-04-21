@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
 import { stat } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
-import { Stats } from 'node:fs'; // Import Stats type
-import { statItemsTool, StatItemsToolInput } from './statItemsTool';
-import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import type { Stats } from 'node:fs'; // Import Stats type
+import { statItemsTool, type StatItemsToolInput } from './statItemsTool';
+import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({

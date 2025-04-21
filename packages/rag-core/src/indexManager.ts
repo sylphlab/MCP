@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { Chunk } from './types.js';
-import { EmbeddingVector, IEmbeddingFunction } from './embedding.js'; // Import IEmbeddingFunction
-import { ChromaClient, Collection, Where, IncludeEnum, Metadata } from 'chromadb';
-import { Pinecone, Index as PineconeIndex, RecordMetadata } from '@pinecone-database/pinecone';
+import type { Chunk } from './types.js';
+import type { EmbeddingVector, IEmbeddingFunction } from './embedding.js'; // Import IEmbeddingFunction
+import { ChromaClient, type Collection, Where, IncludeEnum, type Metadata } from 'chromadb';
+import { Pinecone, type Index as PineconeIndex, type RecordMetadata } from '@pinecone-database/pinecone';
 import path from 'node:path';
 import { convertFilterToChromaWhere } from './chroma.js';
 
@@ -54,7 +54,7 @@ export interface QueryResult {
   score: number;
 }
 
-let inMemoryStore: Map<string, IndexedItem> = new Map();
+const inMemoryStore: Map<string, IndexedItem> = new Map();
 
 export class IndexManager {
   private config: VectorDbConfig;
@@ -275,7 +275,7 @@ export class IndexManager {
 
   async queryIndex(
     queryVector: EmbeddingVector,
-    topK: number = 5,
+    topK = 5,
     filter?: Record<string, string | number | boolean>
   ): Promise<QueryResult[]> {
     console.log(`Querying index for top ${topK} results...`);

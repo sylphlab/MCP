@@ -19,9 +19,9 @@ import {
     detectLanguage,
     OllamaEmbeddingFunction,
     MockEmbeddingFunction,
-    IEmbeddingFunction,
-    Chunk,
-    IndexedItem,
+    type IEmbeddingFunction,
+    type Chunk,
+    type IndexedItem,
     // No longer need getRagCollection directly
 } from '@sylphlab/mcp-rag-core';
 import dotenv from 'dotenv';

@@ -3,7 +3,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ZodObject, ZodRawShape, z } from 'zod'; // Import z
-import { McpTool } from '@sylphlab/mcp-core';
+import type { McpTool } from '@sylphlab/mcp-core';
 import { registerTools } from '@sylphlab/mcp-utils';
 
 // Import the complete tool objects from the core library

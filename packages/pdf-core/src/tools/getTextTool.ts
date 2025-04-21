@@ -1,8 +1,8 @@
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions, validateAndResolvePath } from '@sylphlab/mcp-core';
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions, validateAndResolvePath } from '@sylphlab/mcp-core';
 import { readFile } from 'node:fs/promises';
 import * as mupdfjs from "mupdf/mupdfjs";
-import { getTextToolInputSchema, GetTextItemSchema } from './getTextTool.schema.js'; // Import schema (added .js)
+import { getTextToolInputSchema, type GetTextItemSchema } from './getTextTool.schema.js'; // Import schema (added .js)
 
 // --- Core Logic Function ---
 

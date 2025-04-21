@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // Import the actual tool and its types
-import { jsonTool, JsonToolInput, JsonToolOutput } from './index';
+import { jsonTool, type JsonToolInput, JsonToolOutput } from './index';
 
 // Mock workspace root - not used by jsonTool's logic but required by execute signature
 const mockWorkspaceRoot = '';

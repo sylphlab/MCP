@@ -1,4 +1,4 @@
-import { Tree, Parser } from '@lezer/common'; // Core Lezer types
+import type { Tree, Parser } from '@lezer/common'; // Core Lezer types
 // Import specific language parsers
 import { parser as jsParser } from '@lezer/javascript';
 import { parser as pyParser } from '@lezer/python';

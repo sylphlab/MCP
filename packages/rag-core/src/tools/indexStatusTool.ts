@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import path from 'node:path'; // Import path
 // Correct imports based on core/src/index.ts
-import { McpTool, BaseMcpToolOutput, McpContentPart, McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import type { McpTool, BaseMcpToolOutput, McpContentPart, McpToolExecuteOptions } from '@sylphlab/mcp-core';
 import { getRagCollection } from '../chroma.js';
 // Removed VercelAIEmbeddingFunction import
-import { IEmbeddingFunction } from 'chromadb'; // Import IEmbeddingFunction type
+import type { IEmbeddingFunction } from 'chromadb'; // Import IEmbeddingFunction type
 
 // Define Input Schema using Zod (optional, could be empty)
 const IndexStatusInput = z.object({}).optional(); // No input needed

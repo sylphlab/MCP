@@ -1,8 +1,8 @@
 import { writeFile, appendFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-import { writeFilesToolInputSchema, WriteFileItemSchema } from './writeFilesTool.schema.js'; // Import schema (added .js)
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
+import { writeFilesToolInputSchema, type WriteFileItemSchema } from './writeFilesTool.schema.js'; // Import schema (added .js)
 
 // Define BufferEncoding type for Zod schema
 type BufferEncoding = 'utf-8' | 'base64'; // Add others if needed

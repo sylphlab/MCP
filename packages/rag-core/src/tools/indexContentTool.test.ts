@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Remove top-level declaration of mockUpsertItems
-import { z } from 'zod';
-import { BaseMcpToolOutput, TextPart, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import TextPart and McpToolExecuteOptions
+import type { z } from 'zod';
+import { BaseMcpToolOutput, type TextPart, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import TextPart and McpToolExecuteOptions
 import { SupportedLanguage } from '../parsing.js';
 import { VectorDbProvider, IndexManager } from '../indexManager.js'; // Import IndexManager class directly
 import { EmbeddingModelProvider } from '../embedding.js'; // Import EmbeddingModelProvider enum
 import * as embeddingModule from '../embedding.js'; // Import the module for spying
 import * as chunkingModule from '../chunking.js'; // Import the module for spying
 import hljs from 'highlight.js'; // Import highlight.js for spying
-import { Chunk } from '../types.js';
+import type { Chunk } from '../types.js';
 
 // --- Mocks --- No mocks defined here
 
@@ -16,7 +16,7 @@ import { Chunk } from '../types.js';
 
 // --- Dynamic Import ---
 // Import the tool *after* mocks are set up
-import { indexContentTool, IndexContentInputSchema } from './indexContentTool.js';
+import { indexContentTool, type IndexContentInputSchema } from './indexContentTool.js';
 
 // --- Test Suite ---
 describe('indexContentTool', () => {

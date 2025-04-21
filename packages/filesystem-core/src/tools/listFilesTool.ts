@@ -1,8 +1,8 @@
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { Stats } from 'node:fs'; // Import Stats type
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
+import type { Stats } from 'node:fs'; // Import Stats type
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
 import { listFilesToolInputSchema } from './listFilesTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema

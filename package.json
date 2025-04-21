@@ -6,7 +6,8 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
-    "test:coverage": "turbo run test:coverage"
+    "test:coverage": "turbo run test:coverage",
+    "lint": "biome lint"
   },
   "keywords": [],
   "author": "",
@@ -22,5 +23,10 @@
     "vite-plugin-wasm": "^3.4.1",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.1.1"
+  },
+  "dependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@sylphlab/biome-config": "^0.2.0",
+    "lefthook": "^1.11.10"
   }
 }

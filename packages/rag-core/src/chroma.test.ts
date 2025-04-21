@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest'; // Added Mock type
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'; // Added Mock type
 import path from 'node:path';
-import { Collection, IEmbeddingFunction } from 'chromadb'; // Import type
+import type { Collection, IEmbeddingFunction } from 'chromadb'; // Import type
 
 // --- Mocks ---
 // Define shared mock implementations

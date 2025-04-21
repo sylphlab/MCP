@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'node:path';
-import { TextPart, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import TextPart and McpToolExecuteOptions
-import { IEmbeddingFunction } from 'chromadb'; // Import type
+import type { TextPart, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import TextPart and McpToolExecuteOptions
+import type { IEmbeddingFunction } from 'chromadb'; // Import type
 
 // --- Mocks ---
 const mockCount = vi.fn();

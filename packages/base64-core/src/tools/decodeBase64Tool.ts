@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
 import { DecodeBase64ToolInputSchema } from './decodeBase64Tool.schema.js'; // Import schema (added .js)
 
 // --- TypeScript Type from Schema ---

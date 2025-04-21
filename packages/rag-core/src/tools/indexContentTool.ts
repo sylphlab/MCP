@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { McpTool, McpToolInput, BaseMcpToolOutput, McpContentPart, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
+import { type McpTool, McpToolInput, type BaseMcpToolOutput, type McpContentPart, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
 import { type ChunkingOptions, chunkCodeAst } from '../chunking.js'; // Import interface type
 import { EmbeddingModelConfigSchema, generateEmbeddings, EmbeddingModelProvider, defaultEmbeddingConfig } from '../embedding.js'; // Import default config
-import { IndexManager, VectorDbConfigSchema, IndexedItem, VectorDbProvider } from '../indexManager.js';
+import { IndexManager, VectorDbConfigSchema, type IndexedItem, VectorDbProvider } from '../indexManager.js';
 import { SupportedLanguage } from '../parsing.js';
-import { Chunk } from '../types.js';
+import type { Chunk } from '../types.js';
 import hljs from 'highlight.js'; // Import highlight.js
 
 // Define the input schema for the indexContentTool

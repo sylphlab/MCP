@@ -1,8 +1,8 @@
 import { cp } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-import { copyItemsToolInputSchema, CopyItemSchema } from './copyItemsTool.schema.js'; // Import schema (added .js)
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
+import { copyItemsToolInputSchema, type CopyItemSchema } from './copyItemsTool.schema.js'; // Import schema (added .js)
 
 // --- Input Types ---
 

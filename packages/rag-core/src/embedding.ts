@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Chunk } from './types.js';
+import type { Chunk } from './types.js';
 import { embedMany } from 'ai'; // Import Vercel AI SDK function
 import { createOllama } from 'ollama-ai-provider'; // Import Ollama provider
 import type { IEmbeddingFunction as ChromaIEmbeddingFunction } from 'chromadb'; // Import the type
@@ -58,7 +58,7 @@ export type EmbeddingVector = number[];
 
 // Mock Implementation
 export class MockEmbeddingFunction implements IEmbeddingFunction {
-    constructor(private dimension: number = 768) {}
+    constructor(private dimension = 768) {}
     public async generate(texts: string[]): Promise<number[][]> {
         console.warn(`Using MockEmbeddingFunction. Generating dummy embeddings of dimension ${this.dimension}.`);
         return texts.map(() => Array(this.dimension).fill(0).map(() => Math.random()));
@@ -101,7 +101,7 @@ export class HttpEmbeddingFunction implements IEmbeddingFunction {
     private headers: Record<string, string>;
     private batchSize: number;
 
-    constructor(url: string, headers?: Record<string, string>, batchSize: number = 100) {
+    constructor(url: string, headers?: Record<string, string>, batchSize = 100) {
         this.url = url;
         this.headers = headers || {};
         this.batchSize = batchSize;

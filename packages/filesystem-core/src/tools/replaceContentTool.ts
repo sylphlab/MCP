@@ -1,9 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { z } from 'zod';
+import type { z } from 'zod';
 import glob from 'fast-glob'; // Import fast-glob
-import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-import { replaceContentToolInputSchema, ReplaceOperationSchema } from './replaceContentTool.schema.js'; // Import schema (added .js)
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
+import { replaceContentToolInputSchema, type ReplaceOperationSchema } from './replaceContentTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
 export type ReplaceContentToolInput = z.infer<typeof replaceContentToolInputSchema>;

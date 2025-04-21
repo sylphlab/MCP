@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
-import { Collection, IEmbeddingFunction } from 'chromadb'; // Keep type imports
-import { IndexManager, VectorDbProvider, VectorDbConfig, IndexedItem, QueryResult } from './indexManager.js';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
+import type { Collection, IEmbeddingFunction } from 'chromadb'; // Keep type imports
+import { IndexManager, VectorDbProvider, type VectorDbConfig, type IndexedItem, QueryResult } from './indexManager.js';
 // Import functions/modules to spy on
 import * as loader from './loader.js';
 import * as chunking from './chunking.js';

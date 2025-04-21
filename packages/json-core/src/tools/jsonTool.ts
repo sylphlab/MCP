@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-import { jsonToolInputSchema, JsonInputItemSchema, JsonOperationEnum } from './jsonTool.schema.js'; // Import schemas (added .js)
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import { jsonToolInputSchema, type JsonInputItemSchema, type JsonOperationEnum } from './jsonTool.schema.js'; // Import schemas (added .js)
 
 // --- TypeScript Types ---
 export type JsonOperation = z.infer<typeof JsonOperationEnum>;

@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-import { waitToolInputSchema, WaitItemSchema } from './waitTool.schema'; // Import schema (fixed name)
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import { waitToolInputSchema, type WaitItemSchema } from './waitTool.schema'; // Import schema (fixed name)
 
 // --- TypeScript Types ---
 export type WaitInputItem = z.infer<typeof WaitItemSchema>; // Use correct schema name

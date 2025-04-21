@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Import the actual tool and its types
-import { fetchTool, FetchToolInput } from './index.js'; // Add .js extension
+import { fetchTool, type FetchToolInput } from './index.js'; // Add .js extension
 
 // Mock workspace root - not used by this tool's logic but required by execute signature
 const mockWorkspaceRoot = '';

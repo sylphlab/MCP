@@ -1,5 +1,5 @@
 // src/index.ts for @sylphlab/mcp-core
-import { z } from 'zod';
+import type { z } from 'zod';
 import path from 'node:path';
 
 // --- Content Part Types ---
@@ -130,7 +130,7 @@ export interface PathValidationError {
 export function validateAndResolvePath(
   relativePathInput: string,
   workspaceRoot: string,
-  allowOutsideRoot: boolean = false
+  allowOutsideRoot = false
 ): string | PathValidationError {
     console.log(`[validateAndResolvePath] Input: '${relativePathInput}', AllowOutside: ${allowOutsideRoot}`); // DEBUG LOG
 

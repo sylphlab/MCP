@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
-import { z } from 'zod';
+import type { z } from 'zod';
 // Import the actual modules now, except for embedding which we still mock fully
 import { queryIndexTool, QueryIndexInputSchema } from './queryIndexTool.js';
-import { IndexManager, VectorDbProvider, QueryResult, VectorDbConfigSchema, VectorDbConfig } from '../indexManager.js'; // Added VectorDbConfig import
+import { IndexManager, VectorDbProvider, type QueryResult, type VectorDbConfigSchema, type VectorDbConfig } from '../indexManager.js'; // Added VectorDbConfig import
 import * as embedding from '../embedding.js'; // Mocked below
-import { BaseMcpToolOutput, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
+import { BaseMcpToolOutput, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
 
 // --- Mock Setup ---
 
@@ -28,7 +28,7 @@ const mockGenerateEmbeddings = vi.mocked(embedding.generateEmbeddings);
 
 // --- Test Suite ---
 
-import { MockInstance } from 'vitest'; // Import MockInstance
+import type { MockInstance } from 'vitest'; // Import MockInstance
 
 describe('queryIndexTool', () => {
   // Declare spy variable with explicit type

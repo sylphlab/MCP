@@ -1,5 +1,5 @@
-import { Tree, SyntaxNode } from '@lezer/common'; // Import Lezer types
-import { Document, Chunk } from './types.js';
+import { Tree, type SyntaxNode } from '@lezer/common'; // Import Lezer types
+import type { Document, Chunk } from './types.js';
 import { parseCode, SupportedLanguage } from './parsing.js';
 import path from 'node:path';
 

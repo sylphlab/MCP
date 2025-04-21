@@ -1,7 +1,7 @@
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
 import { createHash } from 'crypto';
-import { hashToolInputSchema, HashItemSchema, HashAlgorithmEnum } from './hashTool.schema.js'; // Import schema (added .js)
+import { hashToolInputSchema, type HashItemSchema, type HashAlgorithmEnum } from './hashTool.schema.js'; // Import schema (added .js)
 
 // --- TypeScript Types ---
 export type HashAlgorithm = z.infer<typeof HashAlgorithmEnum>;

@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 import { createFolderToolInputSchema } from './createFolderTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema

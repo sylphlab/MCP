@@ -1,4 +1,4 @@
-import { ChromaClient, Collection, IEmbeddingFunction, Where } from 'chromadb'; // Import Chroma types
+import { ChromaClient, type Collection, type IEmbeddingFunction, type Where } from 'chromadb'; // Import Chroma types
 import path from 'node:path';
 
 // Configuration for ChromaDB

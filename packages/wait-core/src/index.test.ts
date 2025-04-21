@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 // Import the actual tool and its input type
-import { waitTool, WaitToolInput } from './index';
+import { waitTool, type WaitToolInput } from './index';
 
 // Mock workspace root - not used by waitTool's logic but required by execute signature
 const mockWorkspaceRoot = '';

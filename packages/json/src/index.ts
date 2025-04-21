@@ -2,7 +2,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { McpTool } from '@sylphlab/mcp-core';
+import type { McpTool } from '@sylphlab/mcp-core';
 import { registerTools } from '@sylphlab/mcp-utils'; // Import the helper
 
 // Import the tool object from the core library

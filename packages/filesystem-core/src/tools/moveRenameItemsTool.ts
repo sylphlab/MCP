@@ -1,8 +1,8 @@
 import { rename, mkdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-import { moveRenameItemsToolInputSchema, MoveRenameItemSchema } from './moveRenameItemsTool.schema.js'; // Import schema (added .js)
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
+import { moveRenameItemsToolInputSchema, type MoveRenameItemSchema } from './moveRenameItemsTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
 export type MoveRenameItemsToolInput = z.infer<typeof moveRenameItemsToolInputSchema>;

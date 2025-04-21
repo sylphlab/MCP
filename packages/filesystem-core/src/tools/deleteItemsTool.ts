@@ -1,8 +1,8 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
-import { z } from 'zod';
+import type { z } from 'zod';
 import trash from 'trash';
-import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
 import { deleteItemsToolInputSchema } from './deleteItemsTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema

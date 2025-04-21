@@ -1,8 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-import { editFileToolInputSchema, EditOperationSchema, FileChangeSchema } from './editFileTool.schema.js'; // Import schemas (added .js)
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
+import { editFileToolInputSchema, type EditOperationSchema, type FileChangeSchema } from './editFileTool.schema.js'; // Import schemas (added .js)
 
 // Infer the TypeScript type from the Zod schema
 export type EditFileToolInput = z.infer<typeof editFileToolInputSchema>;
@@ -99,12 +99,12 @@ export const editFileTool: McpTool<typeof editFileToolInputSchema, EditFileToolO
           try {
               // Read the file content
               const originalContent = await readFile(fullPath, 'utf-8');
-              let lines = originalContent === '' ? [] : originalContent.split(/\r?\n/);
+              const lines = originalContent === '' ? [] : originalContent.split(/\r?\n/);
               // Handle potential trailing newline creating an empty last element
               if (lines.length > 0 && lines[lines.length - 1] === '') {
                   lines.pop();
               }
-              let currentLines = [...lines];
+              const currentLines = [...lines];
 
 
               for (const [index, edit] of change.edits.entries()) {

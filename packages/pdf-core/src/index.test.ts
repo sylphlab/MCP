@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mocked } from 'vitest'; // Import Mocked type
-import { getTextTool, GetTextToolInput } from './index'; // Import the correct tool and input type
+import { getTextTool, type GetTextToolInput } from './index'; // Import the correct tool and input type
 import path from 'node:path'; // Import path for resolving
-import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 // Import the real function for mocking its module - Assuming validateAndResolvePath is still used and not mocked here
 // import { validateAndResolvePath } from '@sylphlab/mcp-core';
 

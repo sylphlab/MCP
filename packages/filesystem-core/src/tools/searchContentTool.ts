@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { z } from 'zod';
+import type { z } from 'zod';
 import glob from 'fast-glob'; // Import fast-glob
-import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
 import { searchContentToolInputSchema } from './searchContentTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
@@ -149,7 +149,7 @@ export const searchContentTool: McpTool<typeof searchContentToolInputSchema, Sea
                 if (line === undefined) continue; // Should not happen with split, but safety
 
                 let matchResult: RegExpExecArray | null;
-                let searchIndex = 0;
+                const searchIndex = 0;
 
                 // Find all matches on the current line
                 while ((matchResult = searchRegex.exec(line)) !== null) {

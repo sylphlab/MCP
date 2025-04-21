@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type MockedFunction } from 'vitest';
 import { mkdir } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
-import { createFolderTool, CreateFolderToolInput } from './createFolderTool';
+import { createFolderTool, type CreateFolderToolInput } from './createFolderTool';
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({

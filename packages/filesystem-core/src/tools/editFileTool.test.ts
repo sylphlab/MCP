@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type MockedFunction } from 'vitest';
 import { readFile, writeFile } from 'node:fs/promises'; // Use named imports
 import path from 'node:path';
-import { editFileTool, EditFileToolInput, EditOperation } from './editFileTool';
-import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import { editFileTool, type EditFileToolInput, type EditOperation } from './editFileTool';
+import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({

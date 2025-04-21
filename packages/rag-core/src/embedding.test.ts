@@ -3,14 +3,14 @@ import {
     generateEmbeddings,
     EmbeddingModelProvider,
     defaultEmbeddingConfig,
-    EmbeddingModelConfig,
+    type EmbeddingModelConfig,
     HttpEmbeddingFunction,
     MockEmbeddingFunction,
     OllamaEmbeddingFunction
 } from './embedding.js';
 import { embedMany } from 'ai'; // Import embedMany
 import { createOllama } from 'ollama-ai-provider'; // Import createOllama
-import { Chunk } from './types.js'; // Import Chunk type
+import type { Chunk } from './types.js'; // Import Chunk type
 
 // Keep original fetch import
 import fetch from 'node-fetch-native';

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // Import the actual tool and its types
-import { hashTool, HashToolInput, HashToolOutput } from './index';
+import { hashTool, type HashToolInput, HashToolOutput } from './index';
 
 // Mock workspace root - not used by hashTool's logic but required by execute signature
 const mockWorkspaceRoot = '';

@@ -1,8 +1,8 @@
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
-import { Stats } from 'node:fs';
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, validateAndResolvePath, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import type { Stats } from 'node:fs';
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
 import { statItemsToolInputSchema } from './statItemsTool.schema.js'; // Import schema (added .js)
 
 export type StatItemsToolInput = z.infer<typeof statItemsToolInputSchema>;

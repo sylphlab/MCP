@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { downloadTool } from './downloadTool';
 import type { DownloadToolInput } from './downloadTool.types';
-import * as http from 'node:http'; // Regular import
+import type * as http from 'node:http'; // Regular import
 import type { ClientRequest, RequestOptions, IncomingMessage } from 'node:http'; // Import necessary types
 import * as path from 'node:path'; // Add path import
 import type * as fsTypes from 'node:fs'; // Use type import for fs types
 import type * as stream from 'node:stream'; // Keep type import for Readable
 import type * as https from 'node:https'; // Import type for https options
-import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 
 // --- Mocks ---
 // Mock @sylphlab/mcp-core

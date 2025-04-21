@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-import { xmlToolInputSchema, XmlInputItemSchema, XmlOperationEnum } from './xmlTool.schema'; // Import schema
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import { xmlToolInputSchema, type XmlInputItemSchema, type XmlOperationEnum } from './xmlTool.schema'; // Import schema
 
 // --- TypeScript Types ---
 export type XmlOperation = z.infer<typeof XmlOperationEnum>;

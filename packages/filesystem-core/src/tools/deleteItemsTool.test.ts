@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type MockedFunction } from 'vitest';
 import { rm } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
 import trash from 'trash'; // Import trash
-import { deleteItemsTool, DeleteItemsToolInput } from './deleteItemsTool';
+import { deleteItemsTool, type DeleteItemsToolInput } from './deleteItemsTool';
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({

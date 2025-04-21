@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
 import { readFile } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
 import glob from 'fast-glob'; // Import fast-glob
-import { searchContentTool, SearchContentToolInput } from './searchContentTool';
-import { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import { searchContentTool, type SearchContentToolInput } from './searchContentTool';
+import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 
 
 // Mock the specific fs/promises functions we need

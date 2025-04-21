@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpToolInput, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-import { fetchToolInputSchema, FetchItemSchema } from './fetchTool.schema.js'; // Import schemas (re-added .js)
+import type { z } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import { fetchToolInputSchema, type FetchItemSchema } from './fetchTool.schema.js'; // Import schemas (re-added .js)
 
 // --- TypeScript Types ---
 export type FetchInputItem = z.infer<typeof FetchItemSchema>;

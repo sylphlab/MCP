@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 // Import the actual tools and their types
 import {
-  encodeBase64Tool, EncodeBase64ToolInput, EncodeBase64ToolOutput,
-  decodeBase64Tool, DecodeBase64ToolInput, DecodeBase64ToolOutput
+  encodeBase64Tool, type EncodeBase64ToolInput, EncodeBase64ToolOutput,
+  decodeBase64Tool, type DecodeBase64ToolInput, DecodeBase64ToolOutput
 } from './index';
 
 // Mock workspace root - not used by these tools' logic but required by execute signature

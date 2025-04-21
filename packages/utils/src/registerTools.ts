@@ -1,6 +1,6 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { ZodObject, ZodRawShape } from 'zod';
-import { McpTool, BaseMcpToolOutput, McpContentPart } from '@sylphlab/mcp-core';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { ZodObject, type ZodRawShape } from 'zod';
+import { type McpTool, type BaseMcpToolOutput, McpContentPart } from '@sylphlab/mcp-core';
 
 /**
  * Registers an array of McpTool objects with an McpServer instance.

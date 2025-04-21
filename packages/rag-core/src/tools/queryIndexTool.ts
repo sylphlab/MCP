@@ -1,6 +1,6 @@
 import { z } from 'zod';
 // Remove incorrect McpToolContext import
-import { McpTool, McpToolInput, BaseMcpToolOutput, McpContentPart, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
+import { type McpTool, McpToolInput, type BaseMcpToolOutput, type McpContentPart, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
 import {
   EmbeddingModelConfigSchema,
   generateEmbeddings,
@@ -10,7 +10,7 @@ import {
     HttpEmbeddingFunction,   // Import class
     MockEmbeddingFunction    // Import class
 } from '../embedding.js'; // Import default config and classes
-import { IndexManager, VectorDbConfigSchema, QueryResult, VectorDbProvider } from '../indexManager.js'; // Add .js
+import { IndexManager, VectorDbConfigSchema, type QueryResult, VectorDbProvider } from '../indexManager.js'; // Add .js
 
 // Define the input schema for the queryIndexTool
 export const QueryIndexInputSchema = z.object({

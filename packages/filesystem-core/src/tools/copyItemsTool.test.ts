@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type MockedFunction } from 'vitest';
 import { cp, stat, mkdir } from 'node:fs/promises'; // Use named imports
 import path from 'node:path';
-import { Stats } from 'node:fs'; // Import Stats type
-import { copyItemsTool, CopyItemsToolInput } from './copyItemsTool';
+import type { Stats } from 'node:fs'; // Import Stats type
+import { copyItemsTool, type CopyItemsToolInput } from './copyItemsTool';
 
 // Mock the specific fs/promises functions we need (using named exports)
 vi.mock('node:fs/promises', () => ({
