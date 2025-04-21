@@ -1,5 +1,13 @@
 # @sylphlab/filesystem
 
+## 0.4.4
+
+### Patch Changes
+
+- bb39824: minor fix built issue
+- Updated dependencies [bb39824]
+  - @sylphlab/mcp-core@0.2.2
+
 ## 0.4.3
 
 ### Patch Changes

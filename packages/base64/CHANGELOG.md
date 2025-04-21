@@ -1,5 +1,15 @@
 # @sylphlab/mcp-base64
 
+## 0.3.5
+
+### Patch Changes
+
+- bb39824: minor fix built issue
+- Updated dependencies [bb39824]
+  - @sylphlab/mcp-base64-core@0.3.5
+  - @sylphlab/mcp-core@0.2.2
+  - @sylphlab/mcp-utils@0.5.2
+
 ## 0.3.4
 
 ### Patch Changes

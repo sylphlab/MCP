@@ -1,5 +1,11 @@
 # @sylphlab/mcp-core
 
+## 0.2.2
+
+### Patch Changes
+
+- bb39824: minor fix built issue
+
 ## 0.2.1
 
 ### Patch Changes
