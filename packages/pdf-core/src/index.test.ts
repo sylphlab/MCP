@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach, type Mocked } from 'vitest'; // Import Mocked type
-import { getTextTool, type GetTextToolInput } from './index'; // Import the correct tool and input type
 import path from 'node:path'; // Import path for resolving
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import { type Mocked, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'; // Import Mocked type
+import { type GetTextToolInput, getTextTool } from './index'; // Import the correct tool and input type
 // Import the real function for mocking its module - Assuming validateAndResolvePath is still used and not mocked here
 // import { validateAndResolvePath } from '@sylphlab/mcp-core';
 
@@ -12,11 +12,15 @@ vi.mock('node:fs/promises', () => ({
 
 // --- Mock mupdf/mupdfjs ---
 const mockStructuredTextJson = JSON.stringify({
-  blocks: [{
-    lines: [{
-      spans: [{ text: 'Mock MuPDF text content' }]
-    }]
-  }]
+  blocks: [
+    {
+      lines: [
+        {
+          spans: [{ text: 'Mock MuPDF text content' }],
+        },
+      ],
+    },
+  ],
 });
 
 const mockStructuredText = {
@@ -31,7 +35,8 @@ const mockMuPdfPage = {
 const mockMuPdfDoc = {
   countPages: vi.fn().mockReturnValue(1),
   loadPage: vi.fn().mockImplementation((pageNum) => {
-    if (pageNum === 0) { // mupdf is 0-indexed
+    if (pageNum === 0) {
+      // mupdf is 0-indexed
       return mockMuPdfPage;
     }
     throw new Error('Mock: Invalid page number');
@@ -48,14 +53,13 @@ vi.mock('mupdf/mupdfjs', () => ({
 }));
 // --- End Mock mupdf/mupdfjs ---
 
-
 // Import mocks AFTER vi.mock calls
 import { readFile } from 'node:fs/promises';
 // Import the mocked mupdf namespace
 import * as mupdfjs from 'mupdf/mupdfjs';
 
-
-describe('getTextTool.execute', () => { // Update describe block
+describe('getTextTool.execute', () => {
+  // Update describe block
   const mockFileBuffer = Buffer.from('fake-pdf-content');
   // No need for mockStaticLoadFn anymore
   const WORKSPACE_ROOT = path.resolve('/test/workspace');
@@ -63,9 +67,14 @@ describe('getTextTool.execute', () => { // Update describe block
   const resolvedErrorPath = path.join(WORKSPACE_ROOT, 'error.pdf');
   const resolvedOutsidePath = path.resolve('/test', 'outside.pdf');
   // Define options objects including workspaceRoot
-  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
-
+  const defaultOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: false,
+  };
+  const allowOutsideOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: true,
+  };
 
   beforeEach(() => {
     // Clear mocks before each test
@@ -84,25 +93,29 @@ describe('getTextTool.execute', () => { // Update describe block
 
     // Setup default mock implementations for other external modules
     vi.mocked(readFile).mockImplementation(async (filePath: any) => {
-        if (filePath === resolvedValidPath || filePath === resolvedOutsidePath) {
-            return mockFileBuffer;
-        } else if (filePath === resolvedErrorPath) {
-             // Simulate ENOENT for error path in the 'multiple operations' test
-             const error: any = new Error(`ENOENT`); error.code = 'ENOENT'; throw error;
-        } else if (filePath === path.join(WORKSPACE_ROOT, 'nonexistent.pdf')) {
-             // Simulate ENOENT for nonexistent path
-             const error: any = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
-             error.code = 'ENOENT';
-             throw error;
-        } else if (filePath === path.join(WORKSPACE_ROOT, '')) {
-            return mockFileBuffer;
-        }
-         else {
-            // Default throw for unexpected paths
-            const error: any = new Error(`ENOENT: unexpected path '${filePath}'`);
-            error.code = 'ENOENT';
-            throw error;
-        }
+      if (filePath === resolvedValidPath || filePath === resolvedOutsidePath) {
+        return mockFileBuffer;
+      }
+      if (filePath === resolvedErrorPath) {
+        // Simulate ENOENT for error path in the 'multiple operations' test
+        const error: any = new Error('ENOENT');
+        error.code = 'ENOENT';
+        throw error;
+      }
+      if (filePath === path.join(WORKSPACE_ROOT, 'nonexistent.pdf')) {
+        // Simulate ENOENT for nonexistent path
+        const error: any = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
+        error.code = 'ENOENT';
+        throw error;
+      }
+      if (filePath === path.join(WORKSPACE_ROOT, '')) {
+        return mockFileBuffer;
+      }
+
+      // Default throw for unexpected paths
+      const error: any = new Error(`ENOENT: unexpected path '${filePath}'`);
+      error.code = 'ENOENT';
+      throw error;
     });
   });
 
@@ -110,7 +123,6 @@ describe('getTextTool.execute', () => { // Update describe block
     // Restore mocks if necessary, though clearAllMocks in beforeEach is often sufficient
     vi.restoreAllMocks();
   });
-
 
   it('should read PDF text for a single item batch', async () => {
     const input: GetTextToolInput = { items: [{ id: 'pdf1', filePath: 'test.pdf' }] };
@@ -121,10 +133,13 @@ describe('getTextTool.execute', () => { // Update describe block
     const itemResult = output.results[0];
 
     expect(readFile).toHaveBeenCalledWith(resolvedValidPath);
-    expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(mockFileBuffer, "application/pdf");
+    expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(
+      mockFileBuffer,
+      'application/pdf',
+    );
     expect(mockMuPdfDoc.countPages).toHaveBeenCalled();
     expect(mockMuPdfDoc.loadPage).toHaveBeenCalledWith(0);
-    expect(mockMuPdfPage.toStructuredText).toHaveBeenCalledWith("preserve-whitespace");
+    expect(mockMuPdfPage.toStructuredText).toHaveBeenCalledWith('preserve-whitespace');
     expect(mockStructuredText.asJSON).toHaveBeenCalled();
 
     expect(itemResult.success).toBe(true);
@@ -154,7 +169,9 @@ describe('getTextTool.execute', () => { // Update describe block
 
   it('should handle mupdfjs.PDFDocument.openDocument error for a single item batch', async () => {
     const openError = new Error('Mock MuPDF open failed');
-    vi.mocked(mupdfjs.PDFDocument.openDocument).mockImplementation(() => { throw openError; });
+    vi.mocked(mupdfjs.PDFDocument.openDocument).mockImplementation(() => {
+      throw openError;
+    });
 
     const input: GetTextToolInput = { items: [{ id: 'pdf3', filePath: 'test.pdf' }] };
     const output = await getTextTool.execute(input, defaultOptions); // Pass options object
@@ -164,7 +181,10 @@ describe('getTextTool.execute', () => { // Update describe block
     const itemResult = output.results[0];
 
     expect(readFile).toHaveBeenCalledWith(resolvedValidPath);
-    expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(mockFileBuffer, "application/pdf");
+    expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(
+      mockFileBuffer,
+      'application/pdf',
+    );
     expect(mockMuPdfDoc.countPages).not.toHaveBeenCalled();
 
     expect(itemResult.success).toBe(false);
@@ -201,7 +221,10 @@ describe('getTextTool.execute', () => { // Update describe block
     const itemResult = output.results[0];
 
     expect(readFile).toHaveBeenCalledWith(resolvedOutsidePath);
-    expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(mockFileBuffer, "application/pdf");
+    expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(
+      mockFileBuffer,
+      'application/pdf',
+    );
     // ... other mupdf checks ...
 
     expect(itemResult.success).toBe(true);
@@ -213,25 +236,25 @@ describe('getTextTool.execute', () => { // Update describe block
   it('should process a batch of multiple PDF extractions with mixed results', async () => {
     const input: GetTextToolInput = {
       items: [
-        { id: 'batch_ok', filePath: 'test.pdf' },             // Success
-        { id: 'batch_enoent', filePath: 'nonexistent.pdf' },   // Fail (ENOENT)
+        { id: 'batch_ok', filePath: 'test.pdf' }, // Success
+        { id: 'batch_enoent', filePath: 'nonexistent.pdf' }, // Fail (ENOENT)
         { id: 'batch_outside_fail', filePath: '../outside.pdf' }, // Fail (Path validation)
         { id: 'batch_outside_ok', filePath: '../outside.pdf' }, // Success (different options needed)
-        { id: 'batch_mupdf_err', filePath: 'test.pdf' },      // Fail (MuPDF error)
-      ]
+        { id: 'batch_mupdf_err', filePath: 'test.pdf' }, // Fail (MuPDF error)
+      ],
     };
 
     const openError = new Error('Mock MuPDF open failed for batch');
     let openDocCallCounter = 0;
     // Mock openDocument to throw only on the second call within this test scope (for 'batch_mupdf_err')
-    vi.mocked(mupdfjs.PDFDocument.openDocument).mockImplementation((buffer, type) => {
-        openDocCallCounter++;
-        // Items 'batch_enoent' and 'batch_outside_fail' fail before openDocument is called.
-        // So, the 1st call is for 'batch_ok', the 2nd is for 'batch_mupdf_err'.
-        if (openDocCallCounter === 2) {
-            throw openError;
-        }
-        return mockMuPdfDoc as any; // Succeed for the first call
+    vi.mocked(mupdfjs.PDFDocument.openDocument).mockImplementation((_buffer, _type) => {
+      openDocCallCounter++;
+      // Items 'batch_enoent' and 'batch_outside_fail' fail before openDocument is called.
+      // So, the 1st call is for 'batch_ok', the 2nd is for 'batch_mupdf_err'.
+      if (openDocCallCounter === 2) {
+        throw openError;
+      }
+      return mockMuPdfDoc as any; // Succeed for the first call
     });
 
     // Execute with default options first
@@ -246,29 +269,29 @@ describe('getTextTool.execute', () => { // Update describe block
     vi.mocked(mupdfjs.PDFDocument.openDocument).mockReturnValue(mockMuPdfDoc as any);
 
     // Re-execute the specific item that needs different options ('batch_outside_ok')
-    const outsideOkInput: GetTextToolInput = { items: [{ id: 'batch_outside_ok', filePath: '../outside.pdf' }] };
+    const outsideOkInput: GetTextToolInput = {
+      items: [{ id: 'batch_outside_ok', filePath: '../outside.pdf' }],
+    };
     const outputOutsideOk = await getTextTool.execute(outsideOkInput, allowOutsideOptions); // Pass options object
 
-
     // --- Assertions for outputDefault ---
-    const resOk = outputDefault.results.find(r => r.id === 'batch_ok');
+    const resOk = outputDefault.results.find((r) => r.id === 'batch_ok');
     expect(resOk?.success).toBe(true);
     expect(resOk?.result).toBe('Mock MuPDF text content');
 
-    const resEnoent = outputDefault.results.find(r => r.id === 'batch_enoent');
+    const resEnoent = outputDefault.results.find((r) => r.id === 'batch_enoent');
     expect(resEnoent?.success).toBe(false);
     expect(resEnoent?.error).toContain('File not found');
 
-    const resOutsideFail = outputDefault.results.find(r => r.id === 'batch_outside_fail');
+    const resOutsideFail = outputDefault.results.find((r) => r.id === 'batch_outside_fail');
     expect(resOutsideFail?.success).toBe(false);
     expect(resOutsideFail?.error).toContain('Path validation failed');
 
     // Note: batch_outside_ok would have failed path validation in outputDefault run
 
-    const resMupdfErr = outputDefault.results.find(r => r.id === 'batch_mupdf_err');
-     expect(resMupdfErr?.success).toBe(false);
-     expect(resMupdfErr?.error).toContain('Mock MuPDF open failed for batch');
-
+    const resMupdfErr = outputDefault.results.find((r) => r.id === 'batch_mupdf_err');
+    expect(resMupdfErr?.success).toBe(false);
+    expect(resMupdfErr?.error).toContain('Mock MuPDF open failed for batch');
 
     // --- Assertions for outputOutsideOk ---
     expect(outputOutsideOk.success).toBe(true);
@@ -279,7 +302,7 @@ describe('getTextTool.execute', () => { // Update describe block
     expect(resOutsideOk?.result).toBe('Mock MuPDF text content');
 
     // Restore original mock after test
-     // Restore default mock behavior after test
-     vi.mocked(mupdfjs.PDFDocument.openDocument).mockReturnValue(mockMuPdfDoc as any);
+    // Restore default mock behavior after test
+    vi.mocked(mupdfjs.PDFDocument.openDocument).mockReturnValue(mockMuPdfDoc as any);
   });
 });

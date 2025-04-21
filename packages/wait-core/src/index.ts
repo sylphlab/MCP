@@ -4,5 +4,3 @@
 export { waitTool } from './tools/waitTool.js';
 export { waitToolInputSchema } from './tools/waitTool.schema.js'; // Export schema from schema file
 export type { WaitToolInput, WaitToolOutput } from './tools/waitTool.js'; // Also export output type if needed
-
-console.log('MCP Wait Core Package (Tool Structure) Loaded');

@@ -16,7 +16,8 @@ export default defineConfig({
         statements: 90,
       },
       include: ['src/**/*.ts'], // Files to include in coverage
-      exclude: [ // Files to exclude
+      exclude: [
+        // Files to exclude
         'src/index.ts', // Often just exports, adjust if needed
         'src/**/*.d.ts',
         'src/**/*.test.ts',

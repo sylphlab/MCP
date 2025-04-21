@@ -25,34 +25,27 @@ const mcpServer = new McpServer(
 );
 
 // Array of imported tool objects
-const definedTools: McpTool<any, any>[] = [
-    jsonTool,
-];
+const definedTools = [jsonTool];
 
 // Register tools using the helper function
 registerTools(mcpServer, definedTools);
 
 // --- Server Start ---
 async function startServer() {
-    try {
-      const transport = new StdioServerTransport();
-      await mcpServer.server.connect(transport);
-      console.error(`JSON MCP Server "${serverName}" v${serverVersion} started successfully via stdio.`);
-      console.error('Waiting for requests...');
-    } catch (error: unknown) {
-      console.error('Server failed to start:', error);
-      process.exit(1);
-    }
+  try {
+    const transport = new StdioServerTransport();
+    await mcpServer.server.connect(transport);
+  } catch (_error: unknown) {
+    process.exit(1);
+  }
 }
 
 startServer();
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-    console.error('Received SIGINT. Exiting...');
-    process.exit(0);
+  process.exit(0);
 });
 process.on('SIGTERM', () => {
-    console.error('Received SIGTERM. Exiting...');
-    process.exit(0);
+  process.exit(0);
 });

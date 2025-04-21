@@ -8,5 +8,3 @@ export type {
   XmlToolOutput,
   XmlOperation, // Still useful to export the operation type
 } from './tools/xmlTool.js';
-
-console.log('MCP XML Core Package (Single Operation Tool Structure) Loaded');

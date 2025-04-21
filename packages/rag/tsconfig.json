@@ -8,7 +8,7 @@
       "@sylphlab/mcp-rag-core/*": ["../rag-core/src/*"],
       "@sylphlab/mcp-core/*": ["../core/src/*"],
       "@sylphlab/mcp-utils/*": ["../utils/src/*"]
-    },
+    }
     // "skipLibCheck": true // Add skipLibCheck
     // No composite, declaration etc. needed for server package if not referenced
   },

@@ -8,5 +8,3 @@ export type {
   JsonToolOutput,
   JsonOperation, // Still useful to export the operation type
 } from './tools/jsonTool.js';
-
-console.log('MCP JSON Core Package (Single Operation Tool Structure) Loaded');

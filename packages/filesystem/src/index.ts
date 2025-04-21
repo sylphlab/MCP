@@ -2,9 +2,9 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ZodObject, ZodRawShape, z } from 'zod'; // Import z
 import type { McpTool } from '@sylphlab/mcp-core';
 import { registerTools } from '@sylphlab/mcp-utils';
+import { ZodObject, ZodRawShape, z } from 'zod'; // Import z
 
 // Import the complete tool objects from the core library
 import {
@@ -38,18 +38,18 @@ const mcpServer = new McpServer(
 );
 
 // Array of imported tool objects
-const definedTools: McpTool<any, any>[] = [
-    copyItemsTool,
-    createFolderTool,
-    deleteItemsTool,
-    editFileTool,
-    listFilesTool,
-    moveRenameItemsTool,
-    readFilesTool,
-    replaceContentTool,
-    searchContentTool,
-    statItemsTool,
-    writeFilesTool,
+const definedTools = [
+  copyItemsTool,
+  createFolderTool,
+  deleteItemsTool,
+  editFileTool,
+  listFilesTool,
+  moveRenameItemsTool,
+  readFilesTool,
+  replaceContentTool,
+  searchContentTool,
+  statItemsTool,
+  writeFilesTool,
 ];
 
 // Register tools using the helper
@@ -57,25 +57,20 @@ registerTools(mcpServer, definedTools);
 
 // --- Server Start ---
 async function startServer() {
-    try {
-      const transport = new StdioServerTransport();
-      await mcpServer.server.connect(transport);
-      console.error(`Filesystem MCP Server "${serverName}" v${serverVersion} started successfully via stdio.`);
-      console.error('Waiting for requests...');
-    } catch (error: unknown) {
-      console.error('Server failed to start:', error);
-      process.exit(1);
-    }
+  try {
+    const transport = new StdioServerTransport();
+    await mcpServer.server.connect(transport);
+  } catch (_error: unknown) {
+    process.exit(1);
+  }
 }
 
 startServer();
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-    console.error('Received SIGINT. Exiting...');
-    process.exit(0);
+  process.exit(0);
 });
 process.on('SIGTERM', () => {
-    console.error('Received SIGTERM. Exiting...');
-    process.exit(0);
+  process.exit(0);
 });

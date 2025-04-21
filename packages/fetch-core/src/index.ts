@@ -7,5 +7,3 @@ export type {
   FetchToolInput,
   FetchToolOutput,
 } from './tools/fetchTool.js';
-
-console.log('MCP Fetch Core Package (Single Operation Tool Structure) Loaded');

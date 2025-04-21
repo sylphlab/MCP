@@ -1,8 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { z } from 'zod';
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+  PathValidationError,
+  validateAndResolvePath,
+} from '@sylphlab/mcp-core'; // Import base types and validation util
 import glob from 'fast-glob'; // Import fast-glob
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
+import type { z } from 'zod';
 import { searchContentToolInputSchema } from './searchContentTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
@@ -10,16 +17,16 @@ export type SearchContentToolInput = z.infer<typeof searchContentToolInputSchema
 
 // --- Output Types ---
 export interface SearchMatch {
-    /** 1-based line number where the match occurred. */
-    lineNumber: number;
-    /** The full content of the line containing the match. */
-    lineContent: string;
-    /** The specific text that matched the query. */
-    matchText: string;
-    /** Lines immediately preceding the match line. */
-    contextBefore?: string[];
-    /** Lines immediately following the match line. */
-    contextAfter?: string[];
+  /** 1-based line number where the match occurred. */
+  lineNumber: number;
+  /** The full content of the line containing the match. */
+  lineContent: string;
+  /** The specific text that matched the query. */
+  matchText: string;
+  /** Lines immediately preceding the match line. */
+  contextBefore?: string[];
+  /** Lines immediately following the match line. */
+  contextAfter?: string[];
 }
 
 export interface FileSearchResult {
@@ -47,12 +54,19 @@ export interface SearchContentToolOutput extends BaseMcpToolOutput {
 
 // --- Tool Definition (following SDK pattern) ---
 
-export const searchContentTool: McpTool<typeof searchContentToolInputSchema, SearchContentToolOutput> = {
+export const searchContentTool: McpTool<
+  typeof searchContentToolInputSchema,
+  SearchContentToolOutput
+> = {
   name: 'searchContentTool',
   description: 'Searches for content within multiple files (supports globs).',
   inputSchema: searchContentToolInputSchema,
 
-  async execute(input: SearchContentToolInput, options: McpToolExecuteOptions): Promise<SearchContentToolOutput> { // Remove workspaceRoot, require options
+  async execute(
+    input: SearchContentToolInput,
+    options: McpToolExecuteOptions,
+  ): Promise<SearchContentToolOutput> {
+    // Remove workspaceRoot, require options
     // Zod validation
     const parsed = searchContentToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -67,13 +81,13 @@ export const searchContentTool: McpTool<typeof searchContentToolInputSchema, Sea
       };
     }
     const {
-        paths: pathPatterns,
-        query,
-        isRegex,
-        matchCase,
-        contextLinesBefore,
-        contextLinesAfter,
-        maxResultsPerFile,
+      paths: pathPatterns,
+      query,
+      isRegex,
+      matchCase,
+      contextLinesBefore,
+      contextLinesAfter,
+      maxResultsPerFile,
     } = parsed.data; // allowOutsideWorkspace comes from options
     // --- End Zod Validation ---
 
@@ -81,155 +95,183 @@ export const searchContentTool: McpTool<typeof searchContentToolInputSchema, Sea
     let overallSuccess = true;
     let resolvedFilePaths: string[] = [];
 
-     try {
-        resolvedFilePaths = await glob(pathPatterns, {
-            cwd: options.workspaceRoot, // Use options.workspaceRoot
-            absolute: false,
-            onlyFiles: true,
-            dot: true,
-            ignore: ['**/node_modules/**', '**/.git/**'],
-        });
+    try {
+      resolvedFilePaths = await glob(pathPatterns, {
+        cwd: options.workspaceRoot, // Use options.workspaceRoot
+        absolute: false,
+        onlyFiles: true,
+        dot: true,
+        ignore: ['**/node_modules/**', '**/.git/**'],
+      });
 
-        if (resolvedFilePaths.length === 0) {
-             console.error('No files matched the provided paths/globs.'); // Log to stderr
-             return { success: true, results: [], content: [] }; // Add content
-        }
-
-    } catch (globError: any) {
-        console.error(`Error expanding glob patterns: ${globError.message}`);
-        return { success: false, error: `Glob pattern error: ${globError.message}`, results: [], content: [] }; // Add content
+      if (resolvedFilePaths.length === 0) {
+        return { success: true, results: [], content: [] }; // Add content
+      }
+    } catch (globError: unknown) {
+      const errorMsg = globError instanceof Error ? globError.message : 'Unknown glob error';
+      return {
+        success: false,
+        error: `Glob pattern error: ${errorMsg}`,
+        results: [],
+        content: [],
+      }; // Add content
     }
 
     for (const relativeFilePath of resolvedFilePaths) {
-        const fullPath = path.resolve(options.workspaceRoot, relativeFilePath); // Use options.workspaceRoot
-        let fileSuccess = true;
-        let fileError: string | undefined;
-        const matches: SearchMatch[] = [];
-        let suggestion: string | undefined;
+      const fullPath = path.resolve(options.workspaceRoot, relativeFilePath); // Use options.workspaceRoot
+      let fileSuccess = true;
+      let fileError: string | undefined;
+      const matches: SearchMatch[] = [];
+      let suggestion: string | undefined;
 
+      // Double-check security
+      // Skip this check if allowOutsideWorkspace is true
+      const relativeCheck = path.relative(options.workspaceRoot, fullPath); // Use options.workspaceRoot
+      if (
+        !options?.allowOutsideWorkspace &&
+        (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck))
+      ) {
+        fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
+        fileSuccess = false;
+        overallSuccess = false;
+        const suggestion = `Ensure the path pattern '${pathPatterns.join(', ')}' does not resolve to paths outside the workspace.`;
+        fileResults.push({ path: relativeFilePath, success: false, error: fileError, suggestion });
+        continue; // Skip this file
+      }
 
-        // Double-check security
-        // Skip this check if allowOutsideWorkspace is true
-        const relativeCheck = path.relative(options.workspaceRoot, fullPath); // Use options.workspaceRoot
-        if (!options?.allowOutsideWorkspace && (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck))) {
-            fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
-            console.error(fileError); // Keep error log
-            fileSuccess = false;
-            overallSuccess = false;
-            const suggestion = `Ensure the path pattern '${pathPatterns.join(', ')}' does not resolve to paths outside the workspace.`;
-            fileResults.push({ path: relativeFilePath, success: false, error: fileError, suggestion });
-            continue; // Skip this file
-        }
+      try {
+        const content = await readFile(fullPath, 'utf-8');
+        const lines = content.split(/\r?\n/);
+        let fileMatchCount = 0;
 
-        try {
-            const content = await readFile(fullPath, 'utf-8');
-            const lines = content.split(/\r?\n/);
-            let fileMatchCount = 0;
-
-            // Prepare search query/regex
-            let searchRegex: RegExp;
-            let searchString: string | null = null;
-            if (isRegex) {
-                try {
-                    // Add 'g' flag for multiple matches per line, respect case sensitivity via 'i' flag
-                    const flags = matchCase ? 'g' : 'gi';
-                    searchRegex = new RegExp(query, flags);
-                } catch (e: any) {
-                    throw new Error(`Invalid regex query: ${e.message}`);
-                }
-            } else {
-                searchString = query;
-                // Create regex for finding the string, respecting case sensitivity
-                const flags = matchCase ? 'g' : 'gi';
-                searchRegex = new RegExp(searchString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
-            }
-
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                if (line === undefined) continue; // Should not happen with split, but safety
-
-                let matchResult: RegExpExecArray | null;
-                const searchIndex = 0;
-
-                // Find all matches on the current line
-                while ((matchResult = searchRegex.exec(line)) !== null) {
-                    if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) {
-                        break; // Stop searching this file if max results reached
-                    }
-
-                    const matchText = matchResult[0];
-                    const lineNumber = i + 1; // 1-based line number
-
-                    // Get context lines
-                    const contextBefore = lines.slice(Math.max(0, i - contextLinesBefore), i);
-                    const contextAfter = lines.slice(i + 1, Math.min(lines.length, i + 1 + contextLinesAfter));
-
-                    matches.push({
-                        lineNumber,
-                        lineContent: line,
-                        matchText,
-                        contextBefore: contextLinesBefore > 0 ? contextBefore : undefined,
-                        contextAfter: contextLinesAfter > 0 ? contextAfter : undefined,
-                    });
-                    fileMatchCount++;
-
-                    // Prevent infinite loops for zero-length matches with global flag
-                    if (matchResult.index === searchRegex.lastIndex) {
-                        searchRegex.lastIndex++;
-                    }
-                     // Break if max results reached after adding this match
-                    if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) {
-                        break;
-                    }
-                }
-                 if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) {
-                    break; // Stop searching lines in this file
-                }
-            } // End line loop
-
-        } catch (e: any) {
-            fileSuccess = false;
-            overallSuccess = false;
-            fileError = `Error processing file '${relativeFilePath}': ${e.message}`;
-            console.error(fileError); // Keep original error log too
-            // let suggestion: string | undefined; // Already declared above
-            if (e.code === 'ENOENT') {
-                suggestion = `Ensure the file path '${relativeFilePath}' is correct and the file exists.`; // Assign to outer suggestion
-            } else if (e.code === 'EACCES') {
-                suggestion = `Check read permissions for the file '${relativeFilePath}'.`; // Assign to outer suggestion
-            } else if (e.message.includes('Invalid regex')) {
-                 suggestion = 'Verify the regex query syntax.'; // Assign to outer suggestion
-            } else {
-                suggestion = `Check file path and permissions.`; // Assign to outer suggestion
-            }
-        }
-
-        // Always push a result if the file was processed, regardless of matches
-        if (fileSuccess) {
-             fileResults.push({
-                path: relativeFilePath,
-                success: true,
-                matches: matches.length > 0 ? matches : undefined, // Include matches only if found
-                error: undefined,
-                suggestion: undefined,
-            });
+        // Prepare search query/regex
+        let searchRegex: RegExp;
+        let searchString: string | null = null;
+        if (isRegex) {
+          try {
+            // Add 'g' flag for multiple matches per line, respect case sensitivity via 'i' flag
+            const flags = matchCase ? 'g' : 'gi';
+            searchRegex = new RegExp(query, flags);
+          } catch (e: unknown) {
+            const errorMsg = e instanceof Error ? e.message : 'Unknown regex error';
+            throw new Error(`Invalid regex query: ${errorMsg}`);
+          }
         } else {
-            // Push the error result if processing failed
-             fileResults.push({
-                path: relativeFilePath,
-                success: false,
-                matches: undefined,
-                error: fileError,
-                suggestion: suggestion, // Use suggestion populated during validation or catch block
-            });
+          searchString = query;
+          // Create regex for finding the string, respecting case sensitivity
+          const flags = matchCase ? 'g' : 'gi';
+          searchRegex = new RegExp(searchString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
         }
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (line === undefined) continue; // Should not happen with split, but safety
+
+          let matchResult: RegExpExecArray | null;
+          const _searchIndex = 0;
+
+          // Find all matches on the current line
+          for (;;) {
+            // Loop indefinitely until break
+            matchResult = searchRegex.exec(line);
+            if (matchResult === null) {
+              break; // Exit loop if no more matches
+            }
+
+            if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) {
+              break; // Stop searching this file if max results reached
+            }
+
+            const matchText = matchResult[0];
+            const lineNumber = i + 1; // 1-based line number
+
+            // Get context lines
+            const contextBefore = lines.slice(Math.max(0, i - contextLinesBefore), i);
+            const contextAfter = lines.slice(
+              i + 1,
+              Math.min(lines.length, i + 1 + contextLinesAfter),
+            );
+
+            matches.push({
+              lineNumber,
+              lineContent: line,
+              matchText,
+              contextBefore: contextLinesBefore > 0 ? contextBefore : undefined,
+              contextAfter: contextLinesAfter > 0 ? contextAfter : undefined,
+            });
+            fileMatchCount++;
+
+            // Prevent infinite loops for zero-length matches with global flag
+            if (matchResult.index === searchRegex.lastIndex) {
+              searchRegex.lastIndex++;
+            }
+            // Break if max results reached after adding this match
+            if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) {
+              break;
+            }
+          }
+          if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) {
+            break; // Stop searching lines in this file
+          }
+        } // End line loop
+      } catch (e: unknown) {
+        fileSuccess = false;
+        overallSuccess = false;
+        let errorCode: string | null = null;
+        let errorMsg = 'Unknown error';
+
+        if (e && typeof e === 'object') {
+          if ('code' in e) {
+            errorCode = String((e as { code: unknown }).code);
+          }
+        }
+        if (e instanceof Error) {
+          errorMsg = e.message;
+        }
+
+        fileError = `Error processing file '${relativeFilePath}': ${errorMsg}`;
+        // let suggestion: string | undefined; // Already declared above
+        if (errorCode === 'ENOENT') {
+          suggestion = `Ensure the file path '${relativeFilePath}' is correct and the file exists.`; // Assign to outer suggestion
+        } else if (errorCode === 'EACCES') {
+          suggestion = `Check read permissions for the file '${relativeFilePath}'.`; // Assign to outer suggestion
+        } else if (errorMsg.includes('Invalid regex')) {
+          suggestion = 'Verify the regex query syntax.'; // Assign to outer suggestion
+        } else {
+          suggestion = 'Check file path and permissions.'; // Assign to outer suggestion
+        }
+      }
+
+      // Always push a result if the file was processed, regardless of matches
+      if (fileSuccess) {
+        fileResults.push({
+          path: relativeFilePath,
+          success: true,
+          matches: matches.length > 0 ? matches : undefined, // Include matches only if found
+          error: undefined,
+          suggestion: undefined,
+        });
+      } else {
+        // Push the error result if processing failed
+        fileResults.push({
+          path: relativeFilePath,
+          success: false,
+          matches: undefined,
+          error: fileError,
+          suggestion: suggestion, // Use suggestion populated during validation or catch block
+        });
+      }
     } // End files loop
 
     // Serialize the detailed results into the content field
-    const contentText = JSON.stringify({
+    const contentText = JSON.stringify(
+      {
         summary: `Search operation completed. Overall success: ${overallSuccess}`,
-        results: fileResults
-    }, null, 2); // Pretty-print JSON
+        results: fileResults,
+      },
+      null,
+      2,
+    ); // Pretty-print JSON
 
     return {
       success: overallSuccess,

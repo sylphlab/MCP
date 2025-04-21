@@ -12,23 +12,21 @@ import type { Document } from './types.js';
  * @param projectRoot The root directory of the project.
  */
 async function getIgnorePatterns(projectRoot: string): Promise<string[]> {
-    const defaultIgnores = ['node_modules/**', '.git/**', 'dist/**']; // Keep defaults
-    const gitignorePath = path.join(projectRoot, '.gitignore');
-    try {
-        const gitignoreContent = await fs.readFile(gitignorePath, 'utf-8');
-        const customIgnores = gitignoreContent.split(/\r?\n/).filter(line => line.trim() !== '' && !line.startsWith('#'));
-        console.log(`Loaded ${customIgnores.length} custom ignore patterns from .gitignore.`);
-        return [...defaultIgnores, ...customIgnores];
-    } catch (error: any) {
-        if (error.code === 'ENOENT') {
-            console.log('.gitignore not found, using default ignore patterns.');
-        } else {
-            console.error('Error reading .gitignore:', error);
-        }
-        return defaultIgnores;
+  const defaultIgnores = ['node_modules/**', '.git/**', 'dist/**']; // Keep defaults
+  const gitignorePath = path.join(projectRoot, '.gitignore');
+  try {
+    const gitignoreContent = await fs.readFile(gitignorePath, 'utf-8');
+    const customIgnores = gitignoreContent
+      .split(/\r?\n/)
+      .filter((line) => line.trim() !== '' && !line.startsWith('#'));
+    return [...defaultIgnores, ...customIgnores];
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+    } else {
     }
+    return defaultIgnores;
+  }
 }
-
 
 /**
  * Loads all relevant documents from a project directory, respecting ignore patterns via fast-glob.
@@ -38,8 +36,6 @@ async function getIgnorePatterns(projectRoot: string): Promise<string[]> {
 export async function loadDocuments(projectRoot: string): Promise<Document[]> {
   const loadedDocs: Document[] = [];
   const ignorePatterns = await getIgnorePatterns(projectRoot);
-
-  console.log(`Scanning directory: ${projectRoot} using fast-glob ignore patterns...`);
 
   // Use fast-glob with ignore option derived from .gitignore and defaults
   const files = await fg('**/*', {
@@ -51,9 +47,8 @@ export async function loadDocuments(projectRoot: string): Promise<Document[]> {
     // followSymbolicLinks: false, // Consider adding this
   });
 
-  console.log(`Found ${files.length} files after fast-glob filtering.`);
-
-  for (const relativePath of files) { // Iterate directly over filtered files
+  for (const relativePath of files) {
+    // Iterate directly over filtered files
     const absolutePath = path.join(projectRoot, relativePath);
     try {
       const content = await fs.readFile(absolutePath, 'utf-8');
@@ -68,11 +63,7 @@ export async function loadDocuments(projectRoot: string): Promise<Document[]> {
           size: stats.size,
         },
       });
-    } catch (error) {
-      console.warn(`Skipping file ${relativePath} due to read error:`, error);
-    }
+    } catch (_error) {}
   }
-
-  console.log(`Successfully loaded ${loadedDocs.length} documents.`);
   return loadedDocs;
 }

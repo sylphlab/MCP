@@ -1,6 +1,11 @@
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+} from '@sylphlab/mcp-core';
 import type { z } from 'zod';
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
-import { waitToolInputSchema, type WaitItemSchema } from './waitTool.schema'; // Import schema (fixed name)
+import { type WaitItemSchema, waitToolInputSchema } from './waitTool.schema'; // Import schema (fixed name)
 
 // --- TypeScript Types ---
 export type WaitInputItem = z.infer<typeof WaitItemSchema>; // Use correct schema name
@@ -30,20 +35,16 @@ async function processSingleWait(item: WaitInputItem): Promise<WaitResultItem> {
   const resultItem: WaitResultItem = { id, success: false };
 
   try {
-    console.log(`Waiting for ${ms}ms... (ID: ${id ?? 'N/A'})`);
-    await new Promise(resolve => setTimeout(resolve, ms));
-    console.log(`Wait finished for ${ms}ms. (ID: ${id ?? 'N/A'})`);
+    await new Promise((resolve) => setTimeout(resolve, ms));
     resultItem.success = true;
     resultItem.durationWaitedMs = item.durationMs; // Assign the original value from item
   } catch (e: any) {
     // This catch block is unlikely to be hit for setTimeout unless there's a very strange environment issue.
     resultItem.error = `Wait failed: ${e.message}`;
-    console.error(`${resultItem.error} (ID: ${id ?? 'N/A'})`);
     resultItem.success = false;
   }
   return resultItem;
 }
-
 
 // --- Tool Definition ---
 export const waitTool: McpTool<typeof waitToolInputSchema, WaitToolOutput> = {
@@ -51,7 +52,8 @@ export const waitTool: McpTool<typeof waitToolInputSchema, WaitToolOutput> = {
   description: 'Waits sequentially for one or more specified durations in milliseconds.',
   inputSchema: waitToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: WaitToolInput, options: McpToolExecuteOptions): Promise<WaitToolOutput> { // Remove workspaceRoot, require options
+  async execute(input: WaitToolInput, _options: McpToolExecuteOptions): Promise<WaitToolOutput> {
+    // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper
     const { items } = input;
     // workspaceRoot is now in options.workspaceRoot if needed
@@ -67,18 +69,23 @@ export const waitTool: McpTool<typeof waitToolInputSchema, WaitToolOutput> = {
         // Check for success AND that durationWaitedMs is a number (including 0)
         if (result.success && typeof result.durationWaitedMs === 'number') {
           totalWaited += result.durationWaitedMs;
-        } else if (!result.success) { // Only set overallSuccess to false if an item actually failed
+        } else if (!result.success) {
+          // Only set overallSuccess to false if an item actually failed
           overallSuccess = false;
           // Optionally break here if one wait fails? For now, continue processing others.
         }
       }
 
       // Serialize the detailed results into the content field
-      const contentText = JSON.stringify({
+      const contentText = JSON.stringify(
+        {
           summary: `Processed ${items.length} wait operations. Total duration waited: ${totalWaited}ms. Overall success: ${overallSuccess}`,
           totalDurationWaitedMs: totalWaited,
-          results: results
-      }, null, 2); // Pretty-print JSON
+          results: results,
+        },
+        null,
+        2,
+      ); // Pretty-print JSON
 
       return {
         success: overallSuccess,
@@ -89,12 +96,15 @@ export const waitTool: McpTool<typeof waitToolInputSchema, WaitToolOutput> = {
     } catch (e: any) {
       // Catch unexpected errors during the loop itself (should be rare)
       const errorMsg = `Unexpected error during wait tool execution: ${e.message}`;
-      console.error(errorMsg);
-      const errorContentText = JSON.stringify({
+      const errorContentText = JSON.stringify(
+        {
           error: errorMsg,
           totalDurationWaitedMs: totalWaited, // Include partial duration
-          results: results // Include partial results in error content too
-      }, null, 2);
+          results: results, // Include partial results in error content too
+        },
+        null,
+        2,
+      );
       return {
         success: false,
         results: results, // Keep partial results here too
@@ -105,5 +115,3 @@ export const waitTool: McpTool<typeof waitToolInputSchema, WaitToolOutput> = {
     }
   },
 };
-
-console.log('MCP Wait Core Tool (Batch Operation) Loaded');

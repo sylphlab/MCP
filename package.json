@@ -7,7 +7,7 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
-    "lint": "biome lint"
+    "lint": "biome check --apply-unsafe ."
   },
   "keywords": [],
   "author": "",

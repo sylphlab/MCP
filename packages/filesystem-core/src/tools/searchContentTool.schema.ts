@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 // Main input schema: paths, query, and options
 export const searchContentToolInputSchema = z.object({
-  paths: z.array(z.string().min(1, 'Path/glob pattern cannot be empty.')).min(1, 'paths array cannot be empty.'),
+  paths: z
+    .array(z.string().min(1, 'Path/glob pattern cannot be empty.'))
+    .min(1, 'paths array cannot be empty.'),
   query: z.string().min(1, 'Query string cannot be empty.'),
   isRegex: z.boolean().optional().default(false),
   matchCase: z.boolean().optional().default(true),

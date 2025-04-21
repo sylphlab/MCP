@@ -13,9 +13,7 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
@@ -23,15 +21,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
-  "keywords": [
-    "mcp",
-    "core",
-    "json",
-    "encode",
-    "decode",
-    "diff",
-    "patch"
-  ],
+  "keywords": ["mcp", "core", "json", "encode", "decode", "diff", "patch"],
   "author": "",
   "license": "ISC",
   "dependencies": {

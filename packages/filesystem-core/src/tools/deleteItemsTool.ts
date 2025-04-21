@@ -1,8 +1,15 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
-import type { z } from 'zod';
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+  PathValidationError,
+  validateAndResolvePath,
+} from '@sylphlab/mcp-core';
 import trash from 'trash';
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
+import type { z } from 'zod';
 import { deleteItemsToolInputSchema } from './deleteItemsTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
@@ -26,10 +33,15 @@ export interface DeleteItemsToolOutput extends BaseMcpToolOutput {
 // --- Tool Definition ---
 export const deleteItemsTool: McpTool<typeof deleteItemsToolInputSchema, DeleteItemsToolOutput> = {
   name: 'deleteItemsTool',
-  description: 'Deletes specified files or directories (supports globs - TODO: implement glob support). Uses trash by default.',
+  description:
+    'Deletes specified files or directories (supports globs - TODO: implement glob support). Uses trash by default.',
   inputSchema: deleteItemsToolInputSchema,
 
-  async execute(input: DeleteItemsToolInput, options: McpToolExecuteOptions): Promise<DeleteItemsToolOutput> { // Remove workspaceRoot, require options
+  async execute(
+    input: DeleteItemsToolInput,
+    options: McpToolExecuteOptions,
+  ): Promise<DeleteItemsToolOutput> {
+    // Remove workspaceRoot, require options
     // Zod validation
     const parsed = deleteItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -59,34 +71,36 @@ export const deleteItemsTool: McpTool<typeof deleteItemsToolInputSchema, DeleteI
       const deleteMethod = useTrash ? 'trash' : 'delete permanently';
 
       // --- Validate and Resolve Path ---
-      const validationResult = validateAndResolvePath(itemPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
+      const validationResult = validateAndResolvePath(
+        itemPath,
+        options.workspaceRoot,
+        options?.allowOutsideWorkspace,
+      ); // Use options.workspaceRoot
       if (typeof validationResult !== 'string') {
-          error = validationResult.error;
-          suggestion = validationResult.suggestion;
-          console.error(`Skipping delete for '${itemPath}': ${error}`);
-          overallSuccess = false;
-          results.push({ path: itemPath, success: false, error, suggestion });
-          continue; // Skip to next itemPath
+        error = validationResult.error;
+        suggestion = validationResult.suggestion;
+        overallSuccess = false;
+        results.push({ path: itemPath, success: false, error, suggestion });
+        continue; // Skip to next itemPath
       }
       const fullPath = validationResult;
       // --- End Path Validation ---
 
       try {
-          if (useTrash) {
-            await trash(fullPath);
-          } else {
-            // force: true ignores errors if path doesn't exist, which is desired here
-            await rm(fullPath, { recursive: recursive, force: true });
-          }
-          itemSuccess = true;
-          message = `Item '${itemPath}' deleted (${deleteMethod}) successfully.`;
-          console.error(message); // Log success to stderr
-      } catch (e: any) {
-          itemSuccess = false;
-          overallSuccess = false;
-          error = `Failed to ${deleteMethod} '${itemPath}': ${e.message}`;
-          console.error(error);
-          suggestion = `Check permissions for '${itemPath}' and its parent directories. Ensure the file/folder exists if using 'rm' without 'force: true'.`;
+        if (useTrash) {
+          await trash(fullPath);
+        } else {
+          // force: true ignores errors if path doesn't exist, which is desired here
+          await rm(fullPath, { recursive: recursive, force: true });
+        }
+        itemSuccess = true;
+        message = `Item '${itemPath}' deleted (${deleteMethod}) successfully.`;
+      } catch (e: unknown) {
+        itemSuccess = false;
+        overallSuccess = false;
+        const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+        error = `Failed to ${deleteMethod} '${itemPath}': ${errorMsg}`;
+        suggestion = `Check permissions for '${itemPath}' and its parent directories. Ensure the file/folder exists if using 'rm' without 'force: true'.`;
       }
 
       results.push({
@@ -99,10 +113,14 @@ export const deleteItemsTool: McpTool<typeof deleteItemsToolInputSchema, DeleteI
     }
 
     // Serialize the detailed results into the content field
-    const contentText = JSON.stringify({
+    const contentText = JSON.stringify(
+      {
         summary: `Delete operation completed. Overall success: ${overallSuccess}`,
-        results: results
-    }, null, 2); // Pretty-print JSON
+        results: results,
+      },
+      null,
+      2,
+    ); // Pretty-print JSON
 
     return {
       success: overallSuccess, // Keep original success logic

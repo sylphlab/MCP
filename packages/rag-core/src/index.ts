@@ -4,7 +4,13 @@
 export type { Document, Chunk } from './types.js';
 export type { ChunkingOptions } from './chunking.js';
 export type { EmbeddingModelConfig, EmbeddingVector, IEmbeddingFunction } from './embedding.js'; // Ensure IEmbeddingFunction is exported
-export { EmbeddingModelProvider, EmbeddingModelConfigSchema, defaultEmbeddingConfig, OllamaEmbeddingFunction, MockEmbeddingFunction } from './embedding.js'; // Ensure classes are exported
+export {
+  EmbeddingModelProvider,
+  EmbeddingModelConfigSchema,
+  defaultEmbeddingConfig,
+  OllamaEmbeddingFunction,
+  MockEmbeddingFunction,
+} from './embedding.js'; // Ensure classes are exported
 export type { IndexedItem, VectorDbConfig, QueryResult } from './indexManager.js';
 export { VectorDbConfigSchema, IndexManager, VectorDbProvider } from './indexManager.js';
 

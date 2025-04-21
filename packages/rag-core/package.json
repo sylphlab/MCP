@@ -2,14 +2,7 @@
   "name": "@sylphlab/mcp-rag-core",
   "version": "0.1.1",
   "description": "Core RAG (Retrieval-Augmented Generation) logic for MCP",
-  "keywords": [
-    "mcp",
-    "rag",
-    "core",
-    "ai",
-    "typescript",
-    "lezer"
-  ],
+  "keywords": ["mcp", "rag", "core", "ai", "typescript", "lezer"],
   "homepage": "https://github.com/sylphlab/mcp-plugins/tree/main/packages/rag-core#readme",
   "bugs": {
     "url": "https://github.com/sylphlab/mcp-plugins/issues"
@@ -33,10 +26,7 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist/**",
-    "README.md"
-  ],
+  "files": ["dist/**", "README.md"],
   "scripts": {
     "build": "tsup",
     "clean": "rd /s /q dist .turbo node_modules",

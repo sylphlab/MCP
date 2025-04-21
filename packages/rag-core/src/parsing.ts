@@ -1,12 +1,12 @@
-import type { Tree, Parser } from '@lezer/common'; // Core Lezer types
-// Import specific language parsers
-import { parser as jsParser } from '@lezer/javascript';
-import { parser as pyParser } from '@lezer/python';
-import { parser as jsonParser } from '@lezer/json';
+import type { Parser, Tree } from '@lezer/common'; // Core Lezer types
 import { parser as cssParser } from '@lezer/css';
 import { parser as htmlParser } from '@lezer/html';
-import { parser as xmlParser } from '@lezer/xml';
+// Import specific language parsers
+import { parser as jsParser } from '@lezer/javascript';
+import { parser as jsonParser } from '@lezer/json';
 import { parser as mdParser } from '@lezer/markdown'; // Assuming standard markdown parser
+import { parser as pyParser } from '@lezer/python';
+import { parser as xmlParser } from '@lezer/xml';
 
 // Define supported languages using keys that match imports/logic
 // NOTE: Lezer's JS parser often handles TS/TSX well enough for basic structure.
@@ -15,7 +15,7 @@ import { parser as mdParser } from '@lezer/markdown'; // Assuming standard markd
 export enum SupportedLanguage {
   JavaScript = 'javascript',
   TypeScript = 'typescript', // Will use JS parser
-  TSX = 'tsx',             // Will use JS parser
+  TSX = 'tsx', // Will use JS parser
   Python = 'python',
   Markdown = 'markdown',
   JSON = 'json',
@@ -30,7 +30,7 @@ export enum SupportedLanguage {
 const lezerParsers: Partial<Record<SupportedLanguage, Parser>> = {
   [SupportedLanguage.JavaScript]: jsParser,
   [SupportedLanguage.TypeScript]: jsParser, // Use JS parser for TS
-  [SupportedLanguage.TSX]: jsParser,        // Use JS parser for TSX
+  [SupportedLanguage.TSX]: jsParser, // Use JS parser for TSX
   [SupportedLanguage.Python]: pyParser,
   [SupportedLanguage.Markdown]: mdParser,
   [SupportedLanguage.JSON]: jsonParser,
@@ -51,19 +51,17 @@ export function parseCode(code: string, language: SupportedLanguage): Tree {
   const parser = lezerParsers[language];
 
   if (!parser) {
-      // Throw an error if no parser is configured for the language
-      throw new Error(`Unsupported language for Lezer parser: ${language}`);
+    // Throw an error if no parser is configured for the language
+    throw new Error(`Unsupported language for Lezer parser: ${language}`);
   }
-
-  console.log(`Parsing code with Lezer using ${language} parser...`);
   try {
     // Lezer parse is synchronous
     const tree = parser.parse(code);
-    console.log(`Code parsed successfully with Lezer.`);
     return tree;
   } catch (error) {
-    console.error(`Lezer parsing failed for language ${language}:`, error);
-    throw new Error(`Lezer parsing failed for language ${language}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Lezer parsing failed for language ${language}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 

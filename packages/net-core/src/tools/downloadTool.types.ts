@@ -1,6 +1,6 @@
-import type { z } from 'zod';
 import type { BaseMcpToolOutput } from '@sylphlab/mcp-core';
-import type { downloadToolInputSchema, DownloadItemSchema } from './downloadTool.schema'; // Fixed import name
+import type { z } from 'zod';
+import type { DownloadItemSchema, downloadToolInputSchema } from './downloadTool.schema'; // Fixed import name
 
 // --- TypeScript Types ---
 export type DownloadInputItem = z.infer<typeof DownloadItemSchema>; // Fixed schema name

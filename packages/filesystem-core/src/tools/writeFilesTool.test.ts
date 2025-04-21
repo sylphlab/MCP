@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
-import { writeFile, appendFile, mkdir } from 'node:fs/promises'; // Use named imports
+import { appendFile, mkdir, writeFile } from 'node:fs/promises'; // Use named imports
 import path from 'node:path';
-import { writeFilesTool, type WriteFilesToolInput, WriteFileResult } from './writeFilesTool';
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
+import { WriteFileResult, type WriteFilesToolInput, writeFilesTool } from './writeFilesTool.js';
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -27,14 +27,23 @@ describe('writeFilesTool', () => {
   });
 
   // Define options objects including workspaceRoot
-  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
+  const defaultOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: false,
+  };
+  const allowOutsideOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: true,
+  };
 
   // Helper
-  const createInput = (items: { path: string; content: string }[], options: Partial<Omit<WriteFilesToolInput, 'items'>> = {}): WriteFilesToolInput => ({
-      items,
-      encoding: options.encoding ?? 'utf-8', // Add defaults for type safety
-      append: options.append ?? false, // Add defaults for type safety
+  const createInput = (
+    items: { path: string; content: string }[],
+    options: Partial<Omit<WriteFilesToolInput, 'items'>> = {},
+  ): WriteFilesToolInput => ({
+    items,
+    encoding: options.encoding ?? 'utf-8', // Add defaults for type safety
+    append: options.append ?? false, // Add defaults for type safety
   });
 
   it('should write a single file with utf-8 encoding by default', async () => {
@@ -57,7 +66,9 @@ describe('writeFilesTool', () => {
 
   it('should write a single file with base64 encoding', async () => {
     const contentBase64 = Buffer.from('Hello').toString('base64');
-    const input = createInput([{ path: 'file.bin', content: contentBase64 }], { encoding: 'base64' });
+    const input = createInput([{ path: 'file.bin', content: contentBase64 }], {
+      encoding: 'base64',
+    });
     const expectedPath = path.resolve(WORKSPACE_ROOT, 'file.bin');
     const expectedOptions = { encoding: 'base64' };
 
@@ -98,14 +109,23 @@ describe('writeFilesTool', () => {
     expect(result.results[1]?.success).toBe(true);
     expect(mockMkdir).toHaveBeenCalledTimes(2); // Called for each file's parent dir
     expect(mockWriteFile).toHaveBeenCalledTimes(2);
-    expect(mockWriteFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'file1.txt'), 'Content 1', { encoding: 'utf-8' });
-    expect(mockWriteFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'sub/file2.js'), 'Content 2', { encoding: 'utf-8' });
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      path.resolve(WORKSPACE_ROOT, 'file1.txt'),
+      'Content 1',
+      { encoding: 'utf-8' },
+    );
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      path.resolve(WORKSPACE_ROOT, 'sub/file2.js'),
+      'Content 2',
+      { encoding: 'utf-8' },
+    );
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
 
   it('should return validation error for empty items array', async () => {
     const input = { items: [] }; // Invalid input
-    const result = await writeFilesTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
+    // @ts-expect-error - Intentionally passing invalid input for validation test
+    const result = await writeFilesTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('At least one file item is required.'); // Match schema message
@@ -171,8 +191,6 @@ describe('writeFilesTool', () => {
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
-
-
   it('should handle mkdir ENOENT error during append', async () => {
     const input = createInput([{ path: 'nonexistent/log.txt', content: 'test' }], { append: true });
     const mkdirError: NodeJS.ErrnoException = new Error('ENOENT: no such file or directory');
@@ -184,7 +202,9 @@ describe('writeFilesTool', () => {
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.error).toContain('ENOENT');
-    expect(result.results[0]?.suggestion).toContain('Check the file path, permissions, and available disk space.'); // Correct suggestion
+    expect(result.results[0]?.suggestion).toContain(
+      'Check the file path, permissions, and available disk space.',
+    ); // Correct suggestion
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
 

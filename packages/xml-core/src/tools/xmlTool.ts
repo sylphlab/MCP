@@ -1,6 +1,15 @@
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+} from '@sylphlab/mcp-core';
 import type { z } from 'zod';
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
-import { xmlToolInputSchema, type XmlInputItemSchema, type XmlOperationEnum } from './xmlTool.schema'; // Import schema
+import {
+  type XmlInputItemSchema,
+  type XmlOperationEnum,
+  xmlToolInputSchema,
+} from './xmlTool.schema'; // Import schema
 
 // --- TypeScript Types ---
 export type XmlOperation = z.infer<typeof XmlOperationEnum>;
@@ -11,7 +20,7 @@ export type XmlToolInput = z.infer<typeof xmlToolInputSchema>;
 export interface XmlResultItem {
   id?: string; // Corresponds to input id if provided
   success: boolean;
-  result?: any; // Parsed object (placeholder for now)
+  result?: unknown; // Parsed object (placeholder for now)
   error?: string;
   suggestion?: string;
 }
@@ -30,20 +39,20 @@ async function processSingleXml(item: XmlInputItem): Promise<XmlResultItem> {
   const resultItem: XmlResultItem = { id, success: false };
 
   try {
-    let operationResult: any;
+    let operationResult: unknown;
     let suggestion: string | undefined;
 
     switch (operation) {
       case 'parse':
-        console.log(`Parsing XML... (ID: ${id ?? 'N/A'})`);
         // Simple placeholder logic - check for opening error tag start
-        if (data.includes('<error')) { // Changed to catch <error> or <error/>
-           throw new Error('Simulated XML parse error (contains <error tag)');
+        if (data.includes('<error')) {
+          // Changed to catch <error> or <error/>
+          throw new Error('Simulated XML parse error (contains <error tag)');
         }
         // Placeholder: Replace with actual XML parsing library (e.g., fast-xml-parser)
-        operationResult = { simulated: 'parsed_data_for_' + (id ?? data.substring(0,10)) };
-        suggestion = 'Parsing simulated successfully. Replace with actual XML parser for real results.';
-        console.log(`XML parsed successfully (simulated). (ID: ${id ?? 'N/A'})`);
+        operationResult = { simulated: `parsed_data_for_${id ?? data.substring(0, 10)}` };
+        suggestion =
+          'Parsing simulated successfully. Replace with actual XML parser for real results.';
         break;
       // No default needed due to Zod validation
     }
@@ -51,25 +60,25 @@ async function processSingleXml(item: XmlInputItem): Promise<XmlResultItem> {
     resultItem.success = true;
     resultItem.result = operationResult;
     resultItem.suggestion = suggestion;
-
-  } catch (e: any) {
-    resultItem.error = `XML operation '${operation}' failed: ${e.message}`;
+  } catch (e: unknown) {
+    const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+    resultItem.error = `XML operation '${operation}' failed: ${errorMsg}`;
     resultItem.suggestion = 'Ensure input is valid XML. Check for syntax errors.'; // Generic suggestion
-    console.error(`${resultItem.error} (ID: ${id ?? 'N/A'})`);
     // Ensure success is false if an error occurred
     resultItem.success = false;
   }
   return resultItem;
 }
 
-
 // --- Tool Definition ---
 export const xmlTool: McpTool<typeof xmlToolInputSchema, XmlToolOutput> = {
   name: 'xml',
-  description: 'Performs XML operations (currently parse with placeholder logic) on one or more inputs.',
+  description:
+    'Performs XML operations (currently parse with placeholder logic) on one or more inputs.',
   inputSchema: xmlToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: XmlToolInput, options: McpToolExecuteOptions): Promise<XmlToolOutput> { // Remove workspaceRoot, require options
+  async execute(input: XmlToolInput, _options: McpToolExecuteOptions): Promise<XmlToolOutput> {
+    // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper
     const { items } = input;
     // workspaceRoot is now in options.workspaceRoot if needed
@@ -87,24 +96,34 @@ export const xmlTool: McpTool<typeof xmlToolInputSchema, XmlToolOutput> = {
       }
 
       // Serialize the detailed results into the content field
-      const contentText = JSON.stringify({
+      const contentText = JSON.stringify(
+        {
           summary: `Processed ${items.length} XML operations. Overall success: ${overallSuccess}`,
-          results: results
-      }, null, 2); // Pretty-print JSON
+          results: results,
+        },
+        null,
+        2,
+      ); // Pretty-print JSON
 
       return {
         success: overallSuccess,
         results: results, // Keep original results field too
         content: [{ type: 'text', text: contentText }], // Put JSON string in content
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Catch unexpected errors during the loop itself (should be rare)
-      const errorMsg = `Unexpected error during XML tool execution: ${e.message}`;
-      console.error(errorMsg);
-      const errorContentText = JSON.stringify({
+      const errorMsg =
+        e instanceof Error
+          ? `Unexpected error during XML tool execution: ${e.message}`
+          : 'Unexpected error during XML tool execution: Unknown error';
+      const errorContentText = JSON.stringify(
+        {
           error: errorMsg,
-          results: results // Include partial results in error content too
-      }, null, 2);
+          results: results, // Include partial results in error content too
+        },
+        null,
+        2,
+      );
       return {
         success: false,
         results: results, // Keep partial results here too
@@ -114,5 +133,3 @@ export const xmlTool: McpTool<typeof xmlToolInputSchema, XmlToolOutput> = {
     }
   },
 };
-
-console.log('MCP XML Core Tool (Batch Operation) Loaded');

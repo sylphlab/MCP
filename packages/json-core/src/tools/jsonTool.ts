@@ -1,6 +1,15 @@
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+} from '@sylphlab/mcp-core';
 import type { z } from 'zod';
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
-import { jsonToolInputSchema, type JsonInputItemSchema, type JsonOperationEnum } from './jsonTool.schema.js'; // Import schemas (added .js)
+import {
+  type JsonInputItemSchema,
+  type JsonOperationEnum,
+  jsonToolInputSchema,
+} from './jsonTool.schema.js'; // Import schemas (added .js)
 
 // --- TypeScript Types ---
 export type JsonOperation = z.infer<typeof JsonOperationEnum>;
@@ -11,7 +20,7 @@ export type JsonToolInput = z.infer<typeof jsonToolInputSchema>;
 export interface JsonResultItem {
   id?: string; // Corresponds to input id if provided
   success: boolean;
-  result?: any; // Parsed object or stringified JSON
+  result?: unknown; // Parsed object or stringified JSON
   error?: string;
   suggestion?: string;
 }
@@ -30,41 +39,34 @@ async function processSingleJson(item: JsonInputItem): Promise<JsonResultItem> {
   const resultItem: JsonResultItem = { id, success: false }; // Initialize success to false
 
   try {
-    let operationResult: any;
+    let operationResult: unknown;
     switch (operation) {
       case 'parse':
-        // data is guaranteed to be string by Zod schema
-        console.log(`Parsing JSON... (ID: ${id ?? 'N/A'})`);
         operationResult = JSON.parse(item.data);
-        console.log(`JSON parsed successfully. (ID: ${id ?? 'N/A'})`);
         break;
 
       case 'stringify':
-        // data is any
-        console.log(`Stringifying data... (ID: ${id ?? 'N/A'})`);
         // Add options like space later: operationResult = JSON.stringify(item.data, null, item.space);
         operationResult = JSON.stringify(item.data);
-        console.log(`Data stringified successfully. (ID: ${id ?? 'N/A'})`);
         break;
     }
 
     resultItem.success = true;
     resultItem.result = operationResult;
-
-  } catch (e: any) {
-    resultItem.error = `JSON operation '${operation}' failed: ${e.message}`;
+  } catch (e: unknown) {
+    const errorMsg = e instanceof Error ? e.message : 'Unknown JSON error';
+    resultItem.error = `JSON operation '${operation}' failed: ${errorMsg}`;
     if (operation === 'parse') {
       resultItem.suggestion = 'Ensure input data is a valid JSON string.';
     } else if (operation === 'stringify') {
-       resultItem.suggestion = 'Ensure input data is serializable (no circular references, BigInts, etc.).';
+      resultItem.suggestion =
+        'Ensure input data is serializable (no circular references, BigInts, etc.).';
     }
-    console.error(`${resultItem.error} (ID: ${id ?? 'N/A'})`);
     // Ensure success is false if an error occurred
     resultItem.success = false;
   }
   return resultItem;
 }
-
 
 // --- Tool Definition ---
 export const jsonTool: McpTool<typeof jsonToolInputSchema, JsonToolOutput> = {
@@ -72,7 +74,8 @@ export const jsonTool: McpTool<typeof jsonToolInputSchema, JsonToolOutput> = {
   description: 'Performs JSON operations (parse or stringify) on one or more inputs.',
   inputSchema: jsonToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: JsonToolInput, options: McpToolExecuteOptions): Promise<JsonToolOutput> { // Remove workspaceRoot, require options
+  async execute(input: JsonToolInput, _options: McpToolExecuteOptions): Promise<JsonToolOutput> {
+    // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper
     const { items } = input;
     // workspaceRoot is now in options.workspaceRoot if needed
@@ -90,24 +93,34 @@ export const jsonTool: McpTool<typeof jsonToolInputSchema, JsonToolOutput> = {
       }
 
       // Serialize the detailed results into the content field
-      const contentText = JSON.stringify({
+      const contentText = JSON.stringify(
+        {
           summary: `Processed ${items.length} JSON operations. Overall success: ${overallSuccess}`,
-          results: results
-      }, null, 2); // Pretty-print JSON
+          results: results,
+        },
+        null,
+        2,
+      ); // Pretty-print JSON
 
       return {
         success: overallSuccess,
         results: results, // Keep original results field too
         content: [{ type: 'text', text: contentText }], // Put JSON string in content
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Catch unexpected errors during the loop itself (should be rare)
-      const errorMsg = `Unexpected error during JSON tool execution: ${e.message}`;
-      console.error(errorMsg);
-      const errorContentText = JSON.stringify({
+      const errorMsg =
+        e instanceof Error
+          ? `Unexpected error during JSON tool execution: ${e.message}`
+          : 'Unexpected error during JSON tool execution: Unknown error';
+      const errorContentText = JSON.stringify(
+        {
           error: errorMsg,
-          results: results // Include partial results in error content too
-      }, null, 2);
+          results: results, // Include partial results in error content too
+        },
+        null,
+        2,
+      );
       return {
         success: false,
         results: results, // Keep partial results here too
@@ -117,5 +130,3 @@ export const jsonTool: McpTool<typeof jsonToolInputSchema, JsonToolOutput> = {
     }
   },
 };
-
-console.log('MCP JSON Core Tool (Batch Operation) Loaded');

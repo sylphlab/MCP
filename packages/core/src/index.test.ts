@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // Placeholder test suite for mcp-core
 describe('MCP Core Utilities', () => {

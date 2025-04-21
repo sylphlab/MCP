@@ -11,6 +11,6 @@
     "types": ["node", "vitest/globals"] // Keep vitest types
   },
   "include": ["src"], // Include everything in src for analysis
-  "exclude": ["node_modules", "dist"], // Remove test file exclusion
+  "exclude": ["node_modules", "dist"] // Remove test file exclusion
   // Remove references
 }

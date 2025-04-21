@@ -1,11 +1,11 @@
+import path from 'node:path';
 // src/index.ts for @sylphlab/mcp-core
 import type { z } from 'zod';
-import path from 'node:path';
 
 // --- Content Part Types ---
 
 /** Represents a text content part. */
-export type TextPart = { type: 'text', text: string };
+export type TextPart = { type: 'text'; text: string };
 
 /** Represents an image content part (base64 encoded). */
 export type ImagePart = {
@@ -65,23 +65,23 @@ export type McpContentPart = TextPart | ImagePart | AudioPart | ResourcePart;
  * Ensures consistency and includes the 'content' field required by the SDK.
  */
 export interface BaseMcpToolOutput {
-    success: boolean;
-    error?: string;
-    /** Content parts (e.g., text) for the MCP response. Required by SDK. */
-    content: McpContentPart[];
-    /** Allow other tool-specific properties like 'results' */
-    [key: string]: any;
+  success: boolean;
+  error?: string;
+  /** Content parts (e.g., text) for the MCP response. Required by SDK. */
+  content: McpContentPart[];
+  /** Allow other tool-specific properties like 'results' */
+  [key: string]: unknown;
 }
 
 // --- Tool Definition ---
 
 /** Options passed internally to the tool's execute function by the server */
 export interface McpToolExecuteOptions {
-    /** If true, allows the tool to access paths outside the workspace root. Defaults to false. */
-    allowOutsideWorkspace?: boolean;
-    /** The absolute path to the workspace root directory. */
-    workspaceRoot: string;
-    // Add other internal options as needed
+  /** If true, allows the tool to access paths outside the workspace root. Defaults to false. */
+  allowOutsideWorkspace?: boolean;
+  /** The absolute path to the workspace root directory. */
+  workspaceRoot: string;
+  // Add other internal options as needed
 }
 
 /**
@@ -89,27 +89,25 @@ export interface McpToolExecuteOptions {
  * @template TInputSchema Zod schema for input validation.
  * @template TOutput The specific output type for the tool, extending BaseMcpToolOutput.
  */
-export interface McpTool<
-    TInputSchema extends z.ZodTypeAny,
-    TOutput extends BaseMcpToolOutput
-> {
-    /** Unique name of the tool. */
-    name: string;
-    /** Description of what the tool does. */
-    description: string;
-    /** Zod schema used by the MCP server to validate input arguments. */
-    inputSchema: TInputSchema;
-    /** The core execution logic for the tool. Receives validated input, workspace root, and optional internal options. */
-    execute: (
-        input: z.infer<TInputSchema>,
-        // workspaceRoot: string, // Removed separate workspaceRoot argument
-        options: McpToolExecuteOptions // Options object now required and contains workspaceRoot
-    ) => Promise<TOutput>;
+export interface McpTool<TInputSchema extends z.ZodTypeAny, TOutput extends BaseMcpToolOutput> {
+  /** Unique name of the tool. */
+  name: string;
+  /** Description of what the tool does. */
+  description: string;
+  /** Zod schema used by the MCP server to validate input arguments. */
+  inputSchema: TInputSchema;
+  /** The core execution logic for the tool. Receives validated input, workspace root, and optional internal options. */
+  execute: (
+    input: z.infer<TInputSchema>,
+    // workspaceRoot: string, // Removed separate workspaceRoot argument
+    options: McpToolExecuteOptions, // Options object now required and contains workspaceRoot
+  ) => Promise<TOutput>;
 }
 
 // Base input type placeholder (can be extended by specific tools if needed)
-export interface McpToolInput { [key: string]: any; }
-
+export interface McpToolInput {
+  [key: string]: unknown;
+}
 
 // --- Path Validation Utility ---
 
@@ -130,17 +128,15 @@ export interface PathValidationError {
 export function validateAndResolvePath(
   relativePathInput: string,
   workspaceRoot: string,
-  allowOutsideRoot = false
+  allowOutsideRoot = false,
 ): string | PathValidationError {
-    console.log(`[validateAndResolvePath] Input: '${relativePathInput}', AllowOutside: ${allowOutsideRoot}`); // DEBUG LOG
-
   try {
     // Basic check for absolute paths if not allowed outside
     if (!allowOutsideRoot && path.isAbsolute(relativePathInput)) {
-       return {
-         error: `Path validation failed: Absolute paths are not allowed. Path: '${relativePathInput}'`,
-         suggestion: 'Provide a path relative to the workspace root.',
-       };
+      return {
+        error: `Path validation failed: Absolute paths are not allowed. Path: '${relativePathInput}'`,
+        suggestion: 'Provide a path relative to the workspace root.',
+      };
     }
 
     const resolvedPath = path.resolve(workspaceRoot, relativePathInput);
@@ -148,25 +144,26 @@ export function validateAndResolvePath(
 
     // Only perform the relative path check if allowOutsideRoot is false
     if (!allowOutsideRoot) {
-      
-    if (!allowOutsideRoot && (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot))) {
-      return {
-        error: `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativeToRoot}'`,
-        suggestion: `Ensure the path '${relativePathInput}' is relative to the workspace root and does not attempt to go outside it.`,
-      };
+      if (
+        !allowOutsideRoot &&
+        (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot))
+      ) {
+        return {
+          error: `Path validation failed: Path must resolve within the workspace root ('${workspaceRoot}'). Relative Path: '${relativeToRoot}'`,
+          suggestion: `Ensure the path '${relativePathInput}' is relative to the workspace root and does not attempt to go outside it.`,
+        };
+      }
     }
-    }
-
 
     // Path is valid
     return resolvedPath;
-
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Catch potential errors from path functions themselves
-     return {
-        error: `Path resolution failed for '${relativePathInput}': ${e.message}`,
-        suggestion: 'Ensure the provided path is valid.',
-      };
+    const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+    return {
+      error: `Path resolution failed for '${relativePathInput}': ${errorMsg}`,
+      suggestion: 'Ensure the provided path is valid.',
+    };
   }
 }
 

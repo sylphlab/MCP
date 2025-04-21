@@ -1,8 +1,14 @@
+import type { Stats } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
-import type { Stats } from 'node:fs';
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+  validateAndResolvePath,
+} from '@sylphlab/mcp-core';
 import type { z } from 'zod';
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
 import { statItemsToolInputSchema } from './statItemsTool.schema.js'; // Import schema (added .js)
 
 export type StatItemsToolInput = z.infer<typeof statItemsToolInputSchema>;
@@ -25,7 +31,11 @@ export const statItemsTool: McpTool<typeof statItemsToolInputSchema, StatItemsTo
   description: 'Gets file system stats for one or more specified paths within the workspace.',
   inputSchema: statItemsToolInputSchema,
 
-  async execute(input: StatItemsToolInput, options: McpToolExecuteOptions): Promise<StatItemsToolOutput> { // Remove workspaceRoot, require options
+  async execute(
+    input: StatItemsToolInput,
+    options: McpToolExecuteOptions,
+  ): Promise<StatItemsToolOutput> {
+    // Remove workspaceRoot, require options
     const parsed = statItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
@@ -51,7 +61,11 @@ export const statItemsTool: McpTool<typeof statItemsToolInputSchema, StatItemsTo
       let resolvedPath: string | undefined;
 
       // Correct argument order: relativePathInput, workspaceRoot
-      const validationResult = validateAndResolvePath(itemPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
+      const validationResult = validateAndResolvePath(
+        itemPath,
+        options.workspaceRoot,
+        options?.allowOutsideWorkspace,
+      ); // Use options.workspaceRoot
 
       // Check if validation succeeded (result is a string)
       if (typeof validationResult === 'string') {
@@ -61,19 +75,29 @@ export const statItemsTool: McpTool<typeof statItemsToolInputSchema, StatItemsTo
           itemStat = await stat(resolvedPath);
           itemSuccess = true;
           anySuccess = true;
-        } catch (e: any) {
+        } catch (e: unknown) {
           itemSuccess = false;
-          if (e.code === 'ENOENT') {
+          let errorCode: string | null = null;
+          let errorMsg = 'Unknown error';
+
+          if (e && typeof e === 'object') {
+            if ('code' in e) {
+              errorCode = String((e as { code: unknown }).code);
+            }
+          }
+          if (e instanceof Error) {
+            errorMsg = e.message;
+          }
+
+          if (errorCode === 'ENOENT') {
             error = `Path '${itemPath}' not found.`;
             suggestion = `Ensure the path '${itemPath}' exists.`;
-            console.error(error);
           } else {
-            error = `Failed to get stats for '${itemPath}': ${e.message}`;
-            console.error(error);
-            if (e.code === 'EACCES') {
+            error = `Failed to get stats for '${itemPath}': ${errorMsg}`;
+            if (errorCode === 'EACCES') {
               suggestion = `Check permissions for the path '${itemPath}'.`;
             } else {
-              suggestion = `Check the path and permissions.`;
+              suggestion = 'Check the path and permissions.';
             }
           }
         }
@@ -85,10 +109,9 @@ export const statItemsTool: McpTool<typeof statItemsToolInputSchema, StatItemsTo
           suggestion,
         });
       } else {
-         // Validation failed, result is the error object (or unexpected format)
-        error = (validationResult as any)?.error ?? 'Unknown path validation error'; // Access .error
-        suggestion = (validationResult as any)?.suggestion ?? 'Review path and workspace settings.';
-        console.error(`Path validation failed for ${itemPath}: ${error}. Raw validationResult:`, validationResult);
+        // Validation failed, result is the error object (or unexpected format)
+        error = validationResult?.error ?? 'Unknown path validation error'; // Access .error
+        suggestion = validationResult?.suggestion ?? 'Review path and workspace settings.';
         results.push({ path: itemPath, success: false, error, suggestion });
       }
     } // End loop
@@ -96,10 +119,14 @@ export const statItemsTool: McpTool<typeof statItemsToolInputSchema, StatItemsTo
     // Serialize the detailed results into the content field
     // Note: Stats objects might not serialize perfectly with JSON.stringify,
     // but it's better than losing the data entirely. Client might need specific parsing.
-    const contentText = JSON.stringify({
+    const contentText = JSON.stringify(
+      {
         summary: `Stat operation completed. Overall success (at least one): ${anySuccess}`,
-        results: results
-    }, null, 2); // Pretty-print JSON
+        results: results,
+      },
+      null,
+      2,
+    ); // Pretty-print JSON
 
     return {
       success: anySuccess, // Keep original success logic

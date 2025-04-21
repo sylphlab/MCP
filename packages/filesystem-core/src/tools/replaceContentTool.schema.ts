@@ -10,7 +10,9 @@ export const ReplaceOperationSchema = z.object({
 
 // Main input schema: paths and operations
 export const replaceContentToolInputSchema = z.object({
-  paths: z.array(z.string().min(1, 'Path/glob pattern cannot be empty.')).min(1, 'paths array cannot be empty.'),
+  paths: z
+    .array(z.string().min(1, 'Path/glob pattern cannot be empty.'))
+    .min(1, 'paths array cannot be empty.'),
   operations: z.array(ReplaceOperationSchema).min(1, 'operations array cannot be empty.'),
   // allowOutsideWorkspace is handled by McpToolExecuteOptions
 });

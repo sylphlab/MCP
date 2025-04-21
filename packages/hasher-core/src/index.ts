@@ -8,5 +8,3 @@ export type {
   HashToolOutput,
   HashAlgorithm, // Still useful to export the algorithm type
 } from './tools/hashTool.js';
-
-console.log('MCP Hasher Core Package (Single Operation Tool Structure) Loaded');

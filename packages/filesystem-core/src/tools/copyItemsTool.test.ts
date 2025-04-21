@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, type MockedFunction } from 'vitest';
-import { cp, stat, mkdir } from 'node:fs/promises'; // Use named imports
-import path from 'node:path';
 import type { Stats } from 'node:fs'; // Import Stats type
-import { copyItemsTool, type CopyItemsToolInput } from './copyItemsTool';
+import { cp, mkdir, stat } from 'node:fs/promises'; // Use named imports
+import path from 'node:path';
+import { type MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type CopyItemsToolInput, copyItemsTool } from './copyItemsTool.js';
 
 // Mock the specific fs/promises functions we need (using named exports)
 vi.mock('node:fs/promises', () => ({
@@ -14,13 +14,30 @@ vi.mock('node:fs/promises', () => ({
 const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
 
 // Helper to create mock Stats objects
-const createMockStats = (isFile: boolean): Stats => ({
+const _createMockStats = (isFile: boolean): Stats =>
+  ({
     isFile: () => isFile,
     isDirectory: () => !isFile,
     // Add other properties if needed, or cast to Partial<Stats>
-    dev: 0, ino: 0, mode: 0, nlink: 0, uid: 0, gid: 0, rdev: 0, size: 123, blksize: 4096, blocks: 1, atimeMs: 0, mtimeMs: 0, ctimeMs: 0, birthtimeMs: 0, atime: new Date(), mtime: new Date(), ctime: new Date(), birthtime: new Date(),
-} as Stats);
-
+    dev: 0,
+    ino: 0,
+    mode: 0,
+    nlink: 0,
+    uid: 0,
+    gid: 0,
+    rdev: 0,
+    size: 123,
+    blksize: 4096,
+    blocks: 1,
+    atimeMs: 0,
+    mtimeMs: 0,
+    ctimeMs: 0,
+    birthtimeMs: 0,
+    atime: new Date(),
+    mtime: new Date(),
+    ctime: new Date(),
+    birthtime: new Date(),
+  }) as Stats;
 
 describe('copyItemsTool', () => {
   // Cast the imported named function to access mock methods
@@ -33,7 +50,7 @@ describe('copyItemsTool', () => {
     vi.resetAllMocks();
     // Default stat to ENOENT (file not found)
     const enoentError = new Error('ENOENT');
-    (enoentError as any).code = 'ENOENT';
+    (enoentError as NodeJS.ErrnoException).code = 'ENOENT';
     mockStat.mockRejectedValue(enoentError);
     mockCp.mockResolvedValue(undefined); // Default cp to success
   });
@@ -48,20 +65,23 @@ describe('copyItemsTool', () => {
     // stat will reject with ENOENT (default mock)
 
     // Act
-    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
+    const result = await copyItemsTool.execute(input, {
+      workspaceRoot: WORKSPACE_ROOT,
+      allowOutsideWorkspace: false,
+    }); // Pass options object
 
     // Assert
     expect(result.success).toBe(true);
     expect(result.results).toHaveLength(1);
-    expect(result.results[0]!.success).toBe(true);
-    expect(result.results[0]!.sourcePath).toBe('source.txt');
-    expect(result.results[0]!.destinationPath).toBe('dest/target.txt');
-    expect(result.results[0]!.error).toBeUndefined();
+    expect(result.results[0]?.success).toBe(true);
+    expect(result.results[0]?.sourcePath).toBe('source.txt');
+    expect(result.results[0]?.destinationPath).toBe('dest/target.txt');
+    expect(result.results[0]?.error).toBeUndefined();
     expect(mockCp).toHaveBeenCalledTimes(1);
     expect(mockCp).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, 'source.txt'),
       path.resolve(WORKSPACE_ROOT, 'dest/target.txt'),
-      { recursive: true, force: false, errorOnExist: true } // Check options
+      { recursive: true, force: false, errorOnExist: true }, // Check options
     );
   });
 
@@ -70,7 +90,8 @@ describe('copyItemsTool', () => {
     const input = { items: [] };
 
     // Act
-    const result = await copyItemsTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
+    // @ts-expect-error - Intentionally passing invalid input for validation test
+    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -82,13 +103,14 @@ describe('copyItemsTool', () => {
   it('should fail if an item has missing sourcePath', async () => {
     // Arrange
     const input = {
-        items: [{ destinationPath: 'dest.txt' } as any],
-        overwrite: false,
-        allowOutsideWorkspace: false,
+      items: [{ destinationPath: 'dest.txt' }],
+      overwrite: false,
+      allowOutsideWorkspace: false,
     };
 
     // Act
-    const result = await copyItemsTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
+    // @ts-expect-error - Intentionally passing invalid input for validation test
+    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
@@ -98,7 +120,6 @@ describe('copyItemsTool', () => {
     expect(result.error).toContain('items: Required');
     expect(mockCp).not.toHaveBeenCalled();
   });
-
 
   // TODO: Add tests for:
   // - Overwrite true/false scenarios (when destination exists) -> Covered below
@@ -113,18 +134,21 @@ describe('copyItemsTool', () => {
       // allowOutsideWorkspace removed
     };
     const enoentError = new Error('Source does not exist');
-    (enoentError as any).code = 'ENOENT';
+    (enoentError as NodeJS.ErrnoException).code = 'ENOENT';
     mockCp.mockRejectedValue(enoentError); // Mock cp failure
 
     // Act
-    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
+    const result = await copyItemsTool.execute(input, {
+      workspaceRoot: WORKSPACE_ROOT,
+      allowOutsideWorkspace: false,
+    }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
     expect(result.results).toHaveLength(1);
-    expect(result.results[0]!.success).toBe(false);
-    expect(result.results[0]!.error).toContain('Source path does not exist');
-    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('Source path does not exist');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockCp).toHaveBeenCalledTimes(1);
   });
 
@@ -136,23 +160,28 @@ describe('copyItemsTool', () => {
       // allowOutsideWorkspace removed
     };
     const eexistError = new Error('Destination exists');
-    (eexistError as any).code = 'EEXIST';
+    (eexistError as NodeJS.ErrnoException).code = 'EEXIST';
     mockCp.mockRejectedValue(eexistError); // Mock cp failure
 
     // Act
-    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
+    const result = await copyItemsTool.execute(input, {
+      workspaceRoot: WORKSPACE_ROOT,
+      allowOutsideWorkspace: false,
+    }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
     expect(result.results).toHaveLength(1);
-    expect(result.results[0]!.success).toBe(false);
-    expect(result.results[0]!.error).toContain('Destination path already exists and overwrite is false');
-    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain(
+      'Destination path already exists and overwrite is false',
+    );
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockCp).toHaveBeenCalledTimes(1);
     expect(mockCp).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, 'source.txt'),
       path.resolve(WORKSPACE_ROOT, 'existing.txt'),
-      { recursive: true, force: false, errorOnExist: true }
+      { recursive: true, force: false, errorOnExist: true },
     );
   });
 
@@ -167,14 +196,17 @@ describe('copyItemsTool', () => {
     mockCp.mockRejectedValue(genericError);
 
     // Act
-    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
+    const result = await copyItemsTool.execute(input, {
+      workspaceRoot: WORKSPACE_ROOT,
+      allowOutsideWorkspace: false,
+    }); // Pass options object
 
     // Assert
     expect(result.success).toBe(false);
     expect(result.results).toHaveLength(1);
-    expect(result.results[0]!.success).toBe(false);
-    expect(result.results[0]!.error).toContain('Something went wrong');
-    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
+    expect(result.results[0]?.success).toBe(false);
+    expect(result.results[0]?.error).toContain('Something went wrong');
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
     expect(mockCp).toHaveBeenCalledTimes(1);
   });
 
@@ -185,7 +217,10 @@ describe('copyItemsTool', () => {
       // allowOutsideWorkspace removed from input
     };
 
-    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false }); // Pass options object
+    const result = await copyItemsTool.execute(input, {
+      workspaceRoot: WORKSPACE_ROOT,
+      allowOutsideWorkspace: false,
+    }); // Pass options object
 
     expect(result.success).toBe(false);
     expect(result.results[0]?.success).toBe(false);
@@ -203,7 +238,10 @@ describe('copyItemsTool', () => {
     // Mock cp to succeed even though path is outside for this test
     mockCp.mockResolvedValue(undefined);
 
-    const result = await copyItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true }); // Pass options object
+    const result = await copyItemsTool.execute(input, {
+      workspaceRoot: WORKSPACE_ROOT,
+      allowOutsideWorkspace: true,
+    }); // Pass options object
 
     // Expect success because validation is skipped
     expect(result.success).toBe(true);
@@ -214,7 +252,7 @@ describe('copyItemsTool', () => {
     expect(mockCp).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, '../outside.txt'),
       path.resolve(WORKSPACE_ROOT, 'dest.txt'),
-      expect.anything()
+      expect.anything(),
     );
   });
 

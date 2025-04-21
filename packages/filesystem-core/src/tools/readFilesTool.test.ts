@@ -1,10 +1,9 @@
-import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
+import type { Stats } from 'node:fs'; // Import Stats type
 import { readFile, stat } from 'node:fs/promises'; // Use named imports
 import path from 'node:path';
-import type { Stats } from 'node:fs'; // Import Stats type
-import { readFilesTool, type ReadFilesToolInput } from './readFilesTool';
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
-
+import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type ReadFilesToolInput, readFilesTool } from './readFilesTool.js';
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -15,12 +14,30 @@ vi.mock('node:fs/promises', () => ({
 const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
 
 // Helper to create mock Stats objects
-const createMockStats = (isFile: boolean): Stats => ({
+const createMockStats = (isFile: boolean): Stats =>
+  ({
     isFile: () => isFile,
     isDirectory: () => !isFile,
     // Add other properties if needed, or cast to Partial<Stats>
-    dev: 0, ino: 0, mode: 0, nlink: 0, uid: 0, gid: 0, rdev: 0, size: 42, blksize: 4096, blocks: 1, atimeMs: 0, mtimeMs: 0, ctimeMs: 0, birthtimeMs: 0, atime: new Date(), mtime: new Date(), ctime: new Date(), birthtime: new Date(),
-} as Stats);
+    dev: 0,
+    ino: 0,
+    mode: 0,
+    nlink: 0,
+    uid: 0,
+    gid: 0,
+    rdev: 0,
+    size: 42,
+    blksize: 4096,
+    blocks: 1,
+    atimeMs: 0,
+    mtimeMs: 0,
+    ctimeMs: 0,
+    birthtimeMs: 0,
+    atime: new Date(),
+    mtime: new Date(),
+    ctime: new Date(),
+    birthtime: new Date(),
+  }) as Stats;
 
 describe('readFilesTool', () => {
   const mockReadFile = vi.mocked(readFile);
@@ -33,16 +50,21 @@ describe('readFilesTool', () => {
     mockReadFile.mockResolvedValue(Buffer.from('')); // Default to empty buffer
   });
   // Define options objects including workspaceRoot
-  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
-
+  const defaultOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: false,
+  };
+  const allowOutsideOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: true,
+  };
 
   it('should read a single file with utf-8 encoding by default', async () => {
     const input: ReadFilesToolInput = {
-        paths: ['file.txt'],
-        encoding: 'utf-8',
-        includeStats: false,
-        // allowOutsideWorkspace removed
+      paths: ['file.txt'],
+      encoding: 'utf-8',
+      includeStats: false,
+      // allowOutsideWorkspace removed
     };
     const fileContent = 'Hello World!';
     mockReadFile.mockResolvedValue(Buffer.from(fileContent, 'utf-8'));
@@ -63,10 +85,10 @@ describe('readFilesTool', () => {
 
   it('should read a single file with base64 encoding', async () => {
     const input: ReadFilesToolInput = {
-        paths: ['file.bin'],
-        encoding: 'base64',
-        includeStats: false,
-        // allowOutsideWorkspace removed
+      paths: ['file.bin'],
+      encoding: 'base64',
+      includeStats: false,
+      // allowOutsideWorkspace removed
     };
     const fileContent = 'SGVsbG8gV29ybGQh'; // "Hello World!" in base64
     const fileBuffer = Buffer.from(fileContent, 'base64');
@@ -82,10 +104,10 @@ describe('readFilesTool', () => {
 
   it('should read multiple files', async () => {
     const input: ReadFilesToolInput = {
-        paths: ['file1.txt', 'file2.txt'],
-        encoding: 'utf-8',
-        includeStats: false,
-        // allowOutsideWorkspace removed
+      paths: ['file1.txt', 'file2.txt'],
+      encoding: 'utf-8',
+      includeStats: false,
+      // allowOutsideWorkspace removed
     };
     mockReadFile
       .mockResolvedValueOnce(Buffer.from('Content 1'))
@@ -104,10 +126,10 @@ describe('readFilesTool', () => {
 
   it('should include stats when requested', async () => {
     const input: ReadFilesToolInput = {
-        paths: ['file.txt'],
-        includeStats: true,
-        encoding: 'utf-8',
-        // allowOutsideWorkspace removed
+      paths: ['file.txt'],
+      includeStats: true,
+      encoding: 'utf-8',
+      // allowOutsideWorkspace removed
     };
     const mockFileStats = createMockStats(true);
     mockStat.mockResolvedValue(mockFileStats); // Mock stat for the file
@@ -125,10 +147,10 @@ describe('readFilesTool', () => {
 
   it('should fail if includeStats is true and path is not a file', async () => {
     const input: ReadFilesToolInput = {
-        paths: ['dir'],
-        includeStats: true,
-        encoding: 'utf-8',
-        // allowOutsideWorkspace removed
+      paths: ['dir'],
+      includeStats: true,
+      encoding: 'utf-8',
+      // allowOutsideWorkspace removed
     };
     mockStat.mockResolvedValue(createMockStats(false)); // Mock stat says it's a directory
 
@@ -142,10 +164,10 @@ describe('readFilesTool', () => {
     expect(mockReadFile).not.toHaveBeenCalled();
   });
 
-
   it('should return validation error for empty paths array', async () => {
     const input = { paths: [] }; // Invalid input
-    const result = await readFilesTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
+    // @ts-expect-error - Intentionally passing invalid input for validation test
+    const result = await readFilesTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('paths array cannot be empty');
@@ -153,7 +175,11 @@ describe('readFilesTool', () => {
   });
 
   it('should handle path validation failure (outside workspace)', async () => {
-    const input: ReadFilesToolInput = { paths: ['../outside.txt'], encoding: 'utf-8', includeStats: false }; // allowOutsideWorkspace removed
+    const input: ReadFilesToolInput = {
+      paths: ['../outside.txt'],
+      encoding: 'utf-8',
+      includeStats: false,
+    }; // allowOutsideWorkspace removed
     // Explicitly test with allowOutsideWorkspace: false
     const result = await readFilesTool.execute(input, defaultOptions); // Pass options object
     expect(result.success).toBe(false);
@@ -164,9 +190,13 @@ describe('readFilesTool', () => {
   });
 
   it('should handle non-existent file error (ENOENT)', async () => {
-    const input: ReadFilesToolInput = { paths: ['nonexistent.txt'], encoding: 'utf-8', includeStats: false }; // allowOutsideWorkspace removed
+    const input: ReadFilesToolInput = {
+      paths: ['nonexistent.txt'],
+      encoding: 'utf-8',
+      includeStats: false,
+    }; // allowOutsideWorkspace removed
     const readError = new Error('ENOENT');
-    (readError as any).code = 'ENOENT';
+    (readError as NodeJS.ErrnoException).code = 'ENOENT';
     mockReadFile.mockRejectedValue(readError);
 
     const result = await readFilesTool.execute(input, defaultOptions); // Pass options object
@@ -179,9 +209,13 @@ describe('readFilesTool', () => {
   });
 
   it('should handle path is directory error (EISDIR)', async () => {
-    const input: ReadFilesToolInput = { paths: ['directory'], encoding: 'utf-8', includeStats: false }; // allowOutsideWorkspace removed
+    const input: ReadFilesToolInput = {
+      paths: ['directory'],
+      encoding: 'utf-8',
+      includeStats: false,
+    }; // allowOutsideWorkspace removed
     const readError = new Error('EISDIR');
-    (readError as any).code = 'EISDIR';
+    (readError as NodeJS.ErrnoException).code = 'EISDIR';
     mockReadFile.mockRejectedValue(readError);
     // Need to mock stat to say it's a directory IF includeStats was true, but here it's false,
     // so the error comes directly from readFile
@@ -196,7 +230,11 @@ describe('readFilesTool', () => {
   });
 
   it('should NOT fail path validation if path is outside workspace and allowOutsideWorkspace is true', async () => {
-    const input: ReadFilesToolInput = { paths: ['../outside.txt'], encoding: 'utf-8', includeStats: false }; // allowOutsideWorkspace removed
+    const input: ReadFilesToolInput = {
+      paths: ['../outside.txt'],
+      encoding: 'utf-8',
+      includeStats: false,
+    }; // allowOutsideWorkspace removed
     const fileContent = 'Outside!';
     mockReadFile.mockResolvedValue(Buffer.from(fileContent, 'utf-8'));
     // Mock stat to succeed if includeStats were true (though it's false here)
@@ -213,7 +251,6 @@ describe('readFilesTool', () => {
     expect(mockReadFile).toHaveBeenCalledTimes(1);
     expect(mockReadFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, '../outside.txt')); // Check resolved path
   });
-
 
   // TODO: Add tests for stat error when includeStats is true
   // TODO: Add tests for multiple files where some succeed and some fail

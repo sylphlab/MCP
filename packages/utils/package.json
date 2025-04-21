@@ -13,18 +13,12 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
   },
-  "keywords": [
-    "mcp",
-    "utils",
-    "server"
-  ],
+  "keywords": ["mcp", "utils", "server"],
   "author": "Sylph Lab <hi@sylphlab.com>",
   "license": "MIT",
   "devDependencies": {

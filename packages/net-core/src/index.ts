@@ -15,5 +15,3 @@ export { downloadTool } from './tools/downloadTool.js';
 export { downloadToolInputSchema } from './tools/downloadTool.schema.js';
 export type { DownloadToolInput } from './tools/downloadTool.types.js'; // Correct path for input type
 export type { DownloadToolOutput } from './tools/downloadTool.types.js'; // Correct path for output interface
-
-console.log('MCP Net Core Package (getPublicIp, getInterfaces, download Tools) Loaded');

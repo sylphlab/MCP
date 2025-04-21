@@ -13,9 +13,7 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
@@ -23,12 +21,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
-  "keywords": [
-    "mcp",
-    "core",
-    "wait",
-    "delay"
-  ],
+  "keywords": ["mcp", "core", "wait", "delay"],
   "author": "",
   "license": "ISC",
   "dependencies": {

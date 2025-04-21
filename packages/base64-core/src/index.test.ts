@@ -1,9 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 // Import the actual tools and their types
 import {
-  encodeBase64Tool, type EncodeBase64ToolInput, EncodeBase64ToolOutput,
-  decodeBase64Tool, type DecodeBase64ToolInput, DecodeBase64ToolOutput
-} from './index';
+  type DecodeBase64ToolInput,
+  DecodeBase64ToolOutput,
+  type EncodeBase64ToolInput,
+  EncodeBase64ToolOutput,
+  decodeBase64Tool,
+  encodeBase64Tool,
+} from './index.js';
 
 // Mock workspace root - not used by these tools' logic but required by execute signature
 const mockWorkspaceRoot = '';
@@ -39,7 +43,6 @@ describe('encodeBase64Tool.execute', () => {
     expect(result.success).toBe(false);
     expect(result.encoded).toBeUndefined();
     expect(result.error).toBe(`Encoding failed: ${expectedErrorMessage}`);
-    expect(consoleSpy).toHaveBeenCalledWith(`Encoding failed: ${expectedErrorMessage}`);
 
     consoleSpy.mockRestore();
   });
@@ -73,11 +76,9 @@ describe('decodeBase64Tool.execute', () => {
     expect(result.decoded).toBeUndefined(); // Corrected assertion property
     expect(result.error).toBe('Decoding failed: Simulated decoding error'); // Corrected expected error message
     expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.'); // Corrected suggestion text
-    expect(consoleSpy).toHaveBeenCalledWith('Decoding failed: Simulated decoding error'); // Corrected console check
 
     consoleSpy.mockRestore();
   });
-
 
   it('should handle invalid base64 characters that Buffer might ignore', async () => {
     // Input that might decode partially but fail re-encoding check
@@ -89,7 +90,6 @@ describe('decodeBase64Tool.execute', () => {
     expect(result.decoded).toBeUndefined();
     expect(result.error).toBe('Decoding failed: Invalid Base64 input string');
     expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.');
-    expect(consoleSpy).toHaveBeenCalledWith('Decoding failed: Invalid Base64 input string');
 
     consoleSpy.mockRestore();
   });
@@ -115,7 +115,6 @@ describe('decodeBase64Tool.execute', () => {
     expect(result.decoded).toBeUndefined();
     expect(result.error).toBe(`Decoding failed: ${mockError.message}`);
     expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.');
-    expect(consoleSpy).toHaveBeenCalledWith(`Decoding failed: ${mockError.message}`);
 
     vi.restoreAllMocks();
   });

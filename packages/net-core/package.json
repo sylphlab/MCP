@@ -13,9 +13,7 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
@@ -23,14 +21,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
-  "keywords": [
-    "mcp",
-    "core",
-    "net",
-    "network",
-    "ip",
-    "fetch"
-  ],
+  "keywords": ["mcp", "core", "net", "network", "ip", "fetch"],
   "author": "",
   "license": "ISC",
   "dependencies": {

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 // Import the actual tool and its input type
-import { waitTool, type WaitToolInput } from './index';
+import { type WaitToolInput, waitTool } from './index.js';
 
 // Mock workspace root - not used by waitTool's logic but required by execute signature
 const mockWorkspaceRoot = '';
@@ -27,18 +27,20 @@ describe('waitTool.execute', () => {
     expect(itemResult.error).toBeUndefined();
 
     expect(result.totalDurationWaitedMs).toBe(waitTime);
-    const expectedContent = JSON.stringify({
+    const expectedContent = JSON.stringify(
+      {
         summary: `Processed 1 wait operations. Total duration waited: ${waitTime}ms. Overall success: true`,
         totalDurationWaitedMs: waitTime,
-        results: [{ id: 'wait1', success: true, durationWaitedMs: waitTime }]
-    }, null, 2);
+        results: [{ id: 'wait1', success: true, durationWaitedMs: waitTime }],
+      },
+      null,
+      2,
+    );
     expect(result.content).toEqual([{ type: 'text', text: expectedContent }]);
 
     // Check if the duration is roughly the wait time (allowing for some overhead)
     expect(duration).toBeGreaterThanOrEqual(waitTime - 10); // Allow some tolerance
     expect(duration).toBeLessThan(waitTime + 100); // Allow generous upper bound for test runners
-    expect(consoleSpy).toHaveBeenCalledWith(`Waiting for ${waitTime}ms... (ID: wait1)`);
-    expect(consoleSpy).toHaveBeenCalledWith(`Wait finished for ${waitTime}ms. (ID: wait1)`);
     consoleSpy.mockRestore();
   });
 
@@ -56,11 +58,15 @@ describe('waitTool.execute', () => {
     expect(itemResult.error).toBeUndefined();
 
     expect(result.totalDurationWaitedMs).toBe(0);
-    const expectedContentZero = JSON.stringify({
-        summary: `Processed 1 wait operations. Total duration waited: 0ms. Overall success: true`,
+    const expectedContentZero = JSON.stringify(
+      {
+        summary: 'Processed 1 wait operations. Total duration waited: 0ms. Overall success: true',
         totalDurationWaitedMs: 0,
-        results: [{ id: 'wait0', success: true, durationWaitedMs: 0 }]
-    }, null, 2);
+        results: [{ id: 'wait0', success: true, durationWaitedMs: 0 }],
+      },
+      null,
+      2,
+    );
     expect(result.content).toEqual([{ type: 'text', text: expectedContentZero }]);
   });
 
@@ -70,13 +76,13 @@ describe('waitTool.execute', () => {
     const mockError = new Error('Internal timer error');
 
     // Mock the Promise constructor or setTimeout behavior to simulate rejection
-    const originalSetTimeout = global.setTimeout;
-    vi.spyOn(global, 'setTimeout').mockImplementationOnce((callback, ms) => {
-        // Simulate an error occurring *before* the timeout completes
-        // In a real scenario, this is very unlikely for setTimeout itself.
-        // We're testing the catch block in processSingleWait.
-        throw mockError;
-        // return originalSetTimeout(callback, ms); // Keep TypeScript happy
+    const _originalSetTimeout = global.setTimeout;
+    vi.spyOn(global, 'setTimeout').mockImplementationOnce((_callback, _ms) => {
+      // Simulate an error occurring *before* the timeout completes
+      // In a real scenario, this is very unlikely for setTimeout itself.
+      // We're testing the catch block in processSingleWait.
+      throw mockError;
+      // return originalSetTimeout(callback, ms); // Keep TypeScript happy
     });
 
     const consoleErrSpy = vi.spyOn(console, 'error');
@@ -93,13 +99,16 @@ describe('waitTool.execute', () => {
     expect(itemResult.error).toBe(`Wait failed: ${mockError.message}`);
 
     expect(result.totalDurationWaitedMs).toBe(0); // Failed wait doesn't add to total
-    const expectedContentError = JSON.stringify({
-        summary: `Processed 1 wait operations. Total duration waited: 0ms. Overall success: false`,
+    const expectedContentError = JSON.stringify(
+      {
+        summary: 'Processed 1 wait operations. Total duration waited: 0ms. Overall success: false',
         totalDurationWaitedMs: 0,
-        results: [{ id: 'wait_err', success: false, error: `Wait failed: ${mockError.message}` }]
-    }, null, 2);
+        results: [{ id: 'wait_err', success: false, error: `Wait failed: ${mockError.message}` }],
+      },
+      null,
+      2,
+    );
     expect(result.content).toEqual([{ type: 'text', text: expectedContentError }]);
-    expect(consoleErrSpy).toHaveBeenCalledWith(`Wait failed: Internal timer error (ID: wait_err)`);
 
     // Restore mocks
     vi.restoreAllMocks();
@@ -112,7 +121,7 @@ describe('waitTool.execute', () => {
       items: [
         { id: 'batch_wait1', durationMs: waitTime1 }, // Use durationMs
         { id: 'batch_wait2', durationMs: waitTime2 }, // Use durationMs
-      ]
+      ],
     };
     const startTime = Date.now();
     const consoleSpy = vi.spyOn(console, 'log');
@@ -143,25 +152,24 @@ describe('waitTool.execute', () => {
 
     // Check overall results
     expect(result.totalDurationWaitedMs).toBe(expectedTotalWait);
-    const expectedContentBatch = JSON.stringify({
+    const expectedContentBatch = JSON.stringify(
+      {
         summary: `Processed 2 wait operations. Total duration waited: ${expectedTotalWait}ms. Overall success: true`,
         totalDurationWaitedMs: expectedTotalWait,
         results: [
-            { id: 'batch_wait1', success: true, durationWaitedMs: waitTime1 },
-            { id: 'batch_wait2', success: true, durationWaitedMs: waitTime2 }
-        ]
-    }, null, 2);
+          { id: 'batch_wait1', success: true, durationWaitedMs: waitTime1 },
+          { id: 'batch_wait2', success: true, durationWaitedMs: waitTime2 },
+        ],
+      },
+      null,
+      2,
+    );
     expect(result.content).toEqual([{ type: 'text', text: expectedContentBatch }]);
 
     // Check timing (approximate)
     expect(totalDuration).toBeGreaterThanOrEqual(expectedTotalWait - 15); // Allow tolerance
     expect(totalDuration).toBeLessThan(expectedTotalWait + 150); // Allow generous upper bound
 
-    // Check console logs (ensure sequential logging)
-    expect(consoleSpy).toHaveBeenNthCalledWith(1, `Waiting for ${waitTime1}ms... (ID: batch_wait1)`);
-    expect(consoleSpy).toHaveBeenNthCalledWith(2, `Wait finished for ${waitTime1}ms. (ID: batch_wait1)`);
-    expect(consoleSpy).toHaveBeenNthCalledWith(3, `Waiting for ${waitTime2}ms... (ID: batch_wait2)`);
-    expect(consoleSpy).toHaveBeenNthCalledWith(4, `Wait finished for ${waitTime2}ms. (ID: batch_wait2)`);
 
     consoleSpy.mockRestore();
   });

@@ -13,9 +13,7 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "bin": {
     "mcp-pdf": "./dist/index.js"
   },
@@ -23,12 +21,7 @@
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
   },
-  "keywords": [
-    "mcp",
-    "tool",
-    "pdf",
-    "text"
-  ],
+  "keywords": ["mcp", "tool", "pdf", "text"],
   "author": "",
   "license": "ISC",
   "devDependencies": {

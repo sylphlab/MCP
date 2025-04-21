@@ -13,20 +13,14 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "bin": {
     "mcp-xml": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup"
   },
-  "keywords": [
-    "mcp",
-    "tool",
-    "xml"
-  ],
+  "keywords": ["mcp", "tool", "xml"],
   "author": "",
   "license": "ISC",
   "devDependencies": {

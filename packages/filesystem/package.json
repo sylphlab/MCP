@@ -5,9 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "bin": {
     "mcp-filesystem": "./dist/index.js"
   },
@@ -16,11 +14,7 @@
     "dev": "tsup --watch",
     "start": "node dist/index.js"
   },
-  "keywords": [
-    "mcp",
-    "filesystem",
-    "server"
-  ],
+  "keywords": ["mcp", "filesystem", "server"],
   "author": "Sylph Lab <hi@sylphlab.com>",
   "license": "MIT",
   "packageManager": "pnpm@10.8.0",

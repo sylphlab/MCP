@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
+import type { Stats } from 'node:fs'; // Import Stats type
 import { stat } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
-import type { Stats } from 'node:fs'; // Import Stats type
-import { statItemsTool, type StatItemsToolInput } from './statItemsTool';
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type StatItemsToolInput, statItemsTool } from './statItemsTool.js';
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -13,12 +13,30 @@ vi.mock('node:fs/promises', () => ({
 const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
 
 // Helper to create mock Stats objects
-const createMockStats = (isFile: boolean): Stats => ({
+const createMockStats = (isFile: boolean): Stats =>
+  ({
     isFile: () => isFile,
     isDirectory: () => !isFile,
     // Add other properties if needed, or cast to Partial<Stats>
-    dev: 0, ino: 0, mode: 0, nlink: 0, uid: 0, gid: 0, rdev: 0, size: 99, blksize: 4096, blocks: 1, atimeMs: 0, mtimeMs: 0, ctimeMs: 0, birthtimeMs: 0, atime: new Date(), mtime: new Date(), ctime: new Date(), birthtime: new Date(),
-} as Stats);
+    dev: 0,
+    ino: 0,
+    mode: 0,
+    nlink: 0,
+    uid: 0,
+    gid: 0,
+    rdev: 0,
+    size: 99,
+    blksize: 4096,
+    blocks: 1,
+    atimeMs: 0,
+    mtimeMs: 0,
+    ctimeMs: 0,
+    birthtimeMs: 0,
+    atime: new Date(),
+    mtime: new Date(),
+    ctime: new Date(),
+    birthtime: new Date(),
+  }) as Stats;
 
 describe('statItemsTool', () => {
   const mockStat = vi.mocked(stat);
@@ -30,8 +48,14 @@ describe('statItemsTool', () => {
   });
 
   // Define options objects including workspaceRoot
-  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
+  const defaultOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: false,
+  };
+  const allowOutsideOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: true,
+  };
 
   it('should successfully get stats for a single item', async () => {
     const input: StatItemsToolInput = { paths: ['file.txt'] };
@@ -54,9 +78,7 @@ describe('statItemsTool', () => {
     const input: StatItemsToolInput = { paths: ['file1.txt', 'dir/file2.png'] };
     const mockStats1 = createMockStats(true);
     const mockStats2 = createMockStats(true);
-    mockStat
-      .mockResolvedValueOnce(mockStats1)
-      .mockResolvedValueOnce(mockStats2);
+    mockStat.mockResolvedValueOnce(mockStats1).mockResolvedValueOnce(mockStats2);
 
     const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
 
@@ -72,7 +94,7 @@ describe('statItemsTool', () => {
   it('should handle non-existent path (ENOENT) gracefully', async () => {
     const input: StatItemsToolInput = { paths: ['nonexistent.txt'] };
     const enoentError = new Error('ENOENT');
-    (enoentError as any).code = 'ENOENT';
+    (enoentError as NodeJS.ErrnoException).code = 'ENOENT';
     mockStat.mockRejectedValue(enoentError);
 
     const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
@@ -81,14 +103,14 @@ describe('statItemsTool', () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0]?.success).toBe(false);
     expect(result.results[0]?.stat).toBeUndefined();
-    expect(result.results[0]?.error).toContain('Path \'nonexistent.txt\' not found');
+    expect(result.results[0]?.error).toContain("Path 'nonexistent.txt' not found");
     expect(mockStat).toHaveBeenCalledTimes(1);
   });
 
   it('should handle other stat errors', async () => {
     const input: StatItemsToolInput = { paths: ['no_access.txt'] };
     const accessError = new Error('EACCES');
-    (accessError as any).code = 'EACCES';
+    (accessError as NodeJS.ErrnoException).code = 'EACCES';
     mockStat.mockRejectedValue(accessError);
 
     const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
@@ -103,15 +125,13 @@ describe('statItemsTool', () => {
     expect(mockStat).toHaveBeenCalledTimes(1);
   });
 
-   it('should handle multiple items with mixed results (found and not found)', async () => {
+  it('should handle multiple items with mixed results (found and not found)', async () => {
     const input: StatItemsToolInput = { paths: ['found.txt', 'not_found.txt'] };
     const mockStatsFound = createMockStats(true);
     const enoentError = new Error('ENOENT');
-    (enoentError as any).code = 'ENOENT';
+    (enoentError as NodeJS.ErrnoException).code = 'ENOENT';
 
-    mockStat
-      .mockResolvedValueOnce(mockStatsFound)
-      .mockRejectedValueOnce(enoentError);
+    mockStat.mockResolvedValueOnce(mockStatsFound).mockRejectedValueOnce(enoentError);
 
     const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
 
@@ -131,7 +151,7 @@ describe('statItemsTool', () => {
 
   it('should return validation error for empty paths array', async () => {
     const input = { paths: [] }; // Invalid input
-    const result = await statItemsTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
+    const result = await statItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('paths array cannot be empty');

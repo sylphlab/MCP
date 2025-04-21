@@ -13,9 +13,7 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "bin": {
     "mcp-wait": "./dist/index.js"
   },
@@ -23,12 +21,7 @@
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
   },
-  "keywords": [
-    "mcp",
-    "tool",
-    "wait",
-    "delay"
-  ],
+  "keywords": ["mcp", "tool", "wait", "delay"],
   "author": "",
   "license": "ISC",
   "devDependencies": {

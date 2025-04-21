@@ -1,7 +1,16 @@
+import { createHash } from 'node:crypto';
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+} from '@sylphlab/mcp-core';
 import type { z } from 'zod';
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
-import { createHash } from 'crypto';
-import { hashToolInputSchema, type HashItemSchema, type HashAlgorithmEnum } from './hashTool.schema.js'; // Import schema (added .js)
+import {
+  type HashAlgorithmEnum,
+  type HashItemSchema,
+  hashToolInputSchema,
+} from './hashTool.schema.js'; // Import schema (added .js)
 
 // --- TypeScript Types ---
 export type HashAlgorithm = z.infer<typeof HashAlgorithmEnum>;
@@ -23,7 +32,6 @@ export interface HashToolOutput extends BaseMcpToolOutput {
   error?: string; // Optional overall error if the tool itself fails unexpectedly
 }
 
-
 // --- Helper Function ---
 
 // Helper function to process a single hash item
@@ -32,24 +40,20 @@ async function processSingleHash(item: HashInputItem): Promise<HashResultItem> {
   const resultItem: HashResultItem = { id, success: false }; // Initialize success to false
 
   try {
-    console.log(`Computing ${algorithm} hash... (ID: ${id ?? 'N/A'})`);
     const hashResult = createHash(algorithm).update(data).digest('hex');
-    console.log(`Hash computed successfully. (ID: ${id ?? 'N/A'})`);
 
     resultItem.success = true;
     resultItem.result = hashResult;
-
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Catch errors during the actual hash operation
-    resultItem.error = `Hash operation failed: ${e.message}`;
+    const errorMsg = e instanceof Error ? e.message : 'Unknown hashing error';
+    resultItem.error = `Hash operation failed: ${errorMsg}`;
     resultItem.suggestion = 'Check algorithm name and input data type.';
-    console.error(`${resultItem.error} (ID: ${id ?? 'N/A'})`);
     // Ensure success is false if an error occurred
     resultItem.success = false;
   }
   return resultItem;
 }
-
 
 // --- Tool Definition ---
 export const hashTool: McpTool<typeof hashToolInputSchema, HashToolOutput> = {
@@ -57,7 +61,8 @@ export const hashTool: McpTool<typeof hashToolInputSchema, HashToolOutput> = {
   description: 'Computes cryptographic hashes for one or more input strings.',
   inputSchema: hashToolInputSchema, // Schema expects { items: [...] }
 
-  async execute(input: HashToolInput, options: McpToolExecuteOptions): Promise<HashToolOutput> { // Remove workspaceRoot, require options
+  async execute(input: HashToolInput, _options: McpToolExecuteOptions): Promise<HashToolOutput> {
+    // Remove workspaceRoot, require options
     // Input validation happens before execute in the registerTools helper
     const { items } = input;
     // workspaceRoot is now in options.workspaceRoot if needed
@@ -75,24 +80,34 @@ export const hashTool: McpTool<typeof hashToolInputSchema, HashToolOutput> = {
       }
 
       // Serialize the detailed results into the content field
-      const contentText = JSON.stringify({
+      const contentText = JSON.stringify(
+        {
           summary: `Processed ${items.length} hash requests. Overall success: ${overallSuccess}`,
-          results: results
-      }, null, 2); // Pretty-print JSON
+          results: results,
+        },
+        null,
+        2,
+      ); // Pretty-print JSON
 
       return {
         success: overallSuccess,
         results: results, // Keep original results field too
         content: [{ type: 'text', text: contentText }], // Put JSON string in content
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Catch unexpected errors during the loop itself (should be rare)
-      const errorMsg = `Unexpected error during hash tool execution: ${e.message}`;
-      console.error(errorMsg);
-      const errorContentText = JSON.stringify({
+      const errorMsg =
+        e instanceof Error
+          ? `Unexpected error during hash tool execution: ${e.message}`
+          : 'Unexpected error during hash tool execution: Unknown error';
+      const errorContentText = JSON.stringify(
+        {
           error: errorMsg,
-          results: results // Include partial results in error content too
-      }, null, 2);
+          results: results, // Include partial results in error content too
+        },
+        null,
+        2,
+      );
       return {
         success: false,
         results: results, // Keep partial results here too
@@ -102,5 +117,3 @@ export const hashTool: McpTool<typeof hashToolInputSchema, HashToolOutput> = {
     }
   },
 };
-
-console.log('MCP Hash Core Tool (Batch Operation) Loaded');

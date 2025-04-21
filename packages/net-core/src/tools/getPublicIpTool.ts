@@ -1,5 +1,10 @@
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+} from '@sylphlab/mcp-core';
 import type { z } from 'zod';
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, type McpToolExecuteOptions } from '@sylphlab/mcp-core';
 import { GetPublicIpToolInputSchema } from './getPublicIpTool.schema.js'; // Import schema (added .js)
 
 // --- TypeScript Types ---
@@ -17,32 +22,28 @@ export interface GetPublicIpToolOutput extends BaseMcpToolOutput {
 
 // Helper to fetch public IP
 async function fetchPublicIp(): Promise<{ ip: string | null; error: string | null }> {
-  console.log('Fetching public IP...');
   try {
     // Using a different service that might be more reliable or just for variety
     const response = await fetch('https://ipinfo.io/json');
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const data = await response.json();
     if (!data.ip) throw new Error('IP address not found in response from ipinfo.io');
-    console.log('Public IP fetched.');
     return { ip: data.ip, error: null };
   } catch (e: any) {
     const errorMsg = `Failed to fetch public IP: ${e.message}`;
-    console.error(errorMsg);
     // Attempt fallback
     try {
-        console.log('Attempting fallback public IP service...');
-        const fallbackResponse = await fetch('https://api.ipify.org?format=json');
-        if (!fallbackResponse.ok) throw new Error(`Fallback HTTP error! status: ${fallbackResponse.status}`);
-        const fallbackData = await fallbackResponse.json();
-         if (!fallbackData.ip) throw new Error('IP address not found in fallback response from api.ipify.org');
-        console.log('Public IP fetched via fallback.');
-        return { ip: fallbackData.ip, error: null };
+      const fallbackResponse = await fetch('https://api.ipify.org?format=json');
+      if (!fallbackResponse.ok)
+        throw new Error(`Fallback HTTP error! status: ${fallbackResponse.status}`);
+      const fallbackData = await fallbackResponse.json();
+      if (!fallbackData.ip)
+        throw new Error('IP address not found in fallback response from api.ipify.org');
+      return { ip: fallbackData.ip, error: null };
     } catch (fallbackError: any) {
-         const fallbackErrorMsg = `Fallback failed: ${fallbackError.message}`;
-         console.error(fallbackErrorMsg);
-         // Return the original error message if fallback also fails
-         return { ip: null, error: `${errorMsg}. Fallback also failed: ${fallbackErrorMsg}` };
+      const fallbackErrorMsg = `Fallback failed: ${fallbackError.message}`;
+      // Return the original error message if fallback also fails
+      return { ip: null, error: `${errorMsg}. Fallback also failed: ${fallbackErrorMsg}` };
     }
   }
 }
@@ -52,7 +53,11 @@ export const getPublicIpTool: McpTool<typeof GetPublicIpToolInputSchema, GetPubl
   description: 'Retrieves the public IP address of the machine running the MCP server.',
   inputSchema: GetPublicIpToolInputSchema,
 
-  async execute(input: GetPublicIpToolInput, options: McpToolExecuteOptions): Promise<GetPublicIpToolOutput> { // Remove workspaceRoot, require options
+  async execute(
+    input: GetPublicIpToolInput,
+    _options: McpToolExecuteOptions,
+  ): Promise<GetPublicIpToolOutput> {
+    // Remove workspaceRoot, require options
     const { id } = input;
     // workspaceRoot is now in options.workspaceRoot if needed
 
@@ -62,31 +67,37 @@ export const getPublicIpTool: McpTool<typeof GetPublicIpToolInputSchema, GetPubl
         throw new Error(publicIpInfo.error);
       }
       if (publicIpInfo.ip) {
-        const contentText = JSON.stringify({
+        const contentText = JSON.stringify(
+          {
             success: true,
             id: id,
-            result: publicIpInfo.ip
-        }, null, 2);
+            result: publicIpInfo.ip,
+          },
+          null,
+          2,
+        );
         return {
           success: true,
           id: id,
           result: publicIpInfo.ip, // Keep original field
           content: [{ type: 'text', text: contentText }], // Put JSON in content
         };
-      } else {
-         // Should be caught by the error check above, but as a safeguard
-         throw new Error('Public IP could not be determined.');
       }
+      // Should be caught by the error check above, but as a safeguard
+      throw new Error('Public IP could not be determined.');
     } catch (e: any) {
       const errorMsg = `Failed to get public IP: ${e.message}`;
-      console.error(errorMsg);
       const suggestion = 'Check internet connection and firewall settings.';
-      const errorContentText = JSON.stringify({
+      const errorContentText = JSON.stringify(
+        {
           success: false,
           id: id,
           error: errorMsg,
-          suggestion: suggestion
-      }, null, 2);
+          suggestion: suggestion,
+        },
+        null,
+        2,
+      );
       return {
         success: false,
         id: id,
@@ -97,5 +108,3 @@ export const getPublicIpTool: McpTool<typeof GetPublicIpToolInputSchema, GetPubl
     }
   },
 };
-
-console.log('MCP Get Public IP Tool Loaded');

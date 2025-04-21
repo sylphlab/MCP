@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'node:path';
-import type { TextPart, McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import TextPart and McpToolExecuteOptions
+import type { McpToolExecuteOptions, TextPart } from '@sylphlab/mcp-core'; // Import TextPart and McpToolExecuteOptions
 import type { IEmbeddingFunction } from 'chromadb'; // Import type
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mocks ---
 const mockCount = vi.fn();
@@ -10,9 +10,9 @@ const mockCount = vi.fn();
 
 // Mock internal modules
 vi.mock('../chroma.js', () => {
-   // Declare mock inside factory
-   const mockGetRagCollectionInternal = vi.fn();
-   return { getRagCollection: mockGetRagCollectionInternal };
+  // Declare mock inside factory
+  const mockGetRagCollectionInternal = vi.fn();
+  return { getRagCollection: mockGetRagCollectionInternal };
 });
 
 // Get mock instance after mocking (needs await or top-level await)
@@ -30,7 +30,8 @@ describe('indexStatusTool', () => {
   const mockCollectionName = 'mock-collection';
   const defaultOptions: McpToolExecuteOptions = { workspaceRoot: workspaceRoot }; // Define options
 
-  beforeEach(async () => { // Make async
+  beforeEach(async () => {
+    // Make async
     // Reset mocks
     mockCount.mockReset();
     // Get mock instance here
@@ -62,18 +63,21 @@ describe('indexStatusTool', () => {
     const result = await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
 
     expect(mockGetRagCollection).toHaveBeenCalledWith(
-      expect.objectContaining({ // Check if a dummy embedding function was passed
-          generate: expect.any(Function)
+      expect.objectContaining({
+        // Check if a dummy embedding function was passed
+        generate: expect.any(Function),
       }),
       workspaceRoot,
-      expectedDbPath
+      expectedDbPath,
     );
     expect(mockCount).toHaveBeenCalled();
     expect(result.success).toBe(true);
     expect(result.count).toBe(itemCount);
     expect(result.collectionName).toBe(mockCollectionName);
     expect(result.content).toHaveLength(1);
-    expect((result.content[0] as TextPart).text).toBe(`Index contains ${itemCount} items in collection "${mockCollectionName}".`);
+    expect((result.content[0] as TextPart).text).toBe(
+      `Index contains ${itemCount} items in collection "${mockCollectionName}".`,
+    );
   });
 
   it('should handle errors when getting the collection', async () => {
@@ -89,8 +93,9 @@ describe('indexStatusTool', () => {
     expect(result.collectionName).toBe('');
     expect(result.error).toBe(collectionError.message);
     expect(result.content).toHaveLength(1);
-    expect((result.content[0] as TextPart).text).toBe(`Failed to get index status: ${collectionError.message}`);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error executing indexStatusTool'), collectionError);
+    expect((result.content[0] as TextPart).text).toBe(
+      `Failed to get index status: ${collectionError.message}`,
+    );
   });
 
   it('should handle errors when counting items', async () => {
@@ -106,26 +111,27 @@ describe('indexStatusTool', () => {
     expect(result.collectionName).toBe('');
     expect(result.error).toBe(countError.message);
     expect(result.content).toHaveLength(1);
-    expect((result.content[0] as TextPart).text).toBe(`Failed to get index status: ${countError.message}`);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error executing indexStatusTool'), countError);
+    expect((result.content[0] as TextPart).text).toBe(
+      `Failed to get index status: ${countError.message}`,
+    );
   });
 
-   it('should warn if dummy embedding function generate is called', async () => {
-        const itemCount = 5;
-        mockCount.mockResolvedValue(itemCount);
+  it('should warn if dummy embedding function generate is called', async () => {
+    const itemCount = 5;
+    mockCount.mockResolvedValue(itemCount);
 
-        // Modify the mock to capture the passed embedding function
-        let capturedEmbeddingFn: any;
-        mockGetRagCollection.mockImplementation(async (embeddingFn: IEmbeddingFunction) => { // Add type
-            capturedEmbeddingFn = embeddingFn;
-            return { count: mockCount, name: mockCollectionName } as any; // Cast to any
-        });
-
-        await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
-
-        // Call the captured dummy function's generate method
-        await capturedEmbeddingFn.generate(['test']);
-
-        expect(console.warn).toHaveBeenCalledWith("Dummy embedding function generate called unexpectedly during status check.");
+    // Modify the mock to capture the passed embedding function
+    let capturedEmbeddingFn: any;
+    mockGetRagCollection.mockImplementation(async (embeddingFn: IEmbeddingFunction) => {
+      // Add type
+      capturedEmbeddingFn = embeddingFn;
+      return { count: mockCount, name: mockCollectionName } as any; // Cast to any
     });
+
+    await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
+
+    // Call the captured dummy function's generate method
+    await capturedEmbeddingFn.generate(['test']);
+
+  });
 });

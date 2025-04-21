@@ -1,16 +1,21 @@
 import { cp } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+  PathValidationError,
+  validateAndResolvePath,
+} from '@sylphlab/mcp-core'; // Import base types and validation util
 import type { z } from 'zod';
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-import { copyItemsToolInputSchema, type CopyItemSchema } from './copyItemsTool.schema.js'; // Import schema (added .js)
+import { type CopyItemSchema, copyItemsToolInputSchema } from './copyItemsTool.schema.js'; // Import schema (added .js)
 
 // --- Input Types ---
 
 // Infer the TypeScript type from the Zod schema
 export type CopyItemsToolInput = z.infer<typeof copyItemsToolInputSchema>;
 // Infer the single item type as well
-type CopyItem = z.infer<typeof CopyItemSchema>;
-
 
 // --- Output Types ---
 
@@ -43,9 +48,14 @@ export interface CopyItemsToolOutput extends BaseMcpToolOutput {
 
 export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsToolOutput> = {
   name: 'copyItemsTool',
-  description: 'Copies one or more files or folders within the workspace. Handles recursion. Use relative paths.',
+  description:
+    'Copies one or more files or folders within the workspace. Handles recursion. Use relative paths.',
   inputSchema: copyItemsToolInputSchema,
-  async execute(input: CopyItemsToolInput, options: McpToolExecuteOptions): Promise<CopyItemsToolOutput> { // Remove workspaceRoot, require options
+  async execute(
+    input: CopyItemsToolInput,
+    options: McpToolExecuteOptions,
+  ): Promise<CopyItemsToolOutput> {
+    // Remove workspaceRoot, require options
     // Zod validation
     const parsed = copyItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -71,29 +81,46 @@ export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsTo
       let suggestion: string | undefined;
 
       // --- Validate and Resolve Paths ---
-      const sourceValidationResult = validateAndResolvePath(item.sourcePath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
+      const sourceValidationResult = validateAndResolvePath(
+        item.sourcePath,
+        options.workspaceRoot,
+        options?.allowOutsideWorkspace,
+      ); // Use options.workspaceRoot
       if (typeof sourceValidationResult !== 'string') {
-          error = sourceValidationResult.error;
-          suggestion = sourceValidationResult.suggestion;
-          console.error(`Skipping copy for source '${item.sourcePath}': ${error}`);
-          overallSuccess = false;
-          results.push({ sourcePath: item.sourcePath, destinationPath: item.destinationPath, success: false, error, suggestion });
-          continue;
+        error = sourceValidationResult.error;
+        suggestion = sourceValidationResult.suggestion;
+        overallSuccess = false;
+        results.push({
+          sourcePath: item.sourcePath,
+          destinationPath: item.destinationPath,
+          success: false,
+          error,
+          suggestion,
+        });
+        continue;
       }
       const sourceFullPath = sourceValidationResult;
 
-      const destValidationResult = validateAndResolvePath(item.destinationPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
-       if (typeof destValidationResult !== 'string') {
-          error = destValidationResult.error;
-          suggestion = destValidationResult.suggestion;
-          console.error(`Skipping copy for destination '${item.destinationPath}': ${error}`);
-          overallSuccess = false;
-          results.push({ sourcePath: item.sourcePath, destinationPath: item.destinationPath, success: false, error, suggestion });
-          continue;
+      const destValidationResult = validateAndResolvePath(
+        item.destinationPath,
+        options.workspaceRoot,
+        options?.allowOutsideWorkspace,
+      ); // Use options.workspaceRoot
+      if (typeof destValidationResult !== 'string') {
+        error = destValidationResult.error;
+        suggestion = destValidationResult.suggestion;
+        overallSuccess = false;
+        results.push({
+          sourcePath: item.sourcePath,
+          destinationPath: item.destinationPath,
+          success: false,
+          error,
+          suggestion,
+        });
+        continue;
       }
       const destinationFullPath = destValidationResult;
       // --- End Path Validation ---
-
 
       try {
         await cp(sourceFullPath, destinationFullPath, {
@@ -103,20 +130,25 @@ export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsTo
         });
         itemSuccess = true;
         message = `Copied '${item.sourcePath}' to '${item.destinationPath}' successfully.`;
-        console.error(message); // Log success to stderr
-      } catch (e: any) {
+      } catch (e: unknown) {
         itemSuccess = false;
-        if (e.code === 'ENOENT') {
+        // Check for system error codes
+        if (e && typeof e === 'object' && 'code' in e) {
+          const code = (e as { code: unknown }).code;
+          if (code === 'ENOENT') {
             error = `Failed to copy '${item.sourcePath}': Source path does not exist.`;
             suggestion = `Verify the source path '${item.sourcePath}' exists and is accessible.`;
-        } else if (e.code === 'EEXIST' && !overwrite) {
+          } else if (code === 'EEXIST' && !overwrite) {
             error = `Failed to copy to '${item.destinationPath}': Destination path already exists and overwrite is false.`;
             suggestion = `Enable the 'overwrite' option or choose a different destination path.`;
-        } else {
-            error = `Failed to copy '${item.sourcePath}' to '${item.destinationPath}': ${e.message}`;
-            suggestion = `Check file paths, permissions, and available disk space.`;
+          }
         }
-        console.error(error);
+        // If no specific code matched or it wasn't a system error, use the general message
+        if (!error) {
+          const errorMsg = e instanceof Error ? e.message : 'Unknown error';
+          error = `Failed to copy '${item.sourcePath}' to '${item.destinationPath}': ${errorMsg}`;
+          suggestion = 'Check file paths, permissions, and available disk space.';
+        }
         overallSuccess = false;
       }
 
@@ -131,10 +163,14 @@ export const copyItemsTool: McpTool<typeof copyItemsToolInputSchema, CopyItemsTo
     }
 
     // Serialize the detailed results into the content field
-    const contentText = JSON.stringify({
+    const contentText = JSON.stringify(
+      {
         summary: `Copy operation completed. Overall success: ${overallSuccess}`,
-        results: results
-    }, null, 2); // Pretty-print JSON
+        results: results,
+      },
+      null,
+      2,
+    ); // Pretty-print JSON
 
     return {
       success: overallSuccess,

@@ -1,10 +1,15 @@
-import { z } from 'zod';
 import path from 'node:path'; // Import path
 // Correct imports based on core/src/index.ts
-import type { McpTool, BaseMcpToolOutput, McpContentPart, McpToolExecuteOptions } from '@sylphlab/mcp-core';
-import { getRagCollection } from '../chroma.js';
+import type {
+  BaseMcpToolOutput,
+  McpContentPart,
+  McpTool,
+  McpToolExecuteOptions,
+} from '@sylphlab/mcp-core';
 // Removed VercelAIEmbeddingFunction import
 import type { IEmbeddingFunction } from 'chromadb'; // Import IEmbeddingFunction type
+import { z } from 'zod';
+import { getRagCollection } from '../chroma.js';
 
 // Define Input Schema using Zod (optional, could be empty)
 const IndexStatusInput = z.object({}).optional(); // No input needed
@@ -22,7 +27,11 @@ export const indexStatusTool: McpTool<typeof IndexStatusInput, IndexStatusOutput
   inputSchema: IndexStatusInput, // Use Zod schema directly
 
   // Correct execute signature
-  async execute(_input: z.infer<typeof IndexStatusInput>, options: McpToolExecuteOptions): Promise<IndexStatusOutput> { // Remove workspaceRoot, require options
+  async execute(
+    _input: z.infer<typeof IndexStatusInput>,
+    options: McpToolExecuteOptions,
+  ): Promise<IndexStatusOutput> {
+    // Remove workspaceRoot, require options
     try {
       // Determine chromaDbPath using options.workspaceRoot
       const chromaDbPath = path.join(options.workspaceRoot, '.mcp', 'chroma_db'); // Use options.workspaceRoot
@@ -32,13 +41,16 @@ export const indexStatusTool: McpTool<typeof IndexStatusInput, IndexStatusOutput
       // TODO: Consider refactoring getRagCollection or ChromaClient interaction if possible
       // to avoid needing an embedding function for metadata operations like count().
       const dummyEmbeddingFn: IEmbeddingFunction = {
-          // Provide a minimal implementation or leave empty if generate is not called by getRagCollection for count()
-          generate: async (texts: string[]) => {
-              console.warn("Dummy embedding function generate called unexpectedly during status check.");
-              return texts.map(() => []); // Return empty arrays of the correct type
-          }
+        // Provide a minimal implementation or leave empty if generate is not called by getRagCollection for count()
+        generate: async (texts: string[]) => {
+          return texts.map(() => []); // Return empty arrays of the correct type
+        },
       };
-      const collection = await getRagCollection(dummyEmbeddingFn, options.workspaceRoot, chromaDbPath); // Use options.workspaceRoot
+      const collection = await getRagCollection(
+        dummyEmbeddingFn,
+        options.workspaceRoot,
+        chromaDbPath,
+      ); // Use options.workspaceRoot
 
       const count = await collection.count();
       const contentText = `Index contains ${count} items in collection "${collection.name}".`;
@@ -51,15 +63,17 @@ export const indexStatusTool: McpTool<typeof IndexStatusInput, IndexStatusOutput
         collectionName: collection.name,
       };
     } catch (error: any) {
-      console.error('Error executing indexStatusTool:', error);
       // Return a structured error output consistent with BaseMcpToolOutput
-      const errorContent: McpContentPart = { type: 'text', text: `Failed to get index status: ${error.message}` };
+      const errorContent: McpContentPart = {
+        type: 'text',
+        text: `Failed to get index status: ${error.message}`,
+      };
       return {
-          success: false,
-          content: [errorContent],
-          error: error.message,
-          count: -1, // Indicate error state
-          collectionName: '', // Indicate error state
+        success: false,
+        content: [errorContent],
+        error: error.message,
+        count: -1, // Indicate error state
+        collectionName: '', // Indicate error state
       };
     }
   },

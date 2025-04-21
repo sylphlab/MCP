@@ -1,10 +1,9 @@
-import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
-import { rename, mkdir, rm, stat } from 'node:fs/promises'; // Use named imports
-import path from 'node:path';
 import type { Stats } from 'node:fs'; // Import Stats type
-import { moveRenameItemsTool, type MoveRenameItemsToolInput } from './moveRenameItemsTool';
+import { mkdir, rename, rm, stat } from 'node:fs/promises'; // Use named imports
+import path from 'node:path';
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
-
+import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type MoveRenameItemsToolInput, moveRenameItemsTool } from './moveRenameItemsTool.js';
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -17,13 +16,30 @@ vi.mock('node:fs/promises', () => ({
 const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
 
 // Helper to create mock Stats objects
-const createMockStats = (isDirectory: boolean, isFile: boolean): Stats => ({
+const createMockStats = (isDirectory: boolean, isFile: boolean): Stats =>
+  ({
     isFile: () => isFile,
     isDirectory: () => isDirectory,
     // Add other properties if needed, or cast to Partial<Stats>
-    dev: 0, ino: 0, mode: 0, nlink: 0, uid: 0, gid: 0, rdev: 0, size: 123, blksize: 4096, blocks: 1, atimeMs: 0, mtimeMs: 0, ctimeMs: 0, birthtimeMs: 0, atime: new Date(), mtime: new Date(), ctime: new Date(), birthtime: new Date(),
-} as Stats);
-
+    dev: 0,
+    ino: 0,
+    mode: 0,
+    nlink: 0,
+    uid: 0,
+    gid: 0,
+    rdev: 0,
+    size: 123,
+    blksize: 4096,
+    blocks: 1,
+    atimeMs: 0,
+    mtimeMs: 0,
+    ctimeMs: 0,
+    birthtimeMs: 0,
+    atime: new Date(),
+    mtime: new Date(),
+    ctime: new Date(),
+    birthtime: new Date(),
+  }) as Stats;
 
 describe('moveRenameItemsTool', () => {
   const mockRename = vi.mocked(rename);
@@ -39,13 +55,18 @@ describe('moveRenameItemsTool', () => {
     mockRm.mockResolvedValue(undefined);
     // Default stat to ENOENT (file not found)
     const enoentError = new Error('ENOENT');
-    (enoentError as any).code = 'ENOENT';
+    (enoentError as NodeJS.ErrnoException).code = 'ENOENT';
     mockStat.mockRejectedValue(enoentError);
   });
   // Define options objects including workspaceRoot
-  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
-
+  const defaultOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: false,
+  };
+  const allowOutsideOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: true,
+  };
 
   it('should successfully move/rename item when destination does not exist', async () => {
     const input: MoveRenameItemsToolInput = {
@@ -65,7 +86,7 @@ describe('moveRenameItemsTool', () => {
     expect(mockRename).toHaveBeenCalledTimes(1);
     expect(mockRename).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, 'old.txt'),
-      path.resolve(WORKSPACE_ROOT, 'new.txt')
+      path.resolve(WORKSPACE_ROOT, 'new.txt'),
     );
   });
 
@@ -85,11 +106,14 @@ describe('moveRenameItemsTool', () => {
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockStat).toHaveBeenCalledTimes(1); // Check destination existence
     expect(mockRm).toHaveBeenCalledTimes(1); // Should remove existing destination
-    expect(mockRm).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'existing.txt'), { recursive: true, force: true });
+    expect(mockRm).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'existing.txt'), {
+      recursive: true,
+      force: true,
+    });
     expect(mockRename).toHaveBeenCalledTimes(1);
     expect(mockRename).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, 'old.txt'),
-      path.resolve(WORKSPACE_ROOT, 'existing.txt')
+      path.resolve(WORKSPACE_ROOT, 'existing.txt'),
     );
   });
 
@@ -116,7 +140,10 @@ describe('moveRenameItemsTool', () => {
 
   it('should return validation error for empty items array', async () => {
     const input = { items: [] }; // Invalid input
-    const result = await moveRenameItemsTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
+    // @ts-expect-error - Intentionally passing invalid input for validation test
+    const result = await moveRenameItemsTool.execute(input, {
+      workspaceRoot: WORKSPACE_ROOT,
+    }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('At least one move/rename item is required.'); // Match schema message
@@ -145,7 +172,7 @@ describe('moveRenameItemsTool', () => {
       // allowOutsideWorkspace removed
     };
     const renameError = new Error('ENOENT');
-    (renameError as any).code = 'ENOENT';
+    (renameError as NodeJS.ErrnoException).code = 'ENOENT';
     mockRename.mockRejectedValue(renameError);
     // stat will reject with ENOENT (default mock) for destination
 
@@ -178,7 +205,7 @@ describe('moveRenameItemsTool', () => {
     expect(mockRename).not.toHaveBeenCalled();
   });
 
-   it('should handle rm error during overwrite', async () => {
+  it('should handle rm error during overwrite', async () => {
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'old.txt', destinationPath: 'existing.txt' }],
       overwrite: true,
@@ -220,10 +247,9 @@ describe('moveRenameItemsTool', () => {
     expect(mockRename).toHaveBeenCalledTimes(1);
     expect(mockRename).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, 'valid.txt'),
-      path.resolve(WORKSPACE_ROOT, '../outside.txt') // Check resolved path
+      path.resolve(WORKSPACE_ROOT, '../outside.txt'), // Check resolved path
     );
   });
-
 
   // TODO: Add tests for multiple items (success/fail mix)
   // TODO: Add tests for moving directories vs files

@@ -1,7 +1,7 @@
 /// <reference types="vitest" />
 import { defineConfig as defineViteConfig, mergeConfig } from 'vite';
-import { defineConfig as defineVitestConfig } from 'vitest/config';
 import tsconfigPaths from 'vite-tsconfig-paths';
+import { defineConfig as defineVitestConfig } from 'vitest/config';
 // Remove WASM plugin imports
 // import wasm from 'vite-plugin-wasm';
 // import topLevelAwait from 'vite-plugin-top-level-await';

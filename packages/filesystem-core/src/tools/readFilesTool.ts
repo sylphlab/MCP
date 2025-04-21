@@ -1,8 +1,15 @@
+import type { Stats } from 'node:fs'; // Import Stats type
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import type { Stats } from 'node:fs'; // Import Stats type
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+  PathValidationError,
+  validateAndResolvePath,
+} from '@sylphlab/mcp-core'; // Import base types and validation util
 import type { z } from 'zod';
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
 import { readFilesToolInputSchema } from './readFilesTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
@@ -42,7 +49,11 @@ export const readFilesTool: McpTool<typeof readFilesToolInputSchema, ReadFilesTo
   description: 'Reads the content of one or more files within the workspace.',
   inputSchema: readFilesToolInputSchema,
 
-  async execute(input: ReadFilesToolInput, options: McpToolExecuteOptions): Promise<ReadFilesToolOutput> { // Remove workspaceRoot, require options
+  async execute(
+    input: ReadFilesToolInput,
+    options: McpToolExecuteOptions,
+  ): Promise<ReadFilesToolOutput> {
+    // Remove workspaceRoot, require options
     // Zod validation
     const parsed = readFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -71,61 +82,75 @@ export const readFilesTool: McpTool<typeof readFilesToolInputSchema, ReadFilesTo
       let fullPath: string | undefined;
 
       // --- Validate Path ---
-      const validationResult = validateAndResolvePath(itemPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
+      const validationResult = validateAndResolvePath(
+        itemPath,
+        options.workspaceRoot,
+        options?.allowOutsideWorkspace,
+      ); // Use options.workspaceRoot
       if (typeof validationResult !== 'string') {
-          error = `Path validation failed: ${validationResult.error}`;
-          suggestionForError = validationResult.suggestion;
-          console.error(`Skipping read for ${itemPath}: ${error}`);
-          results.push({ path: itemPath, success: false, error, suggestion: suggestionForError });
-          // anySuccess remains false or keeps previous value
-          continue; // Skip to next itemPath
-      } else {
-          fullPath = validationResult; // Path is valid and resolved
+        error = `Path validation failed: ${validationResult.error}`;
+        suggestionForError = validationResult.suggestion;
+        results.push({ path: itemPath, success: false, error, suggestion: suggestionForError });
+        // anySuccess remains false or keeps previous value
+        continue; // Skip to next itemPath
       }
+      fullPath = validationResult; // Path is valid and resolved
       // --- End Path Validation ---
 
       // Proceed only if path is valid
       if (fullPath) {
         try {
-            // Optionally get stats first
-            if (includeStats) {
-                itemStat = await stat(fullPath); // Use validated path
-                // Ensure it's a file if stats are requested
-                 if (!itemStat.isFile()) {
-                    throw new Error(`Path '${itemPath}' is not a file.`);
-                 }
+          // Optionally get stats first
+          if (includeStats) {
+            itemStat = await stat(fullPath); // Use validated path
+            // Ensure it's a file if stats are requested
+            if (!itemStat.isFile()) {
+              throw new Error(`Path '${itemPath}' is not a file.`);
             }
+          }
 
-            // Read the file content with specified encoding
-            const fileBuffer = await readFile(fullPath); // Use validated path
-            content = fileBuffer.toString(encoding);
+          // Read the file content with specified encoding
+          const fileBuffer = await readFile(fullPath); // Use validated path
+          content = fileBuffer.toString(encoding);
 
-            itemSuccess = true;
-            anySuccess = true; // Mark overall success if at least one works
+          itemSuccess = true;
+          anySuccess = true; // Mark overall success if at least one works
+        } catch (e: unknown) {
+          itemSuccess = false;
+          let errorCode: string | null = null;
+          let errorMsg = 'Unknown error';
 
-        } catch (e: any) {
-            itemSuccess = false;
-            // Provide specific errors
-            if (e.code === 'ENOENT') {
-                 error = `Failed to read '${itemPath}': File not found.`;
-            } else if (e.code === 'EISDIR') {
-                 error = `Failed to read '${itemPath}': Path is a directory, not a file.`;
-            } else {
-                 error = `Failed to read '${itemPath}': ${e.message}`;
+          if (e && typeof e === 'object') {
+            if ('code' in e) {
+              errorCode = String((e as { code: unknown }).code);
             }
-            console.error(error);
-            // Add suggestion based on error
-            if (e.code === 'ENOENT') {
-                const parentDir = path.dirname(itemPath);
-                suggestionForError = `Ensure the file path '${itemPath}' is correct and the file exists. You could try listing the directory contents using listFilesTool on '${parentDir === '.' ? '.' : parentDir}' to check available files.`;
-            } else if (e.code === 'EISDIR' || e.message.includes('is not a file')) {
-                suggestionForError = `The path '${itemPath}' points to a directory. Provide a path to a file.`;
-            } else if (e.code === 'EACCES') {
-                suggestionForError = `Check read permissions for the file '${itemPath}'.`;
-            } else {
-                suggestionForError = `Check the file path and permissions.`;
-            }
-            // Assign suggestion to the result object later
+          }
+          if (e instanceof Error) {
+            errorMsg = e.message;
+          }
+
+          // Provide specific errors based on code
+          if (errorCode === 'ENOENT') {
+            error = `Failed to read '${itemPath}': File not found.`;
+          } else if (errorCode === 'EISDIR') {
+            error = `Failed to read '${itemPath}': Path is a directory, not a file.`;
+          } else {
+            // Use the extracted message for other errors
+            error = `Failed to read '${itemPath}': ${errorMsg}`;
+          }
+
+          // Add suggestion based on error code or message
+          if (errorCode === 'ENOENT') {
+            const parentDir = path.dirname(itemPath);
+            suggestionForError = `Ensure the file path '${itemPath}' is correct and the file exists. You could try listing the directory contents using listFilesTool on '${parentDir === '.' ? '.' : parentDir}' to check available files.`;
+          } else if (errorCode === 'EISDIR' || errorMsg.includes('is not a file')) {
+            suggestionForError = `The path '${itemPath}' points to a directory. Provide a path to a file.`;
+          } else if (errorCode === 'EACCES') {
+            suggestionForError = `Check read permissions for the file '${itemPath}'.`;
+          } else {
+            suggestionForError = 'Check the file path and permissions.';
+          }
+          // Assign suggestion to the result object later
         }
       }
 
@@ -140,10 +165,14 @@ export const readFilesTool: McpTool<typeof readFilesToolInputSchema, ReadFilesTo
     }
 
     // Serialize the detailed results into the content field
-    const contentText = JSON.stringify({
+    const contentText = JSON.stringify(
+      {
         summary: `Read operation completed. Overall success (at least one): ${anySuccess}`,
-        results: results
-    }, null, 2); // Pretty-print JSON
+        results: results,
+      },
+      null,
+      2,
+    ); // Pretty-print JSON
 
     return {
       success: anySuccess, // Keep original success logic

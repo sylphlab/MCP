@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Import the actual tool and its types
-import { fetchTool, type FetchToolInput } from './index.js'; // Add .js extension
+import { type FetchToolInput, fetchTool } from './index.js'; // Add .js extension
 
 // Mock workspace root - not used by this tool's logic but required by execute signature
 const mockWorkspaceRoot = '';
 
 describe('fetchTool.execute', () => {
   // Define a reusable clone function for mocks
-  function mockClone(this: any) {
+  function mockClone(this: Response) {
     // Return a new object with the same properties and *independent* mocked methods
     return {
       ok: this.ok,
@@ -36,7 +36,9 @@ describe('fetchTool.execute', () => {
   });
 
   it('should process a single GET request (text)', async () => {
-    const input: FetchToolInput = { items: [{ id: 'a', url: 'http://test.com/text', method: 'GET', responseType: 'text' }] };
+    const input: FetchToolInput = {
+      items: [{ id: 'a', url: 'http://test.com/text', method: 'GET', responseType: 'text' }],
+    };
     const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(true);
@@ -46,11 +48,16 @@ describe('fetchTool.execute', () => {
     expect(result.status).toBe(200);
     expect(result.body).toBe('Success response');
     expect(result.error).toBeUndefined();
-    expect(global.fetch).toHaveBeenCalledWith('http://test.com/text', { method: 'GET', headers: {} });
+    expect(global.fetch).toHaveBeenCalledWith('http://test.com/text', {
+      method: 'GET',
+      headers: {},
+    });
   });
 
   it('should process a single GET request (json)', async () => {
-    const input: FetchToolInput = { items: [{ id: 'b', url: 'http://test.com/json', method: 'GET', responseType: 'json' }] };
+    const input: FetchToolInput = {
+      items: [{ id: 'b', url: 'http://test.com/json', method: 'GET', responseType: 'json' }],
+    };
     const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(true);
@@ -60,18 +67,25 @@ describe('fetchTool.execute', () => {
     expect(result.status).toBe(200);
     expect(result.body).toEqual({ message: 'Success response' });
     expect(result.error).toBeUndefined();
-    expect(global.fetch).toHaveBeenCalledWith('http://test.com/json', { method: 'GET', headers: {} });
+    expect(global.fetch).toHaveBeenCalledWith('http://test.com/json', {
+      method: 'GET',
+      headers: {},
+    });
   });
 
-   it('should process a single POST request with body', async () => {
-    const input: FetchToolInput = { items: [{
-      id: 'c',
-      url: 'http://test.com/post',
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: 'value' }),
-      responseType: 'json'
-    }]};
+  it('should process a single POST request with body', async () => {
+    const input: FetchToolInput = {
+      items: [
+        {
+          id: 'c',
+          url: 'http://test.com/post',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: 'value' }),
+          responseType: 'json',
+        },
+      ],
+    };
     const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(true);
@@ -83,25 +97,29 @@ describe('fetchTool.execute', () => {
     expect(global.fetch).toHaveBeenCalledWith('http://test.com/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: 'value' })
+      body: JSON.stringify({ data: 'value' }),
     });
   });
 
-   it('should default Content-Type for POST if body present and header missing', async () => {
-     const input: FetchToolInput = { items: [{
-       id: 'c2',
-       url: 'http://test.com/post',
-      method: 'POST',
-      // No Content-Type header
-      body: JSON.stringify({ data: 'value' }),
-      responseType: 'json'
-    }]};
+  it('should default Content-Type for POST if body present and header missing', async () => {
+    const input: FetchToolInput = {
+      items: [
+        {
+          id: 'c2',
+          url: 'http://test.com/post',
+          method: 'POST',
+          // No Content-Type header
+          body: JSON.stringify({ data: 'value' }),
+          responseType: 'json',
+        },
+      ],
+    };
     await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(global.fetch).toHaveBeenCalledWith('http://test.com/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }, // Should be added by default
-      body: JSON.stringify({ data: 'value' })
+      body: JSON.stringify({ data: 'value' }),
     });
   });
 
@@ -109,7 +127,9 @@ describe('fetchTool.execute', () => {
 
   it('should handle fetch error (e.g., network error)', async () => {
     vi.mocked(global.fetch).mockRejectedValue(new Error('Network failed'));
-    const input: FetchToolInput = { items: [{ id: 'f', url: 'http://test.com/fail', method: 'GET', responseType: 'text' }] };
+    const input: FetchToolInput = {
+      items: [{ id: 'f', url: 'http://test.com/fail', method: 'GET', responseType: 'text' }],
+    };
     const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(false); // Overall success is false
@@ -133,7 +153,9 @@ describe('fetchTool.execute', () => {
       clone: mockClone, // Assign the external function
     };
     vi.mocked(global.fetch).mockResolvedValue(mockErrorResponse as unknown as Response);
-    const input: FetchToolInput = { items: [{ id: 'g', url: 'http://test.com/notfound', method: 'GET', responseType: 'text' }] };
+    const input: FetchToolInput = {
+      items: [{ id: 'g', url: 'http://test.com/notfound', method: 'GET', responseType: 'text' }],
+    };
     const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(false);
@@ -150,7 +172,9 @@ describe('fetchTool.execute', () => {
   });
 
   it('should handle responseType ignore', async () => {
-    const input: FetchToolInput = { items: [{ id: 'i', url: 'http://test.com/ignore', method: 'GET', responseType: 'ignore' }] };
+    const input: FetchToolInput = {
+      items: [{ id: 'i', url: 'http://test.com/ignore', method: 'GET', responseType: 'ignore' }],
+    };
     const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(true);
@@ -160,7 +184,10 @@ describe('fetchTool.execute', () => {
     expect(result.status).toBe(200);
     expect(result.body).toBeNull(); // Body should be null when ignored
     expect(result.error).toBeUndefined();
-    expect(global.fetch).toHaveBeenCalledWith('http://test.com/ignore', { method: 'GET', headers: {} });
+    expect(global.fetch).toHaveBeenCalledWith('http://test.com/ignore', {
+      method: 'GET',
+      headers: {},
+    });
   });
 
   it('should handle JSON parsing error for responseType json', async () => {
@@ -174,7 +201,9 @@ describe('fetchTool.execute', () => {
       clone: mockClone, // Assign the external function
     };
     vi.mocked(global.fetch).mockResolvedValue(mockBadJsonResponse as unknown as Response);
-    const input: FetchToolInput = { items: [{ id: 'h', url: 'http://test.com/badjson', method: 'GET', responseType: 'json' }] };
+    const input: FetchToolInput = {
+      items: [{ id: 'h', url: 'http://test.com/badjson', method: 'GET', responseType: 'json' }],
+    };
     const output = await fetchTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
     expect(output.success).toBe(false);
@@ -182,10 +211,9 @@ describe('fetchTool.execute', () => {
     const result = output.results[0];
     expect(result.success).toBe(false);
     expect(result.id).toBe('h');
-     // Status might not be present if caught in the final catch block after parsing fails
-     // expect(result.status).toBe(200); // Request was ok, parsing failed
-     expect(result.body).toBeUndefined();
-     expect(result.error).toContain('Unexpected token'); // Error from response.json() or the catch block
+    // Status might not be present if caught in the final catch block after parsing fails
+    // expect(result.status).toBe(200); // Request was ok, parsing failed
+    expect(result.body).toBeUndefined();
+    expect(result.error).toContain('Unexpected token'); // Error from response.json() or the catch block
   });
-
 }); // End describe fetchTool.execute

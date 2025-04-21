@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 // Schema for a single wait item
-export const WaitItemSchema = z.object({ // Renamed and Exported
+export const WaitItemSchema = z.object({
+  // Renamed and Exported
   id: z.string().optional(),
   durationMs: z.number().int().min(0, 'Duration must be non-negative.'),
 });

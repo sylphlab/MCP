@@ -1,12 +1,21 @@
-import { rename, mkdir, rm, stat } from 'node:fs/promises';
+import { mkdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
+import {
+  type BaseMcpToolOutput,
+  type McpTool,
+  type McpToolExecuteOptions,
+  McpToolInput,
+  PathValidationError,
+  validateAndResolvePath,
+} from '@sylphlab/mcp-core'; // Import base types and validation util
 import type { z } from 'zod';
-import { type McpTool, type BaseMcpToolOutput, McpToolInput, validateAndResolvePath, PathValidationError, type McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import base types and validation util
-import { moveRenameItemsToolInputSchema, type MoveRenameItemSchema } from './moveRenameItemsTool.schema.js'; // Import schema (added .js)
+import {
+  type MoveRenameItemSchema,
+  moveRenameItemsToolInputSchema,
+} from './moveRenameItemsTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
 export type MoveRenameItemsToolInput = z.infer<typeof moveRenameItemsToolInputSchema>;
-type MoveRenameItem = z.infer<typeof MoveRenameItemSchema>; // Infer internal type
 
 // --- Output Types ---
 export interface MoveRenameItemResult {
@@ -37,12 +46,20 @@ export interface MoveRenameItemsToolOutput extends BaseMcpToolOutput {
 
 // --- Tool Definition (following SDK pattern) ---
 
-export const moveRenameItemsTool: McpTool<typeof moveRenameItemsToolInputSchema, MoveRenameItemsToolOutput> = {
+export const moveRenameItemsTool: McpTool<
+  typeof moveRenameItemsToolInputSchema,
+  MoveRenameItemsToolOutput
+> = {
   name: 'moveRenameItemsTool',
-  description: 'Moves or renames one or more files or folders within the workspace. Use relative paths.',
+  description:
+    'Moves or renames one or more files or folders within the workspace. Use relative paths.',
   inputSchema: moveRenameItemsToolInputSchema,
 
-  async execute(input: MoveRenameItemsToolInput, options: McpToolExecuteOptions): Promise<MoveRenameItemsToolOutput> { // Remove workspaceRoot, require options
+  async execute(
+    input: MoveRenameItemsToolInput,
+    options: McpToolExecuteOptions,
+  ): Promise<MoveRenameItemsToolOutput> {
+    // Remove workspaceRoot, require options
     // Zod validation
     const parsed = moveRenameItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -71,32 +88,41 @@ export const moveRenameItemsTool: McpTool<typeof moveRenameItemsToolInputSchema,
       let destinationFullPath: string | undefined; // Use let for validated paths
 
       // --- Validate Paths ---
-      const sourceValidation = validateAndResolvePath(item.sourcePath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
+      const sourceValidation = validateAndResolvePath(
+        item.sourcePath,
+        options.workspaceRoot,
+        options?.allowOutsideWorkspace,
+      ); // Use options.workspaceRoot
       if (typeof sourceValidation !== 'string') {
-          error = `Source path validation failed: ${sourceValidation.error}`;
-          suggestion = sourceValidation.suggestion;
-          overallSuccess = false;
+        error = `Source path validation failed: ${sourceValidation.error}`;
+        suggestion = sourceValidation.suggestion;
+        overallSuccess = false;
       } else {
-          sourceFullPath = sourceValidation;
+        sourceFullPath = sourceValidation;
       }
 
-      if (!error) { // Only validate destination if source is valid
-          const destValidation = validateAndResolvePath(item.destinationPath, options.workspaceRoot, options?.allowOutsideWorkspace); // Use options.workspaceRoot
-          if (typeof destValidation !== 'string') {
-              error = `Destination path validation failed: ${destValidation.error}`;
-              suggestion = destValidation.suggestion;
-              overallSuccess = false;
-          } else {
-              destinationFullPath = destValidation;
-          }
+      if (!error) {
+        // Only validate destination if source is valid
+        const destValidation = validateAndResolvePath(
+          item.destinationPath,
+          options.workspaceRoot,
+          options?.allowOutsideWorkspace,
+        ); // Use options.workspaceRoot
+        if (typeof destValidation !== 'string') {
+          error = `Destination path validation failed: ${destValidation.error}`;
+          suggestion = destValidation.suggestion;
+          overallSuccess = false;
+        } else {
+          destinationFullPath = destValidation;
+        }
       }
       // --- End Path Validation ---
 
       // Check if paths are the same after validation
       if (!error && sourceFullPath === destinationFullPath) {
-          error = `Source and destination paths resolve to the same location: '${sourceFullPath}'`;
-          suggestion = `Provide different source and destination paths.`;
-          overallSuccess = false;
+        error = `Source and destination paths resolve to the same location: '${sourceFullPath}'`;
+        suggestion = 'Provide different source and destination paths.';
+        overallSuccess = false;
       }
 
       // Proceed only if paths are valid and different
@@ -109,22 +135,30 @@ export const moveRenameItemsTool: McpTool<typeof moveRenameItemsToolInputSchema,
           // Handle overwrite logic
           let destinationExists = false;
           try {
-              await stat(destinationFullPath); // Check if destination exists (use validated path)
-              destinationExists = true;
-          } catch (statError: any) {
-              if (statError.code !== 'ENOENT') {
-                  throw statError; // Re-throw unexpected errors
+            await stat(destinationFullPath); // Check if destination exists (use validated path)
+            destinationExists = true;
+          } catch (statError: unknown) {
+            // Check if it's an error object with a code property
+            if (statError && typeof statError === 'object' && 'code' in statError) {
+              if ((statError as { code: unknown }).code !== 'ENOENT') {
+                throw statError; // Re-throw unexpected errors
               }
-              // ENOENT means destination doesn't exist, which is fine
+              // If code is 'ENOENT', destinationExists remains false (default)
+            } else {
+              // If it's not an object with 'code', re-throw it
+              throw statError;
+            }
+            // ENOENT means destination doesn't exist, which is fine
           }
 
           if (destinationExists) {
-              if (overwrite) {
-                  console.error(`Overwrite enabled: Removing existing destination '${item.destinationPath}' before move.`); // Log to stderr
-                  await rm(destinationFullPath, { recursive: true, force: true }); // Remove existing destination (use validated path)
-              } else {
-                  throw new Error(`Destination path '${item.destinationPath}' already exists and overwrite is false.`);
-              }
+            if (overwrite) {
+              await rm(destinationFullPath, { recursive: true, force: true }); // Remove existing destination (use validated path)
+            } else {
+              throw new Error(
+                `Destination path '${item.destinationPath}' already exists and overwrite is false.`,
+              );
+            }
           }
 
           // Perform the rename/move operation (use validated paths)
@@ -132,22 +166,32 @@ export const moveRenameItemsTool: McpTool<typeof moveRenameItemsToolInputSchema,
 
           itemSuccess = true;
           message = `Moved/Renamed '${item.sourcePath}' to '${item.destinationPath}' successfully.`;
-          console.error(message); // Log success to stderr
-
-        } catch (e: any) {
+        } catch (e: unknown) {
           itemSuccess = false;
           overallSuccess = false;
-          error = `Failed to move/rename '${item.sourcePath}' to '${item.destinationPath}': ${e.message}`;
-          console.error(error);
+          let errorCode: string | null = null;
+          let errorMsg = 'Unknown error';
+
+          if (e && typeof e === 'object') {
+            if ('code' in e) {
+              errorCode = String((e as { code: unknown }).code);
+            }
+          }
+          if (e instanceof Error) {
+            errorMsg = e.message;
+          }
+
+          error = `Failed to move/rename '${item.sourcePath}' to '${item.destinationPath}': ${errorMsg}`;
           // Add suggestion based on error type if possible
-          if (e.code === 'ENOENT') {
-              suggestion = `Suggestion: Verify the source path '${item.sourcePath}' exists.`; // Assign to suggestion
-          } else if (e.message.includes('already exists and overwrite is false')) {
-              suggestion = `Suggestion: Enable the 'overwrite' option or choose a different destination path.`; // Assign to suggestion
-          } else if (e.code === 'EPERM' || e.code === 'EACCES') {
-              suggestion = `Suggestion: Check file system permissions for both source and destination paths.`; // Assign to suggestion
+          if (errorCode === 'ENOENT') {
+            suggestion = `Suggestion: Verify the source path '${item.sourcePath}' exists.`; // Assign to suggestion
+          } else if (errorMsg.includes('already exists and overwrite is false')) {
+            suggestion = `Suggestion: Enable the 'overwrite' option or choose a different destination path.`; // Assign to suggestion
+          } else if (errorCode === 'EPERM' || errorCode === 'EACCES') {
+            suggestion =
+              'Suggestion: Check file system permissions for both source and destination paths.'; // Assign to suggestion
           } else {
-              suggestion = `Suggestion: Check file paths, permissions, and disk space.`; // Assign to suggestion
+            suggestion = 'Suggestion: Check file paths, permissions, and disk space.'; // Assign to suggestion
           }
         }
       }
@@ -164,10 +208,14 @@ export const moveRenameItemsTool: McpTool<typeof moveRenameItemsToolInputSchema,
     }
 
     // Serialize the detailed results into the content field
-    const contentText = JSON.stringify({
+    const contentText = JSON.stringify(
+      {
         summary: `Move/Rename operation completed. Overall success: ${overallSuccess}`,
-        results: results
-    }, null, 2); // Pretty-print JSON
+        results: results,
+      },
+      null,
+      2,
+    ); // Pretty-print JSON
 
     return {
       success: overallSuccess,

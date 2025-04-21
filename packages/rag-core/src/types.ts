@@ -14,7 +14,8 @@ export interface Document {
  * Represents a chunk of a document after processing.
  * Extends Document, inheriting id, content, and metadata.
  */
-export interface Chunk extends Document { // Already exported, no change needed here. Diff is incorrect.
+export interface Chunk extends Document {
+  // Already exported, no change needed here. Diff is incorrect.
   /** Optional: Original start position within the parent document. */
   startPosition?: number;
   /** Optional: Original end position within the parent document. */

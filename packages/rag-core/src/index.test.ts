@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as ragCore from '../src/index.js'; // Adjust path if build output is different
 
 describe('@sylphlab/mcp-rag-core entry point', () => {
@@ -21,9 +21,9 @@ describe('@sylphlab/mcp-rag-core entry point', () => {
     expect(ragCore.convertFilterToChromaWhere).toBeInstanceOf(Function);
 
     // Classes/Constructors
-     expect(ragCore.OllamaEmbeddingFunction).toBeInstanceOf(Function);
-     expect(ragCore.MockEmbeddingFunction).toBeInstanceOf(Function);
-     expect(ragCore.IndexManager).toBeInstanceOf(Function);
+    expect(ragCore.OllamaEmbeddingFunction).toBeInstanceOf(Function);
+    expect(ragCore.MockEmbeddingFunction).toBeInstanceOf(Function);
+    expect(ragCore.IndexManager).toBeInstanceOf(Function);
 
     // Tools
     expect(ragCore.indexContentTool).toBeDefined();

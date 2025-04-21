@@ -1,10 +1,9 @@
-import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
 import { readFile } from 'node:fs/promises'; // Use named import
 import path from 'node:path';
-import glob from 'fast-glob'; // Import fast-glob
-import { searchContentTool, type SearchContentToolInput } from './searchContentTool';
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
-
+import glob from 'fast-glob'; // Import fast-glob
+import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type SearchContentToolInput, searchContentTool } from './searchContentTool.js';
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -30,23 +29,34 @@ describe('searchContentTool', () => {
   });
 
   // Define options objects including workspaceRoot
-  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: false };
-  const allowOutsideOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT, allowOutsideWorkspace: true };
+  const defaultOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: false,
+  };
+  const _allowOutsideOptions: McpToolExecuteOptions = {
+    workspaceRoot: WORKSPACE_ROOT,
+    allowOutsideWorkspace: true,
+  };
 
   // Helper
   // Use 'as any' to bypass strict type checking for the helper, as allowOutsideWorkspace is optional
-  const createInput = (paths: string[], query: string, options: Partial<Omit<SearchContentToolInput, 'paths' | 'query' | 'allowOutsideWorkspace'>> = {}): SearchContentToolInput => ({
-      paths,
-      query,
-      // Provide defaults matching Zod schema for type safety in tests
-      isRegex: options.isRegex ?? false,
-      matchCase: options.matchCase ?? true,
-      contextLinesBefore: options.contextLinesBefore ?? 0,
-      contextLinesAfter: options.contextLinesAfter ?? 0,
-      maxResultsPerFile: options.maxResultsPerFile, // Optional, no default needed here
-      // lineRange: options.lineRange, // TODO
-  } as any);
-
+  const createInput = (
+    paths: string[],
+    query: string,
+    options: Partial<
+      Omit<SearchContentToolInput, 'paths' | 'query' | 'allowOutsideWorkspace'>
+    > = {},
+  ): SearchContentToolInput => ({
+    paths,
+    query,
+    // Provide defaults matching Zod schema for type safety in tests
+    isRegex: options.isRegex ?? false,
+    matchCase: options.matchCase ?? true,
+    contextLinesBefore: options.contextLinesBefore ?? 0,
+    contextLinesAfter: options.contextLinesAfter ?? 0,
+    maxResultsPerFile: options.maxResultsPerFile, // Optional, no default needed here
+    // lineRange: options.lineRange, // TODO
+  });
 
   it('should find simple text matches (case-sensitive default)', async () => {
     const filePath = 'file.txt';
@@ -78,14 +88,14 @@ describe('searchContentTool', () => {
     expect(result.results[0]?.matches).toHaveLength(3);
     expect(result.results[0]?.matches?.[0]?.lineNumber).toBe(1);
     expect(result.results[0]?.matches?.[0]?.matchText).toBe('Hello');
-     expect(result.results[0]?.matches?.[1]?.lineNumber).toBe(2);
+    expect(result.results[0]?.matches?.[1]?.lineNumber).toBe(2);
     expect(result.results[0]?.matches?.[1]?.matchText).toBe('hello');
-     expect(result.results[0]?.matches?.[2]?.lineNumber).toBe(3);
+    expect(result.results[0]?.matches?.[2]?.lineNumber).toBe(3);
     expect(result.results[0]?.matches?.[2]?.matchText).toBe('HELLO');
   });
 
   it('should find regex matches', async () => {
-     const filePath = 'file.txt';
+    const filePath = 'file.txt';
     const content = 'Value: 123\nValue: 456\nIgnore: 789';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(content);
@@ -149,9 +159,7 @@ describe('searchContentTool', () => {
   it('should search across multiple files', async () => {
     const files = ['file1.txt', 'file2.txt'];
     mockGlob.mockResolvedValue(files);
-    mockReadFile
-      .mockResolvedValueOnce('Match here')
-      .mockResolvedValueOnce('No match');
+    mockReadFile.mockResolvedValueOnce('Match here').mockResolvedValueOnce('No match');
     const input = createInput(files, 'Match');
 
     const result = await searchContentTool.execute(input, defaultOptions); // Pass options object
@@ -166,7 +174,8 @@ describe('searchContentTool', () => {
 
   it('should return validation error for empty paths array', async () => {
     const input = { paths: [], query: 'test' }; // Invalid input
-    const result = await searchContentTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
+    // @ts-expect-error - Intentionally passing invalid input for validation test
+    const result = await searchContentTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
     expect(result.success).toBe(false);
     expect(result.error).toContain('Input validation failed');
     expect(result.error).toContain('paths array cannot be empty');
@@ -204,9 +213,9 @@ describe('searchContentTool', () => {
     expect(result.success).toBe(false); // Overall fails because file processing failed
     expect(result.error).toBeUndefined(); // No top-level error
     expect(result.results).toHaveLength(1); // Should have one result for the file
-    expect(result.results[0]!.success).toBe(false); // File processing failed
-    expect(result.results[0]!.error).toContain('Invalid regex query'); // Error from new RegExp()
-    expect(result.results[0]!.suggestion).toEqual(expect.any(String));
+    expect(result.results[0]?.success).toBe(false); // File processing failed
+    expect(result.results[0]?.error).toContain('Invalid regex query'); // Error from new RegExp()
+    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
   });
 
   it('should handle zero-length regex matches correctly', async () => {
@@ -253,7 +262,9 @@ describe('searchContentTool', () => {
     expect(output.success).toBe(false); // Check overall success is false
     expect(output.results[0]?.success).toBe(false);
     expect(output.results[0]?.error).toContain('File not found'); // Check generic error message
-    expect(output.results[0]?.suggestion).toContain(`Ensure the file path '${filePath}' is correct`); // Check suggestion for specific code
+    expect(output.results[0]?.suggestion).toContain(
+      `Ensure the file path '${filePath}' is correct`,
+    ); // Check suggestion for specific code
   });
 
   it('should provide suggestion for EACCES error', async () => {
@@ -277,7 +288,9 @@ describe('searchContentTool', () => {
     expect(output.success).toBe(false); // Check overall success is false
     expect(output.results[0]?.success).toBe(false);
     expect(output.results[0]?.error).toContain('Permission denied'); // Check generic error message
-    expect(output.results[0]?.suggestion).toContain(`Check read permissions for the file '${filePath}'`); // Check suggestion for specific code
+    expect(output.results[0]?.suggestion).toContain(
+      `Check read permissions for the file '${filePath}'`,
+    ); // Check suggestion for specific code
   });
 
   // TODO: Add tests for lineRange once implemented

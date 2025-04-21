@@ -13,19 +13,13 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "build": "tsup"
   },
-  "keywords": [
-    "mcp",
-    "filesystem",
-    "tools"
-  ],
+  "keywords": ["mcp", "filesystem", "tools"],
   "author": "Sylph Lab <hi@sylphlab.com>",
   "license": "MIT",
   "packageManager": "pnpm@10.8.0",
