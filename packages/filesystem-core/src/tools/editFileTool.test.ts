@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises'; // Use named imports
 import path from 'node:path';
 import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
 import { type MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type EditFileToolInput, type EditOperation, editFileTool } from './editFileTool';
+import { type EditFileToolInput, type EditOperation, editFileTool } from './editFileTool.js';
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -433,6 +433,7 @@ describe('editFileTool', () => {
   it('should return validation error for invalid input', async () => {
     const input = { changes: [{ path: 'file.txt', edits: [{ operation: 'insert' }] }] }; // Missing content/start_line
 
+    // biome-ignore lint/suspicious/noExplicitAny: Intentional any to test runtime validation against invalid input shape
     const result = await editFileTool.execute(input as any, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
 
     expect(result.success).toBe(false);

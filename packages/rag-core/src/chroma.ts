@@ -23,8 +23,8 @@ async function initChromaClient(projectRoot: string, chromaDbPath?: string): Pro
   dbPath = effectiveDbPath;
 
   if (!client) {
-    client = new ChromaClient({ path: dbPath });
     try {
+      client = new ChromaClient({ path: dbPath });
     } catch (_error) {
       throw new Error('ChromaDB client initialization failed');
     }
@@ -70,6 +70,7 @@ export function convertFilterToChromaWhere(
 ): Where {
   const where: Where = {};
   for (const key in filter) {
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamically assigning keys based on filter object for ChromaDB Where type
     (where as any)[key] = { $eq: filter[key] }; // Default to $eq
   }
   return where;

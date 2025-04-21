@@ -159,7 +159,7 @@ describe('Chunking Logic', () => {
       // The simple logic IGNORES children that don't fit, resulting in 0 chunks.
       // The outer function then applies fallback text splitting.
       expect(chunks.length).toBeGreaterThan(1); // Should trigger fallback text split
-      expect(chunks[0].content.length).toBeLessThanOrEqual(defaultOptions.maxChunkSize!);
+      expect(chunks[0].content.length).toBeLessThanOrEqual(defaultOptions.maxChunkSize);
       // Corrected expected warning based on actual implementation detail
       expect(chunks[0].metadata?.warning).toContain(
         'Fallback text splitting applied (parsing/chunking error: Parsing returned null or empty tree)',

@@ -107,7 +107,7 @@ describe('decodeBase64Tool.execute', () => {
       // Call original for other encodings to avoid recursion
       return originalBufferFrom(value as string, encoding);
     });
-    const consoleSpy = vi.spyOn(console, 'error');
+    const _consoleSpy = vi.spyOn(console, 'error');
 
     const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 

@@ -102,16 +102,26 @@ async function processSinglePdfGetText(
     resultItem.success = true;
     resultItem.result = extractedText;
     resultItem.suggestion = 'Successfully extracted text from PDF.';
-  } catch (e: any) {
-    if (e.code === 'ENOENT') {
-      resultItem.error = `File not found: ${inputFilePath}`;
-      resultItem.suggestion = 'Ensure the file path is correct and the file exists.';
-    } else if (e.code === 'EACCES') {
-      resultItem.error = `Permission denied: Cannot read file ${inputFilePath}`;
-      resultItem.suggestion = 'Check file read permissions.';
+  } catch (e: unknown) {
+    // Check if e is an object with a code property before accessing it
+    if (e && typeof e === 'object' && 'code' in e) {
+      if (e.code === 'ENOENT') {
+        resultItem.error = `File not found: ${inputFilePath}`;
+        resultItem.suggestion = 'Ensure the file path is correct and the file exists.';
+      } else if (e.code === 'EACCES') {
+        resultItem.error = `Permission denied: Cannot read file ${inputFilePath}`;
+        resultItem.suggestion = 'Check file read permissions.';
+      } else {
+        // Handle other errors with a code property if necessary, or fall through
+        const message = e instanceof Error ? e.message : String(e);
+        resultItem.error = `Failed to get text from PDF '${inputFilePath}': ${message}`;
+        resultItem.suggestion =
+          'Ensure the file is a valid PDF and not corrupted. Check file permissions.';
+      }
     } else {
-      // Catch errors from readFile or extractPdfText
-      resultItem.error = `Failed to get text from PDF '${inputFilePath}': ${e.message || 'Unknown error'}`;
+      // Catch errors from readFile or extractPdfText (likely Error instances)
+      const message = e instanceof Error ? e.message : String(e);
+      resultItem.error = `Failed to get text from PDF '${inputFilePath}': ${message}`;
       resultItem.suggestion =
         'Ensure the file is a valid PDF and not corrupted. Check file permissions.';
     }
@@ -163,9 +173,9 @@ export const getTextTool: McpTool<typeof getTextToolInputSchema, GetTextToolOutp
         results: results, // Keep original results field too
         content: [{ type: 'text', text: contentText }], // Put JSON string in content
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Catch unexpected errors during the loop itself (should be rare)
-      const errorMsg = `Unexpected error during PDF getText tool execution: ${e.message}`;
+      const errorMsg = `Unexpected error during PDF getText tool execution: ${e instanceof Error ? e.message : String(e)}`;
       const errorContentText = JSON.stringify(
         {
           error: errorMsg,

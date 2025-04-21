@@ -29,8 +29,8 @@ async function fetchPublicIp(): Promise<{ ip: string | null; error: string | nul
     const data = await response.json();
     if (!data.ip) throw new Error('IP address not found in response from ipinfo.io');
     return { ip: data.ip, error: null };
-  } catch (e: any) {
-    const errorMsg = `Failed to fetch public IP: ${e.message}`;
+  } catch (e: unknown) {
+    const errorMsg = `Failed to fetch public IP: ${e instanceof Error ? e.message : String(e)}`;
     // Attempt fallback
     try {
       const fallbackResponse = await fetch('https://api.ipify.org?format=json');
@@ -40,8 +40,8 @@ async function fetchPublicIp(): Promise<{ ip: string | null; error: string | nul
       if (!fallbackData.ip)
         throw new Error('IP address not found in fallback response from api.ipify.org');
       return { ip: fallbackData.ip, error: null };
-    } catch (fallbackError: any) {
-      const fallbackErrorMsg = `Fallback failed: ${fallbackError.message}`;
+    } catch (fallbackError: unknown) {
+      const fallbackErrorMsg = `Fallback failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`;
       // Return the original error message if fallback also fails
       return { ip: null, error: `${errorMsg}. Fallback also failed: ${fallbackErrorMsg}` };
     }
@@ -85,8 +85,8 @@ export const getPublicIpTool: McpTool<typeof GetPublicIpToolInputSchema, GetPubl
       }
       // Should be caught by the error check above, but as a safeguard
       throw new Error('Public IP could not be determined.');
-    } catch (e: any) {
-      const errorMsg = `Failed to get public IP: ${e.message}`;
+    } catch (e: unknown) {
+      const errorMsg = `Failed to get public IP: ${e instanceof Error ? e.message : String(e)}`;
       const suggestion = 'Check internet connection and firewall settings.';
       const errorContentText = JSON.stringify(
         {

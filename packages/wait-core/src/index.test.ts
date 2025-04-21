@@ -85,7 +85,7 @@ describe('waitTool.execute', () => {
       // return originalSetTimeout(callback, ms); // Keep TypeScript happy
     });
 
-    const consoleErrSpy = vi.spyOn(console, 'error');
+    const _consoleErrSpy = vi.spyOn(console, 'error');
 
     const result = await waitTool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
 
@@ -169,7 +169,6 @@ describe('waitTool.execute', () => {
     // Check timing (approximate)
     expect(totalDuration).toBeGreaterThanOrEqual(expectedTotalWait - 15); // Allow tolerance
     expect(totalDuration).toBeLessThan(expectedTotalWait + 150); // Allow generous upper bound
-
 
     consoleSpy.mockRestore();
   });

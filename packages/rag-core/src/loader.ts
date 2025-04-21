@@ -20,9 +20,12 @@ async function getIgnorePatterns(projectRoot: string): Promise<string[]> {
       .split(/\r?\n/)
       .filter((line) => line.trim() !== '' && !line.startsWith('#'));
     return [...defaultIgnores, ...customIgnores];
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
+  } catch (error: unknown) {
+    // Check if error is an object with a code property before accessing it
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      // .gitignore not found, ignore silently and return defaults
     } else {
+      // Log other errors (e.g., permission denied) but still return defaults
     }
     return defaultIgnores;
   }

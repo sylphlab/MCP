@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // Import the actual tool and its types
-import { type HashToolInput, HashToolOutput, hashTool } from './index.js';
+import { type HashAlgorithm, type HashToolInput, HashToolOutput, hashTool } from './index.js';
 import type { HashResultItem } from './tools/hashTool.js';
 
 // Mock workspace root - not used by hashTool's logic but required by execute signature

@@ -25,6 +25,7 @@ describe('ChromaDB Interaction', () => {
   // Declare variables for dynamically imported functions/mocks using let
   let getRagCollection: typeof import('./chroma.js').getRagCollection;
   let convertFilterToChromaWhere: typeof import('./chroma.js').convertFilterToChromaWhere;
+  // biome-ignore lint/suspicious/noExplicitAny: Accessing internal function for testing
   let _initChromaClient: any; // Keep as any if accessing private/internal
   let mockChromaClientConstructor: Mock; // Variable to hold the mocked constructor reference
 
@@ -47,6 +48,7 @@ describe('ChromaDB Interaction', () => {
     // Assign to the 'let' variables declared above
     getRagCollection = chroma.getRagCollection;
     convertFilterToChromaWhere = chroma.convertFilterToChromaWhere;
+    // biome-ignore lint/suspicious/noExplicitAny: Accessing internal function for testing
     _initChromaClient = (chroma as any).initChromaClient; // Access internal if needed
 
     // Dynamically import the mocked module to get the constructor reference

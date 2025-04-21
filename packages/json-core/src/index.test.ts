@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 // Import the actual tool and its types
-import { type JsonToolInput, JsonToolOutput, jsonTool } from './index';
+import { type JsonToolInput, type JsonToolOutput, jsonTool } from './index.js';
+import type { JsonResultItem } from './tools/jsonTool.js';
 
 // Mock workspace root - not used by jsonTool's logic but required by execute signature
 const mockWorkspaceRoot = '';
@@ -54,6 +55,7 @@ describe('jsonTool.execute', () => {
   });
 
   it('should return item error for circular reference in stringify (single item batch)', async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: Intentional any to allow creating circular reference for testing
     const circularObj: any = { key: 'value' };
     circularObj.self = circularObj; // Create circular reference
     const input: JsonToolInput = {
@@ -90,26 +92,26 @@ describe('jsonTool.execute', () => {
     expect(result.error).toBeUndefined(); // No overall tool error
 
     // Check item 'f' (parse success)
-    const resultF = result.results.find((r) => r.id === 'f');
+    const resultF = result.results.find((r: JsonResultItem) => r.id === 'f');
     expect(resultF?.success).toBe(true);
     expect(resultF?.result).toEqual({ valid: true });
     expect(resultF?.error).toBeUndefined();
 
     // Check item 'g' (stringify success)
-    const resultG = result.results.find((r) => r.id === 'g');
+    const resultG = result.results.find((r: JsonResultItem) => r.id === 'g');
     expect(resultG?.success).toBe(true);
     expect(resultG?.result).toBe('{"num":1}');
     expect(resultG?.error).toBeUndefined();
 
     // Check item 'h' (parse error)
-    const resultH = result.results.find((r) => r.id === 'h');
+    const resultH = result.results.find((r: JsonResultItem) => r.id === 'h');
     expect(resultH?.success).toBe(false);
     expect(resultH?.result).toBeUndefined();
     expect(resultH?.error).toContain('JSON'); // Check for JSON related error
     expect(resultH?.suggestion).toBe('Ensure input data is a valid JSON string.');
 
     // Check item 'i' (stringify success)
-    const resultI = result.results.find((r) => r.id === 'i');
+    const resultI = result.results.find((r: JsonResultItem) => r.id === 'i');
     expect(resultI?.success).toBe(true);
     expect(resultI?.result).toBe('{"key":"val"}');
     expect(resultI?.error).toBeUndefined();

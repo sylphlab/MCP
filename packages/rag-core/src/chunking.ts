@@ -91,7 +91,7 @@ function createChunk(
   startIndex: number,
   endIndex: number,
   chunkIndex: number,
-  metadata: Record<string, any> = {},
+  metadata: Record<string, unknown> = {},
 ): Chunk {
   const { metadata: docMetadata, ...docBase } = document;
   return {
@@ -175,14 +175,17 @@ export function chunkCodeAst(
   code: string,
   language: SupportedLanguage | null,
   options?: ChunkingOptions,
-  baseMetadata: Record<string, any> = {},
+  baseMetadata: Record<string, unknown> = {},
 ): Chunk[] {
   const mergedOptions: Required<Omit<ChunkingOptions, 'metadata'>> = {
     maxChunkSize: options?.maxChunkSize ?? DEFAULT_MAX_CHUNK_SIZE,
     chunkOverlap: options?.chunkOverlap ?? DEFAULT_CHUNK_OVERLAP,
   };
   const document: Document = {
-    id: baseMetadata?.filePath || baseMetadata?.source || 'code_snippet',
+    id:
+      (baseMetadata?.filePath as string | undefined) ||
+      (baseMetadata?.source as string | undefined) ||
+      'code_snippet',
     content: code,
     metadata: { language, ...baseMetadata },
   };

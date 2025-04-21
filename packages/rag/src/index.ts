@@ -64,8 +64,10 @@ async function startIndexing() {
     // 1. Initialize Embedding Function
     let embeddingFn: IEmbeddingFunction;
     if (embeddingConfig.provider === EmbeddingModelProvider.Ollama) {
-      const ollamaModel = (embeddingConfig as any).modelName || 'nomic-embed-text';
-      const ollamaUrl = (embeddingConfig as any).baseURL;
+      // Assert a more specific type within this block
+      const ollamaConfig = embeddingConfig as { modelName?: string; baseURL?: string };
+      const ollamaModel = ollamaConfig.modelName || 'nomic-embed-text';
+      const ollamaUrl = ollamaConfig.baseURL;
       embeddingFn = new OllamaEmbeddingFunction(ollamaModel, ollamaUrl);
     } else if (embeddingConfig.provider === EmbeddingModelProvider.Mock) {
       // Type guard to ensure mockDimension exists

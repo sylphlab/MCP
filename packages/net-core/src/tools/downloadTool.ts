@@ -40,9 +40,8 @@ async function processSingleDownload(
     ); // Use extracted values
     if (typeof validationResult !== 'string') {
       // Validation failed, result is an error object
-      const error = (validationResult as any)?.error ?? 'Unknown path validation error';
-      const suggestion =
-        (validationResult as any)?.suggestion ?? 'Review path and workspace settings.';
+      const error = validationResult?.error ?? 'Unknown path validation error';
+      const suggestion = validationResult?.suggestion ?? 'Review path and workspace settings.';
       // Throw error to be caught by the main catch block below
       throw new Error(`Path validation failed: ${error} ${suggestion}`);
     }
@@ -60,11 +59,15 @@ async function processSingleDownload(
           `File already exists at '${destinationPath}'. Use overwrite: true to replace.`,
         );
       }
-    } catch (error: any) {
-      if (error.code !== 'ENOENT') {
-        throw error; // Rethrow unexpected errors (e.g., permissions)
+    } catch (error: unknown) {
+      // Check if error is an object with a code property
+      const isEnoent =
+        error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT';
+      // If the error is NOT ENOENT, re-throw it (this includes the "File already exists" error)
+      if (!isEnoent) {
+        throw error;
       }
-      // File does not exist, which is fine, proceed.
+      // Otherwise (if it IS ENOENT), do nothing and proceed, as the file not existing is acceptable here.
     }
 
     // 3. Fetch and Stream (with basic redirect handling)
@@ -135,46 +138,57 @@ async function processSingleDownload(
     // Wrap pipeline in try/catch to add prefix if it throws
     try {
       await pipeline(response, fileStream);
-    } catch (pipeError: any) {
-      throw new Error(`File write failed: ${pipeError.message}`); // Add prefix for pipeline errors
+    } catch (pipeError: unknown) {
+      throw new Error(
+        `File write failed: ${pipeError instanceof Error ? pipeError.message : String(pipeError)}`,
+      ); // Add prefix for pipeline errors
     }
 
     // 5. Report success
     const successMsg = `Successfully downloaded '${url}' to '${destinationPath}'.`;
     return { id, path: destinationPath, success: true, message: successMsg };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Error message already includes prefix from validation, promise rejection, or pipeline catch
-    const errorMsg = `Download failed for item ${id ?? 'N/A'} (${destinationPath}): ${error.message}`;
+    const errorMsg = `Download failed for item ${id ?? 'N/A'} (${destinationPath}): ${error instanceof Error ? error.message : String(error)}`;
     // Attempt to clean up partially written file on error
     if (absoluteDestPath) {
       // Check if path was resolved before error
       try {
         await fsp.unlink(absoluteDestPath);
-      } catch (cleanupError: any) {
+      } catch (cleanupError: unknown) {
         // Log cleanup error but don't overwrite original error
-        if (cleanupError.code !== 'ENOENT') {
+        // Check if cleanupError is an object with a code property before accessing it
+        if (
+          cleanupError &&
+          typeof cleanupError === 'object' &&
+          'code' in cleanupError &&
+          cleanupError.code !== 'ENOENT'
+        ) {
           // Don't log if file didn't exist anyway
         }
       }
     }
     // Determine suggestion based on error type if possible (optional enhancement)
     let suggestion: string | undefined;
-    // Use error.message directly as prefixes are added before this catch block now
-    if (
-      error.message?.includes('ENOTFOUND') ||
-      error.message?.includes('ECONNREFUSED') ||
-      error.message?.includes('Network request failed')
-    ) {
-      suggestion = 'Check the URL and network connectivity.';
-    } else if (error.message?.includes('EACCES')) {
-      suggestion = 'Check file system write permissions.';
-    } else if (error.message?.includes('File already exists')) {
-      suggestion = 'Set overwrite: true if you want to replace the existing file.';
-    } else if (error.message?.includes('Path validation failed')) {
-      // Suggestion is already included in the error message from validation
-      suggestion = error.message.split('Path validation failed: ')[1];
-    } else if (error.message?.includes('File write failed')) {
-      suggestion = 'Check disk space and file system permissions.';
+    // Check if error is an Error instance before accessing message
+    if (error instanceof Error) {
+      // Use error.message directly as prefixes are added before this catch block now
+      if (
+        error.message?.includes('ENOTFOUND') ||
+        error.message?.includes('ECONNREFUSED') ||
+        error.message?.includes('Network request failed')
+      ) {
+        suggestion = 'Check the URL and network connectivity.';
+      } else if (error.message?.includes('EACCES')) {
+        suggestion = 'Check file system write permissions.';
+      } else if (error.message?.includes('File already exists')) {
+        suggestion = 'Set overwrite: true if you want to replace the existing file.';
+      } else if (error.message?.includes('Path validation failed')) {
+        // Suggestion is already included in the error message from validation
+        suggestion = error.message.split('Path validation failed: ')[1];
+      } else if (error.message?.includes('File write failed')) {
+        suggestion = 'Check disk space and file system permissions.';
+      }
     }
 
     return {
@@ -220,6 +234,7 @@ export const downloadTool: McpTool<typeof downloadToolInputSchema, DownloadToolO
       const result = await processSingleDownload(item, options);
       results.push(result);
       if (result.success) {
+        // Check if the individual item succeeded
         overallSuccess = true; // Mark overall success if any item succeeds
       }
     }

@@ -132,6 +132,5 @@ describe('indexStatusTool', () => {
 
     // Call the captured dummy function's generate method
     await capturedEmbeddingFn.generate(['test']);
-
   });
 });
