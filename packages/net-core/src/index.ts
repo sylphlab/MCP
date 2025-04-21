@@ -15,3 +15,13 @@ export { downloadTool } from './tools/downloadTool.js';
 export { downloadToolInputSchema } from './tools/downloadTool.schema.js';
 export type { DownloadToolInput } from './tools/downloadTool.types.js'; // Correct path for input type
 export type { DownloadToolOutput } from './tools/downloadTool.types.js'; // Correct path for output interface
+
+// --- Fetch Tool ---
+export { fetchTool } from './tools/fetchTool.js';
+export { fetchToolInputSchema } from './tools/fetchTool.schema.js';
+export type {
+  FetchToolInput,
+  FetchToolOutput,
+  FetchResultItem,
+  FetchInputItem,
+} from './tools/fetchTool.js';

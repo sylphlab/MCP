@@ -9,7 +9,7 @@ import {
   GetPublicIpToolOutput,
   getInterfacesTool,
   getPublicIpTool,
-} from './index';
+} from './index.js'; // Added .js extension
 
 // Mock the os module for getInterfaces
 vi.mock('node:os');
@@ -55,7 +55,7 @@ describe('getPublicIpTool.execute', () => {
     expect(result.result).toBeUndefined(); // Correct property name
     // Update expected error to include fallback details
     expect(result.error).toBe(
-      'Failed to get public IP: Failed to fetch public IP: HTTP error! status: 500. Fallback also failed: Fallback failed: Fallback HTTP error! status: 500',
+      'Tool \'getPublicIp\' execution failed: Failed to fetch public IP: HTTP error! status: 500. Fallback also failed: Fallback failed: Fallback HTTP error! status: 500', // Added prefix
     );
   });
 
@@ -125,6 +125,6 @@ describe('getInterfacesTool.execute', () => {
 
     expect(result.success).toBe(false);
     expect(result.result).toBeUndefined(); // Correct property name
-    expect(result.error).toBe(`Failed to get network interfaces: ${mockError.message}`);
+    expect(result.error).toBe(`Tool 'getInterfaces' execution failed: ${mockError.message}`); // Added prefix
   });
 });

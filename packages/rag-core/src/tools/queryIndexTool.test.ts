@@ -131,7 +131,7 @@ describe('queryIndexTool', () => {
 
     expect(result.success).toBe(false);
     expect(result.content).toEqual([
-      { type: 'text', text: `Error generating query embedding: ${error.message}` },
+      { type: 'text', text: `Tool execution failed: Error generating query embedding: ${error.message}` }, // Added prefix
     ]);
     expect(MockIndexManagerCreate).not.toHaveBeenCalled();
     expect(mockQueryIndex).not.toHaveBeenCalled();
@@ -147,7 +147,7 @@ describe('queryIndexTool', () => {
     expect(result.content).toEqual([
       {
         type: 'text',
-        text: 'Error generating query embedding: Embedding generation returned no results.',
+        text: 'Tool execution failed: Error generating query embedding: Embedding generation returned no results.', // Added prefix
       },
     ]);
     expect(MockIndexManagerCreate).not.toHaveBeenCalled();
@@ -164,7 +164,7 @@ describe('queryIndexTool', () => {
 
     expect(result.success).toBe(false);
     expect(result.content).toEqual([
-      { type: 'text', text: `Error querying index: ${error.message}` },
+      { type: 'text', text: `Tool execution failed: Error querying index: ${error.message}` }, // Added prefix
     ]);
     expect(mockGenerateEmbeddings).toHaveBeenCalledOnce();
     expect(mockQueryIndex).not.toHaveBeenCalled();
@@ -179,7 +179,7 @@ describe('queryIndexTool', () => {
 
     expect(result.success).toBe(false);
     expect(result.content).toEqual([
-      { type: 'text', text: `Error querying index: ${error.message}` },
+      { type: 'text', text: `Tool execution failed: Error querying index: ${error.message}` }, // Added prefix
     ]);
     expect(mockGenerateEmbeddings).toHaveBeenCalledOnce();
     expect(MockIndexManagerCreate).toHaveBeenCalledOnce();

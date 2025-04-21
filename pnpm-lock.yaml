@@ -129,9 +129,9 @@ importers:
       '@sylphlab/mcp-core':
         specifier: workspace:*
         version: link:../core
-      '@sylphlab/mcp-fetch-core':
+      '@sylphlab/mcp-net-core':
         specifier: workspace:*
-        version: link:../fetch-core
+        version: link:../net-core
       '@sylphlab/mcp-utils':
         specifier: workspace:*
         version: link:../utils
@@ -148,31 +148,6 @@ importers:
       typescript:
         specifier: ^5.4.5
         version: 5.8.3
-
-  packages/fetch-core:
-    dependencies:
-      '@sylphlab/mcp-core':
-        specifier: workspace:*
-        version: link:../core
-      zod:
-        specifier: ^3.23.8
-        version: 3.24.3
-    devDependencies:
-      '@types/node':
-        specifier: ^20.12.12
-        version: 20.17.30
-      '@vitest/coverage-v8':
-        specifier: ^3.1.1
-        version: 3.1.1(vitest@3.1.1(@types/node@20.17.30)(terser@5.39.0))
-      tsup:
-        specifier: ^8.0.2
-        version: 8.4.0(@swc/core@1.11.21)(postcss@8.5.3)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.4.5
-        version: 5.8.3
-      vitest:
-        specifier: ^3.1.1
-        version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
 
   packages/filesystem:
     dependencies:
@@ -350,9 +325,6 @@ importers:
       '@sylphlab/mcp-core':
         specifier: workspace:*
         version: link:../core
-      '@sylphlab/mcp-fetch-core':
-        specifier: workspace:*
-        version: link:../fetch-core
       '@sylphlab/mcp-net-core':
         specifier: workspace:*
         version: link:../net-core

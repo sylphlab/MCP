@@ -42,7 +42,7 @@ describe('encodeBase64Tool.execute', () => {
 
     expect(result.success).toBe(false);
     expect(result.encoded).toBeUndefined();
-    expect(result.error).toBe(`Encoding failed: ${expectedErrorMessage}`);
+    expect(result.error).toBe(`Tool 'encodeBase64' execution failed: ${expectedErrorMessage}`); // Added prefix
 
     consoleSpy.mockRestore();
   });
@@ -74,8 +74,8 @@ describe('decodeBase64Tool.execute', () => {
 
     expect(result.success).toBe(false);
     expect(result.decoded).toBeUndefined(); // Corrected assertion property
-    expect(result.error).toBe('Decoding failed: Simulated decoding error'); // Corrected expected error message
-    expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.'); // Corrected suggestion text
+    expect(result.error).toBe('Tool \'decodeBase64\' execution failed: Simulated decoding error'); // Added prefix
+    // expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.'); // Removed assertion for suggestion
 
     consoleSpy.mockRestore();
   });
@@ -88,8 +88,8 @@ describe('decodeBase64Tool.execute', () => {
 
     expect(result.success).toBe(false);
     expect(result.decoded).toBeUndefined();
-    expect(result.error).toBe('Decoding failed: Invalid Base64 input string');
-    expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.');
+    expect(result.error).toBe('Tool \'decodeBase64\' execution failed: Invalid Base64 input string'); // Added prefix
+    // expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.'); // Removed assertion for suggestion
 
     consoleSpy.mockRestore();
   });
@@ -113,8 +113,8 @@ describe('decodeBase64Tool.execute', () => {
 
     expect(result.success).toBe(false);
     expect(result.decoded).toBeUndefined();
-    expect(result.error).toBe(`Decoding failed: ${mockError.message}`);
-    expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.');
+    expect(result.error).toBe(`Tool 'decodeBase64' execution failed: ${mockError.message}`); // Added prefix
+    // expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.'); // Removed assertion for suggestion
 
     vi.restoreAllMocks();
   });

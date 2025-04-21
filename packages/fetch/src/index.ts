@@ -7,8 +7,8 @@ import type { McpTool } from '@sylphlab/mcp-core';
 // Import the server start function
 import { startMcpServer } from '@sylphlab/mcp-utils';
 
-// Import the tool object from the core library
-import { fetchTool } from '@sylphlab/mcp-fetch-core';
+// Import the tool object from the net-core library
+import { fetchTool } from '@sylphlab/mcp-net-core'; // Updated import
 import { name, version, description } from '../package.json'; // Import metadata
 
 // --- Server Setup ---

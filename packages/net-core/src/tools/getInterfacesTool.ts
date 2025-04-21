@@ -14,7 +14,7 @@ export type GetInterfacesToolInput = z.infer<typeof GetInterfacesToolInputSchema
 
 // Define a more specific type for the result if possible, based on os.networkInterfaces()
 // This is complex, so using 'any' for now, but could be refined.
-type NetworkInterfaces = { [key: string]: os.NetworkInterfaceInfo[] | undefined };
+export type NetworkInterfaces = { [key: string]: os.NetworkInterfaceInfo[] | undefined }; // Added export here
 
 // Output interface
 export interface GetInterfacesToolOutput extends BaseMcpToolOutput {
@@ -69,4 +69,4 @@ export const getInterfacesTool = defineTool({
 });
 
 // Ensure necessary types are still exported
-// export type { GetInterfacesToolInput, GetInterfacesToolOutput, NetworkInterfaces }; // Removed duplicate export
+// Removed conflicting combined export

@@ -39,7 +39,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.1",
     "@sylphlab/mcp-core": "workspace:*",
-    "@sylphlab/mcp-fetch-core": "workspace:*",
+    "@sylphlab/mcp-net-core": "workspace:*",
     "zod": "^3.23.8",
     "@sylphlab/mcp-utils": "workspace:*"
   }

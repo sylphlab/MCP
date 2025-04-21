@@ -34,7 +34,13 @@ export const QueryIndexInputSchema = z.object({
   vectorDbConfig: VectorDbConfigSchema.optional(),
 });
 
-// Output schema is implicitly BaseMcpToolOutput, content will contain results
+// Define specific output type
+interface QueryIndexOutput extends BaseMcpToolOutput {
+  data?: {
+    query: string;
+    results: QueryResult[];
+  };
+}
 
 export const queryIndexTool = defineTool({
   name: 'queryIndex',
@@ -44,7 +50,7 @@ export const queryIndexTool = defineTool({
   execute: async ( // Core logic passed to defineTool
     input: z.infer<typeof QueryIndexInputSchema>,
     _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
-  ): Promise<BaseMcpToolOutput> => { // Return type is BaseMcpToolOutput
+  ): Promise<QueryIndexOutput> => { // Use specific output type
 
     // Input validation is handled by registerTools/SDK
     const { queryText, topK, filter, embeddingConfig, vectorDbConfig } = input;
@@ -134,4 +140,4 @@ export const queryIndexTool = defineTool({
 });
 
 // Ensure necessary types are still exported
-// export type { QueryIndexInputSchema, QueryResult }; // Removed duplicate export
+export type { QueryIndexOutput, QueryResult }; // Export specific output type

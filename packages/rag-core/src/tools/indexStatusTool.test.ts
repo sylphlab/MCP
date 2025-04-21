@@ -91,12 +91,12 @@ describe('indexStatusTool', () => {
     expect(mockGetRagCollection).toHaveBeenCalled();
     expect(mockCount).not.toHaveBeenCalled(); // count() should not be called
     expect(result.success).toBe(false);
-    expect(result.count).toBe(-1);
-    expect(result.collectionName).toBe('');
-    expect(result.error).toBe(collectionError.message);
+    expect(result.count).toBeUndefined(); // Expect undefined as error is caught by defineTool
+    expect(result.collectionName).toBeUndefined(); // Expect undefined
+    expect(result.error).toBe(`Tool 'getIndexStatus' execution failed: ${collectionError.message}`); // Expect prefixed error
     expect(result.content).toHaveLength(1);
-    expect((result.content[0] as TextPart).text).toBe(
-      `Failed to get index status: ${collectionError.message}`,
+    expect((result.content[0] as TextPart).text).toBe( // Content text should also be prefixed
+      `Tool execution failed: ${collectionError.message}`,
     );
   });
 
@@ -109,12 +109,12 @@ describe('indexStatusTool', () => {
     expect(mockGetRagCollection).toHaveBeenCalled();
     expect(mockCount).toHaveBeenCalled();
     expect(result.success).toBe(false);
-    expect(result.count).toBe(-1);
-    expect(result.collectionName).toBe('');
-    expect(result.error).toBe(countError.message);
+    expect(result.count).toBeUndefined(); // Expect undefined as error is caught by defineTool
+    expect(result.collectionName).toBeUndefined(); // Expect undefined
+    expect(result.error).toBe(`Tool 'getIndexStatus' execution failed: ${countError.message}`); // Expect prefixed error
     expect(result.content).toHaveLength(1);
-    expect((result.content[0] as TextPart).text).toBe(
-      `Failed to get index status: ${countError.message}`,
+    expect((result.content[0] as TextPart).text).toBe( // Content text should also be prefixed
+      `Tool execution failed: ${countError.message}`,
     );
   });
 

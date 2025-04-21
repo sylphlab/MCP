@@ -7,9 +7,9 @@ import type { McpTool } from '@sylphlab/mcp-core';
 // Import the server start function
 import { startMcpServer } from '@sylphlab/mcp-utils';
 
-import { fetchTool } from '@sylphlab/mcp-fetch-core'; // Import fetchTool
 // Import tool objects from the core libraries
 import {
+  fetchTool, // Moved from fetch-core
   downloadTool, // Add downloadTool import
   getInterfacesTool,
   getPublicIpTool,

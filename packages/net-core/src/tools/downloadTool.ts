@@ -218,7 +218,14 @@ export const downloadTool = defineTool({
     // Input validation is handled by registerTools/SDK
     // Add upfront check for workspaceRoot within options (still useful)
     if (!options?.workspaceRoot) {
-      throw new Error('Workspace root is not available in options.'); // Throw error for defineTool
+      // Return error structure instead of throwing
+      const errorMsg = 'Workspace root is not available in options.';
+      return {
+        success: false,
+        error: errorMsg,
+        results: [], // Ensure results is an empty array on validation failure
+        content: [{ type: 'text', text: errorMsg }],
+      };
     }
 
     const { items } = input;
