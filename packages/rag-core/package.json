@@ -33,8 +33,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@pinecone-database/pinecone": "^5.1.1",

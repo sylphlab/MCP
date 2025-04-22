@@ -16,7 +16,6 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --clean",
-    "build:types": "tsc -b --verbose",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
