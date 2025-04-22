@@ -1,19 +1,40 @@
-import type { Dirent, Stats } from 'node:fs'; // Import types
-import { readdir, stat } from 'node:fs/promises'; // Use named imports
+import type { Dirent, Stats } from 'node:fs';
+import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
 import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type ListEntry, type ListFilesToolInput, listFilesTool } from './listFilesTool.js';
+import type { PathListResult } from './listFilesTool.js'; // Import correct result type
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
   readdir: vi.fn(),
   stat: vi.fn(),
-  // Add other functions if needed
 }));
 
-const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
+const WORKSPACE_ROOT = '/test/workspace';
+const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const allowOutsideOptions: McpToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
 
+// Helper to extract JSON result from parts (returns Record, not Array for this tool)
+function getJsonResult(parts: Part[]): Record<string, PathListResult> | undefined {
+  // console.log('DEBUG: getJsonResult received parts:', JSON.stringify(parts, null, 2)); // Keep commented for now
+  const jsonPart = parts.find(part => part.type === 'json');
+  // console.log('DEBUG: Found jsonPart:', JSON.stringify(jsonPart, null, 2)); // Keep commented for now
+  // Check if jsonPart exists and has a 'value' property (which holds the actual data)
+  if (jsonPart && jsonPart.value !== undefined) {
+    // console.log('DEBUG: typeof jsonPart.value:', typeof jsonPart.value); // Keep commented for now
+    // console.log('DEBUG: Attempting to use jsonPart.value directly'); // Keep commented for now
+    try {
+      // Assuming the value is already the correct Record type based on defineTool's outputSchema
+      return jsonPart.value as Record<string, PathListResult>;
+    } catch (_e) {
+      return undefined;
+    }
+  }
+  // console.log('DEBUG: jsonPart or jsonPart.value is undefined or null.'); // Keep commented for now
+  return undefined;
+}
 // Helper to create mock Dirent objects
 const createMockDirent = (name: string, isDirectory: boolean, isFile: boolean): Dirent => ({
   name,
@@ -24,96 +45,56 @@ const createMockDirent = (name: string, isDirectory: boolean, isFile: boolean): 
   isSymbolicLink: () => false,
   isFIFO: () => false,
   isSocket: () => false,
-  path: '', // Add path property for compatibility
-  parentPath: '', // Add parentPath property
+  path: '', // Added for compatibility
+  parentPath: '', // Added for compatibility
 });
 
 // Helper to create mock Stats objects
 const createMockStats = (isDirectory: boolean, isFile: boolean): Stats => ({
   isFile: () => isFile,
   isDirectory: () => isDirectory,
-  isBlockDevice: () => false,
-  isCharacterDevice: () => false,
-  isSymbolicLink: () => false,
-  isFIFO: () => false,
-  isSocket: () => false,
-  dev: 0,
-  ino: 0,
-  mode: 0,
-  nlink: 0,
-  uid: 0,
-  gid: 0,
-  rdev: 0,
-  size: 123, // Example size
-  blksize: 4096,
-  blocks: 1,
-  atimeMs: Date.now(),
-  mtimeMs: Date.now(),
-  ctimeMs: Date.now(),
-  birthtimeMs: Date.now(),
-  atime: new Date(),
-  mtime: new Date(),
-  ctime: new Date(),
-  birthtime: new Date(),
-});
+  // Add other properties if needed, or cast to Partial<Stats>
+} as Stats);
+
 
 describe('listFilesTool', () => {
-  // Use vi.mocked() which often handles overloads better
   const mockReaddir = vi.mocked(readdir);
   const mockStat = vi.mocked(stat);
 
   beforeEach(() => {
     vi.resetAllMocks();
     // Default mocks
-    mockStat.mockResolvedValue(createMockStats(true, false)); // Assume path exists and is directory by default
+    mockStat.mockResolvedValue(createMockStats(true, false)); // Assume path exists and is directory
     mockReaddir.mockResolvedValue([]); // Default to empty directory
   });
-  // Define options objects including workspaceRoot
-  const defaultOptions: McpToolExecuteOptions = {
-    workspaceRoot: WORKSPACE_ROOT,
-    allowOutsideWorkspace: false,
-  };
-  const allowOutsideOptions: McpToolExecuteOptions = {
-    workspaceRoot: WORKSPACE_ROOT,
-    allowOutsideWorkspace: true,
-  };
 
   it('should list files non-recursively', async () => {
-    const input: ListFilesToolInput = {
-      paths: ['dir1'],
-      recursive: false,
-      includeStats: false,
-      // allowOutsideWorkspace removed
-    };
+    const input: ListFilesToolInput = { paths: ['dir1'], recursive: false, includeStats: false };
     const mockDirents = [
       createMockDirent('file1.txt', false, true),
       createMockDirent('subdir', true, false),
     ];
-    mockReaddir.mockResolvedValue(mockDirents); // Cast needed as mock Dirent is simplified
+    mockReaddir.mockResolvedValue(mockDirents);
 
-    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await listFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.results.dir1?.success).toBe(true);
-    expect(result.results.dir1?.entries).toHaveLength(2);
-    expect(result.results.dir1?.entries?.[0]?.name).toBe('file1.txt');
-    expect(result.results.dir1?.entries?.[0]?.isFile).toBe(true);
-    expect(result.results.dir1?.entries?.[1]?.name).toBe('subdir');
-    expect(result.results.dir1?.entries?.[1]?.isDirectory).toBe(true);
+    expect(results).toBeDefined();
+    const dir1Result = results?.dir1;
+    expect(dir1Result?.success).toBe(true);
+    expect(dir1Result?.entries).toHaveLength(2);
+    expect(dir1Result?.entries?.[0]?.name).toBe('file1.txt');
+    expect(dir1Result?.entries?.[0]?.isFile).toBe(true);
+    expect(dir1Result?.entries?.[1]?.name).toBe('subdir');
+    expect(dir1Result?.entries?.[1]?.isDirectory).toBe(true);
+
     expect(mockReaddir).toHaveBeenCalledTimes(1);
-    expect(mockReaddir).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'dir1'), {
-      withFileTypes: true,
-    });
-    expect(mockStat).toHaveBeenCalledTimes(1); // Called once to check input path
+    expect(mockReaddir).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'dir1'), { withFileTypes: true });
+    expect(mockStat).toHaveBeenCalledTimes(1); // Called once for input path check
   });
 
   it('should list files recursively', async () => {
-    const input: ListFilesToolInput = {
-      paths: ['dir1'],
-      recursive: true,
-      includeStats: false,
-      // allowOutsideWorkspace removed
-    };
+    const input: ListFilesToolInput = { paths: ['dir1'], recursive: true, includeStats: false };
     const topLevelDirents = [
       createMockDirent('file1.txt', false, true),
       createMockDirent('subdir', true, false),
@@ -124,165 +105,122 @@ describe('listFilesTool', () => {
       .mockResolvedValueOnce(topLevelDirents) // For dir1
       .mockResolvedValueOnce(subLevelDirents); // For dir1/subdir
 
-    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await listFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.results.dir1?.success).toBe(true);
-    expect(result.results.dir1?.entries).toHaveLength(3); // file1.txt, subdir, subdir/file2.txt
-    expect(
-      result.results.dir1?.entries?.some(
-        (e: ListEntry) => e.path === path.join('dir1', 'file1.txt'),
-      ),
-    ).toBe(true);
-    expect(
-      result.results.dir1?.entries?.some((e: ListEntry) => e.path === path.join('dir1', 'subdir')),
-    ).toBe(true);
-    expect(
-      result.results.dir1?.entries?.some(
-        (e: ListEntry) => e.path === path.join('dir1', 'subdir', 'file2.txt'),
-      ),
-    ).toBe(true);
+    expect(results).toBeDefined();
+    const dir1Result = results?.dir1;
+    expect(dir1Result?.success).toBe(true);
+    expect(dir1Result?.entries).toHaveLength(3); // file1.txt, subdir, subdir/file2.txt
+    expect(dir1Result?.entries?.some((e: ListEntry) => e.path === path.join('dir1', 'file1.txt'))).toBe(true);
+    expect(dir1Result?.entries?.some((e: ListEntry) => e.path === path.join('dir1', 'subdir'))).toBe(true);
+    expect(dir1Result?.entries?.some((e: ListEntry) => e.path === path.join('dir1', 'subdir', 'file2.txt'))).toBe(true);
+
     expect(mockReaddir).toHaveBeenCalledTimes(2);
   });
 
   it('should list files recursively with maxDepth', async () => {
-    const input: ListFilesToolInput = {
-      paths: ['dir1'],
-      recursive: true,
-      maxDepth: 0,
-      includeStats: false,
-      // allowOutsideWorkspace removed
-    };
+    const input: ListFilesToolInput = { paths: ['dir1'], recursive: true, maxDepth: 0 };
     const topLevelDirents = [
       createMockDirent('file1.txt', false, true),
       createMockDirent('subdir', true, false),
     ];
+    mockReaddir.mockResolvedValueOnce(topLevelDirents);
 
-    mockReaddir.mockResolvedValueOnce(topLevelDirents); // For dir1
+    const parts = await listFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
-
-    expect(result.success).toBe(true);
-    expect(result.results.dir1?.success).toBe(true);
-    expect(result.results.dir1?.entries).toHaveLength(2); // Only file1.txt, subdir
-    expect(mockReaddir).toHaveBeenCalledTimes(1); // Only called once for dir1
+    expect(results).toBeDefined();
+    const dir1Result = results?.dir1;
+    expect(dir1Result?.success).toBe(true);
+    expect(dir1Result?.entries).toHaveLength(2); // Only top level
+    expect(mockReaddir).toHaveBeenCalledTimes(1); // Only called once
   });
 
   it('should include stats when requested', async () => {
-    const input: ListFilesToolInput = {
-      paths: ['dir1'],
-      includeStats: true,
-      recursive: false,
-      // allowOutsideWorkspace removed
-    };
-    const mockDirents = [createMockDirent('file1.txt', false, true)];
-    const mockFileStats = createMockStats(false, true);
-    mockReaddir.mockResolvedValue(mockDirents);
-    // Mock stat call for the entry inside readdir loop
-    mockStat
+    const input: ListFilesToolInput = { paths: ['dir1'], includeStats: true };
       .mockResolvedValueOnce(createMockStats(true, false)) // For input path check
       .mockResolvedValueOnce(mockFileStats); // For file1.txt
 
-    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
+    const _parts = await listFilesTool.execute(input, defaultOptions);
+        .rejects.toThrow('Input validation failed: paths: Array must contain at least 1 element(s)');
 
-    expect(result.success).toBe(true);
-    expect(result.results.dir1?.success).toBe(true);
-    expect(result.results.dir1?.entries).toHaveLength(1);
-    expect(result.results.dir1?.entries?.[0]?.stat).toBeDefined();
-    expect(result.results.dir1?.entries?.[0]?.stat?.size).toBe(123); // Check example stat value
+    expect(results).toBeDefined();
+    const dir1Result = results?.dir1;
+    expect(dir1Result?.success).toBe(true);
+    expect(dir1Result?.entries).toHaveLength(1);
+    expect(dir1Result?.entries?.[0]?.stat).toBeDefined();
+    expect(dir1Result?.entries?.[0]?.stat?.size).toBe(456);
     expect(mockStat).toHaveBeenCalledTimes(2); // Input path + entry
   });
 
-  it('should return validation error for empty paths array', async () => {
-    const input = { paths: [] }; // Invalid input
-    // @ts-expect-error - Intentionally passing invalid input for validation test
-    const result = await listFilesTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('Input validation failed');
-    expect(result.error).toContain('paths array cannot be empty');
+  it('should throw validation error for empty paths array', async () => {
+    const input = { paths: [] };
+    await expect(listFilesTool.execute(input as any, defaultOptions))
+        .rejects.toThrow('Input validation failed: paths: Array must contain at least 1 element(s)');
     expect(mockReaddir).not.toHaveBeenCalled();
   });
 
   it('should handle path validation failure (outside workspace)', async () => {
-    const input: ListFilesToolInput = {
-      paths: ['../outside'],
-      recursive: false,
-      includeStats: false,
-      // allowOutsideWorkspace removed
-    };
-    // Explicitly test with allowOutsideWorkspace: false
-    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
-    expect(result.success).toBe(false); // Overall success is false
-    expect(result.results['../outside']?.success).toBe(false);
-    expect(result.results['../outside']?.error).toContain('Path validation failed');
-    expect(result.results['../outside']?.suggestion).toEqual(expect.any(String));
+    const input: ListFilesToolInput = { paths: ['../outside'] };
+    const parts = await listFilesTool.execute(input, defaultOptions); // allowOutsideWorkspace defaults to false
+    const results = getJsonResult(parts);
+
+    expect(results).toBeDefined();
+    const outsideResult = results?.['../outside'];
+    expect(outsideResult?.success).toBe(false);
+    expect(outsideResult?.error).toContain('Path validation failed');
+    expect(outsideResult?.suggestion).toEqual(expect.any(String));
     expect(mockReaddir).not.toHaveBeenCalled();
   });
 
   it('should handle non-existent path error', async () => {
-    const input: ListFilesToolInput = {
-      paths: ['nonexistent'],
-      recursive: false,
-      includeStats: false,
-      // allowOutsideWorkspace removed
-    };
+    const input: ListFilesToolInput = { paths: ['nonexistent'] };
     const statError = new Error('ENOENT');
     (statError as NodeJS.ErrnoException).code = 'ENOENT';
     mockStat.mockRejectedValue(statError); // Mock stat failure for input path
 
-    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await listFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.results.nonexistent?.success).toBe(false);
-    expect(result.results.nonexistent?.error).toContain('ENOENT');
-    expect(result.results.nonexistent?.suggestion).toEqual(expect.any(String));
+    expect(results).toBeDefined();
+    const nonexistentResult = results?.nonexistent;
+    expect(nonexistentResult?.success).toBe(false);
+    expect(nonexistentResult?.error).toContain('ENOENT');
+    expect(nonexistentResult?.suggestion).toEqual(expect.any(String));
     expect(mockReaddir).not.toHaveBeenCalled();
   });
 
   it('should handle path is not a directory error', async () => {
-    const input: ListFilesToolInput = {
-      paths: ['file.txt'],
-      recursive: false,
-      includeStats: false,
-      // allowOutsideWorkspace removed
-    };
+    const input: ListFilesToolInput = { paths: ['file.txt'] };
     mockStat.mockResolvedValue(createMockStats(false, true)); // Mock stat says it's a file
 
-    const result = await listFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await listFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.results['file.txt']?.success).toBe(false);
-    expect(result.results['file.txt']?.error).toContain('is not a directory');
-    expect(result.results['file.txt']?.suggestion).toEqual(expect.any(String));
+    expect(results).toBeDefined();
+    const fileTxtResult = results?.['file.txt'];
+    expect(fileTxtResult?.success).toBe(false);
+    expect(fileTxtResult?.error).toContain('is not a directory');
+    expect(fileTxtResult?.suggestion).toEqual(expect.any(String));
     expect(mockReaddir).not.toHaveBeenCalled();
   });
 
-  it('should NOT fail path validation if path is outside workspace and allowOutsideWorkspace is true', async () => {
-    const input: ListFilesToolInput = {
-      paths: ['../outside'],
-      recursive: false,
-      includeStats: false,
-      // allowOutsideWorkspace removed
-    };
+  it('should succeed listing outside workspace when allowed', async () => {
+    const input: ListFilesToolInput = { paths: ['../outside'] };
     const mockDirents = [createMockDirent('file_out.txt', false, true)];
     mockReaddir.mockResolvedValue(mockDirents);
-    // Mock stat for input path check to succeed
-    mockStat.mockResolvedValue(createMockStats(true, false));
+    mockStat.mockResolvedValue(createMockStats(true, false)); // Mock stat for input path check
 
-    // Act
-    const result = await listFilesTool.execute(input, allowOutsideOptions); // Pass options object
+    const parts = await listFilesTool.execute(input, allowOutsideOptions);
+    const results = getJsonResult(parts);
 
-    // Assert
-    expect(result.success).toBe(true); // Should succeed as validation is skipped
-    expect(result.results['../outside']?.success).toBe(true);
-    expect(result.results['../outside']?.error).toBeUndefined();
+    expect(results).toBeDefined();
+    const outsideResult = results?.['../outside'];
+    expect(outsideResult?.success).toBe(true);
+    expect(outsideResult?.error).toBeUndefined();
     expect(mockStat).toHaveBeenCalledTimes(1); // Only input path stat check
     expect(mockReaddir).toHaveBeenCalledTimes(1);
-    expect(mockReaddir).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, '../outside'), {
-      withFileTypes: true,
-    }); // Check resolved path
+    expect(mockReaddir).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, '../outside'), { withFileTypes: true });
   });
-
-  // TODO: Add tests for readdir error during recursion
-  // TODO: Add tests for stat error during includeStats loop
 });

@@ -1,15 +1,10 @@
 import { readFile } from 'node:fs/promises';
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-  validateAndResolvePath,
-} from '@sylphlab/mcp-core';
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import * as mupdfjs from 'mupdf/mupdfjs';
-import type { z } from 'zod';
-import { type GetTextItemSchema, getTextToolInputSchema } from './getTextTool.schema.js'; // Import schema (added .js)
+import { z } from 'zod';
+import { type GetTextItemSchema, getTextToolInputSchema } from './getTextTool.schema.js';
 
 // --- Core Logic Function ---
 
@@ -20,95 +15,123 @@ import { type GetTextItemSchema, getTextToolInputSchema } from './getTextTool.sc
  * @throws If PDF parsing or text extraction fails.
  */
 export async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
-  const doc = mupdfjs.PDFDocument.openDocument(pdfBuffer, 'application/pdf');
-  const numPages = doc.countPages();
-  const pageTexts: string[] = [];
+  // Ensure MuPDF is initialized (important if running in different contexts)
+  // await mupdfjs.ready; // Assuming ready promise exists or handle initialization
 
-  for (let i = 0; i < numPages; i++) {
-    const page = doc.loadPage(i);
-    pageTexts.push(page.getText());
-    // Note: You can also use page.getText('text') for more control over text extraction
+  let doc: mupdfjs.PDFDocument | undefined;
+  try {
+    doc = mupdfjs.PDFDocument.openDocument(pdfBuffer, 'application/pdf');
+    const numPages = doc.countPages();
+    const pageTexts: string[] = [];
+
+    for (let i = 0; i < numPages; i++) {
+      let page: mupdfjs.PDFPage | undefined;
+      try {
+        page = doc.loadPage(i);
+        pageTexts.push(page.getText());
+      } finally {
+        page?.destroy(); // Ensure page resources are freed
+      }
+    }
+    return pageTexts.join('\n').trim();
+  } finally {
+    doc?.destroy(); // Ensure document resources are freed
   }
-
-  return pageTexts.join('\n').trim();
 }
 
 // --- TypeScript Types ---
 export type GetTextInputItem = z.infer<typeof GetTextItemSchema>;
 export type GetTextToolInput = z.infer<typeof getTextToolInputSchema>;
 
+// --- Output Types ---
 // Interface for a single PDF text extraction result item
 export interface GetTextResultItem {
+  /** Optional ID from the input item. */
   id?: string;
+  /** The input file path. */
+  path: string;
+  /** Whether the text extraction for this item was successful. */
   success: boolean;
-  result?: string; // Extracted text
+  /** The extracted text content, if successful. */
+  result?: string;
+  /** Error message, if extraction failed for this item. */
   error?: string;
+  /** Suggestion for fixing the error. */
   suggestion?: string;
 }
 
-// Output interface for the tool (includes multiple results)
-export interface GetTextToolOutput extends BaseMcpToolOutput {
-  results: GetTextResultItem[];
-  error?: string; // Optional overall error if the tool itself fails unexpectedly
-}
+// Zod Schema for the individual result
+const GetTextResultItemSchema = z.object({
+  id: z.string().optional(),
+  path: z.string(), // Added path to result schema
+  success: z.boolean(),
+  result: z.string().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant array
+const GetTextToolOutputSchema = z.array(GetTextResultItemSchema);
 
 // --- Helper Function ---
 
 // Helper function to process a single PDF text extraction item
 async function processSinglePdfGetText(
   item: GetTextInputItem,
-  options: McpToolExecuteOptions, // Use options object
+  options: McpToolExecuteOptions,
 ): Promise<GetTextResultItem> {
   const { id, filePath: inputFilePath } = item;
-  const resultItem: GetTextResultItem = { id, success: false };
-  const { workspaceRoot, allowOutsideWorkspace } = options; // Extract from options
+  // Initialize result with path
+  const resultItem: GetTextResultItem = { id, path: inputFilePath, success: false };
+  const { workspaceRoot, allowOutsideWorkspace } = options;
 
-  // --- Path Validation ---
-  const validationResult = validateAndResolvePath(
-    inputFilePath,
-    workspaceRoot,
-    allowOutsideWorkspace,
-  ); // Use extracted values
-  if (typeof validationResult !== 'string') {
-    resultItem.error = validationResult.error;
-    resultItem.suggestion = validationResult.suggestion;
-    return resultItem; // Return early with validation error
-  }
-  const resolvedPath = validationResult;
-  // --- End Path Validation ---
-
+  let resolvedPath: string | undefined;
   try {
+    // --- Path Validation ---
+    const validationResult = validateAndResolvePath(
+      inputFilePath,
+      workspaceRoot,
+      allowOutsideWorkspace,
+    );
+    if (typeof validationResult !== 'string') {
+      throw new Error(
+        `Path validation failed: ${validationResult.error} ${validationResult.suggestion ?? ''}`,
+      );
+    }
+    resolvedPath = validationResult;
+    // --- End Path Validation ---
+
     const buffer = await readFile(resolvedPath);
     const extractedText = await extractPdfText(buffer); // Call the core function
+
     resultItem.success = true;
     resultItem.result = extractedText;
     resultItem.suggestion = 'Successfully extracted text from PDF.';
   } catch (e: unknown) {
-    // console.log(e); // Removed console.log
-    // Check if e is an object with a code property before accessing it
-    if (e && typeof e === 'object' && 'code' in e) {
+    resultItem.success = false;
+    const errorMsg = e instanceof Error ? e.message : String(e);
+    resultItem.error = `Failed to get text from PDF '${inputFilePath}': ${errorMsg}`;
+
+    // Provide suggestions based on error type
+    if (errorMsg.includes('Path validation failed')) {
+      // Suggestion is already part of the error message from validation
+      resultItem.suggestion =
+        errorMsg.split('Suggestion: ')[1] ?? 'Check path validity and workspace settings.';
+    } else if (e && typeof e === 'object' && 'code' in e) {
       if (e.code === 'ENOENT') {
-        resultItem.error = `File not found: ${inputFilePath}`;
         resultItem.suggestion = 'Ensure the file path is correct and the file exists.';
       } else if (e.code === 'EACCES') {
-        resultItem.error = `Permission denied: Cannot read file ${inputFilePath}`;
         resultItem.suggestion = 'Check file read permissions.';
       } else {
-        // Handle other errors with a code property if necessary, or fall through
-        const message = e instanceof Error ? e.message : String(e);
-        resultItem.error = `Failed to get text from PDF '${inputFilePath}': ${message}`;
         resultItem.suggestion =
-          'Ensure the file is a valid PDF and not corrupted. Check file permissions.';
+          'Ensure the file is a valid, uncorrupted PDF and check permissions.';
       }
+    } else if (errorMsg.toLowerCase().includes('pdf')) {
+      // Generic PDF error
+      resultItem.suggestion = 'Ensure the file is a valid, uncorrupted PDF document.';
     } else {
-      // Catch errors from readFile or extractPdfText (likely Error instances)
-      const message = e instanceof Error ? e.message : String(e);
-      resultItem.error = `Failed to get text from PDF '${inputFilePath}': ${message}`;
-      resultItem.suggestion =
-        'Ensure the file is a valid PDF and not corrupted. Check file permissions.';
+      resultItem.suggestion = 'Check file path, permissions, and file validity.';
     }
-    // Ensure success is false if an error occurred
-    resultItem.success = false;
   }
   return resultItem;
 }
@@ -117,49 +140,38 @@ async function processSinglePdfGetText(
 export const getTextTool = defineTool({
   name: 'getText',
   description: 'Extracts text content from one or more PDF files.',
-  inputSchema: getTextToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: getTextToolInputSchema,
+  outputSchema: GetTextToolOutputSchema, // Use the array schema
 
-  execute: async ( // Core logic passed to defineTool
-    input: GetTextToolInput,
-    options: McpToolExecuteOptions, // Options are received here
-  ): Promise<GetTextToolOutput> => { // Still returns the specific output type
+  execute: async (input: GetTextToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
+    // Return Part[]
 
-    // Input validation is handled by registerTools/SDK
-    const { items } = input;
-
-    const results: GetTextResultItem[] = [];
-    let overallSuccess = true; // Assume success until a failure occurs
-
-    // Removed the outermost try/catch block; defineTool handles unexpected errors
-
-    // Process requests sequentially
-    for (const item of items) {
-      // processSinglePdfGetText handles its own errors for individual file processing
-      const result = await processSinglePdfGetText(item, options);
-      results.push(result);
-      if (!result.success) {
-        overallSuccess = false; // Mark overall as failed if any item fails
-      }
+    // Zod validation (throw error on failure)
+    const parsed = getTextToolInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      throw new Error(`Input validation failed: ${errorMessages}`);
     }
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Processed ${items.length} PDF text extraction requests. Overall success: ${overallSuccess}`,
-        results: results,
-      },
-      null,
-      2,
-    );
+    // Add upfront check for workspaceRoot
+    if (!options?.workspaceRoot) {
+      throw new Error('Workspace root is not available in options.');
+    }
 
-    // Return the specific output structure
-    return {
-      success: overallSuccess,
-      results: results,
-      content: [{ type: 'text', text: contentText }],
-    };
+    const { items } = parsed.data;
+    const results: GetTextResultItem[] = [];
+
+    // Process requests sequentially (or parallelize with Promise.all)
+    for (const item of items) {
+      const result = await processSinglePdfGetText(item, options);
+      results.push(result);
+    }
+
+    // Return the results wrapped in jsonPart
+    return [jsonPart(results, GetTextToolOutputSchema)];
   },
 });
 
-// Ensure necessary types are still exported
-// export type { GetTextToolInput, GetTextToolOutput, GetTextResultItem, GetTextInputItem }; // Removed duplicate export
+// Export necessary types

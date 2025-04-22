@@ -10,5 +10,6 @@ export const CopyItemSchema = z.object({
 export const copyItemsToolInputSchema = z.object({
   items: z.array(CopyItemSchema).min(1, 'At least one copy item is required.'),
   overwrite: z.boolean().default(false),
+  dryRun: z.boolean().optional(), // Added: Optional dry run flag
   // allowOutsideWorkspace is handled by McpToolExecuteOptions, not part of tool input schema
 });

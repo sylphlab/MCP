@@ -1,4 +1,4 @@
-import type { BaseMcpToolOutput } from '@sylphlab/mcp-core';
+// import type { BaseMcpToolOutput } from '@sylphlab/mcp-core'; // Removed
 import type { z } from 'zod';
 import type { DownloadItemSchema, downloadToolInputSchema } from './downloadTool.schema'; // Fixed import name
 
@@ -14,10 +14,4 @@ export interface DownloadResultItem {
   message?: string; // e.g., "Successfully downloaded", "File already exists", etc.
   error?: string;
   suggestion?: string;
-}
-
-// Output interface for the tool (includes multiple results)
-export interface DownloadToolOutput extends BaseMcpToolOutput {
-  results: DownloadResultItem[];
-  error?: string; // Optional overall error if the tool itself fails unexpectedly
 }

@@ -1,52 +1,80 @@
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-} from '@sylphlab/mcp-core';
-import type { z } from 'zod';
-import { type FetchItemSchema, fetchToolInputSchema } from './fetchTool.schema.js'; // Import schemas (re-added .js)
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import { z } from 'zod';
+import { type FetchItemSchema, fetchToolInputSchema } from './fetchTool.schema.js';
 
 // --- TypeScript Types ---
 export type FetchInputItem = z.infer<typeof FetchItemSchema>;
 export type FetchToolInput = z.infer<typeof fetchToolInputSchema>;
 
+// --- Output Types ---
 // Interface for a single fetch result item
 export interface FetchResultItem {
+  /** Optional ID from the input item. */
   id?: string;
+  /** Whether the fetch operation for this item was successful (HTTP status 2xx). */
   success: boolean;
+  /** HTTP status code of the response. */
   status?: number;
+  /** HTTP status text of the response. */
   statusText?: string;
+  /** Response headers. */
   headers?: Record<string, string>;
-  body?: unknown; // Parsed body (string, JSON object, or null)
+  /** Parsed response body (string, JSON object, or null if ignored), if successful. */
+  body?: unknown;
+  /** Error message, if the operation failed. */
   error?: string;
+  /** Suggestion for fixing the error. */
   suggestion?: string;
 }
 
-// Output interface for the tool (includes multiple results)
-export interface FetchToolOutput extends BaseMcpToolOutput {
-  results: FetchResultItem[];
-  error?: string; // Optional overall error if the tool itself fails unexpectedly
-}
+// Zod Schema for the individual result
+const FetchResultItemSchema = z.object({
+  id: z.string().optional(),
+  success: z.boolean(),
+  status: z.number().optional(),
+  statusText: z.string().optional(),
+  headers: z.record(z.string()).optional(),
+  body: z.unknown().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
 
-// --- Tool Definition ---
+// Define the output schema instance as a constant array
+const FetchToolOutputSchema = z.array(FetchResultItemSchema);
+
+// --- Helper Function ---
 
 // Helper function to process a single fetch item
 async function processSingleFetch(item: FetchInputItem): Promise<FetchResultItem> {
   const { id, url, method = 'GET', headers = {}, body, responseType = 'text' } = item;
-  const resultItem: FetchResultItem = { id, success: false }; // Initialize success to false
+  const resultItem: FetchResultItem = { id, success: false };
 
   try {
     const requestOptions: RequestInit = {
       method,
-      headers,
+      headers: headers as HeadersInit, // Cast headers
     };
-    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+
+    // Only add body for relevant methods and if body is provided
+    if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
       requestOptions.body = body;
-      if (!headers['Content-Type'] && !headers['content-type']) {
-        headers['Content-Type'] = 'application/json';
-        requestOptions.headers = headers;
+      // Default Content-Type if not provided
+      if (
+        !requestOptions.headers ||
+        (!(requestOptions.headers as Record<string, string>)['Content-Type'] &&
+          !(requestOptions.headers as Record<string, string>)['content-type'])
+      ) {
+        // Ensure headers is an object before assigning
+        if (
+          typeof requestOptions.headers !== 'object' ||
+          requestOptions.headers === null ||
+          Array.isArray(requestOptions.headers)
+        ) {
+          requestOptions.headers = {};
+        }
+        (requestOptions.headers as Record<string, string>)['Content-Type'] = 'application/json';
       }
     }
 
@@ -63,111 +91,93 @@ async function processSingleFetch(item: FetchInputItem): Promise<FetchResultItem
     let responseBody: unknown = null;
     let bodyForError: string | null = null;
 
-    // Try to read body regardless of status first, to capture error details
+    // Try reading body text first for potential error messages
     try {
-      // Clone response to read body multiple times if needed (e.g., text for error, json for success)
-      const resClone = response.clone();
-      if (responseType === 'json') {
-        responseBody = await response.json();
-        // Also get text for potential error message inclusion
-        try {
-          bodyForError = await resClone.text();
-        } catch {
-          /* ignore */
-        }
-      } else {
-        // 'text' or 'ignore'
-        responseBody = await response.text();
-        if (typeof responseBody === 'string') {
-          bodyForError = responseBody; // Use the same text
-        }
-        if (responseType === 'ignore') {
-          responseBody = null; // Discard if ignoring
-        }
-      }
-    } catch (bodyError: unknown) {
-      // Handle body reading/parsing errors
-      const bodyErrorMsg = bodyError instanceof Error ? bodyError.message : 'Unknown body error';
-      if (response.ok) {
-        // If status was OK, this is a content error
-        throw new Error(`Failed to read/parse response body: ${bodyErrorMsg}`);
-      }
-      // If status was not OK, try to get text for error message, but prioritize HTTP error
-      try {
-        bodyForError = await response.text();
-      } catch {
-        /* ignore */
-      }
+      bodyForError = await response.clone().text(); // Clone to read text
+    } catch {
+      // Ignore error reading body text for error reporting
     }
 
     if (!response.ok) {
       let errorDetail = '';
       if (typeof bodyForError === 'string' && bodyForError.length > 0) {
-        errorDetail = ` - ${bodyForError.substring(0, 150)}`;
+        errorDetail = ` - Body: ${bodyForError.substring(0, 150)}`; // Limit error body length
       }
-      throw new Error(`HTTP error! status: ${response.status}${errorDetail}`);
+      throw new Error(`HTTP error! Status: ${response.status}${errorDetail}`);
     }
 
-    // If we reached here, the request was successful (status ok)
+    // If response is OK, parse body based on responseType
+    try {
+      if (responseType === 'json') {
+        // Use the original response stream for JSON parsing
+        responseBody = await response.json();
+      } else if (responseType === 'text') {
+        // We already read the text into bodyForError
+        responseBody = bodyForError;
+      } else {
+        // 'ignore' or unknown - body is null
+        responseBody = null;
+      }
+    } catch (parseError: unknown) {
+      // Handle JSON parsing error specifically
+      throw new Error(
+        `Failed to parse response body as ${responseType}: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+      );
+    }
+
     resultItem.body = responseBody;
     resultItem.success = true;
   } catch (e: unknown) {
     const errorMsg = e instanceof Error ? e.message : 'Unknown error';
     resultItem.error = `Fetch failed for ${url}: ${errorMsg}`;
-    resultItem.suggestion =
-      'Check URL, network connection, method, headers, and body. Ensure CORS is handled if running in a browser context.';
-    // Ensure success is false if an error occurred
+    // Provide suggestions based on error type
+    if (errorMsg.includes('Failed to parse response body')) {
+      resultItem.suggestion = `The server responded with status ${resultItem.status}, but the response body was not valid ${responseType}. Check the 'responseType' parameter or the server's response format.`;
+    } else if (errorMsg.includes('HTTP error')) {
+      resultItem.suggestion =
+        'The server returned an error status code. Check the error message body (if available) and the request details (URL, method, headers, body).';
+    } else if (errorMsg.includes('fetch') || errorMsg.includes('Network request failed')) {
+      // More generic network errors
+      resultItem.suggestion =
+        'Check URL, network connection, DNS resolution, and potential CORS issues if running in a browser.';
+    } else {
+      resultItem.suggestion =
+        'Check URL, network connection, method, headers, body, and potential CORS issues.';
+    }
     resultItem.success = false;
   }
   return resultItem;
 }
 
+// --- Tool Definition using defineTool ---
 export const fetchTool = defineTool({
   name: 'fetch', // Keep tool name simple
   description: 'Performs one or more HTTP fetch requests sequentially.',
-  inputSchema: fetchToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: fetchToolInputSchema,
+  outputSchema: FetchToolOutputSchema, // Use the array schema
 
-  execute: async ( // Core logic passed to defineTool
-    input: FetchToolInput,
-    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
-  ): Promise<FetchToolOutput> => { // Still returns the specific output type
+  execute: async (input: FetchToolInput, _options: McpToolExecuteOptions): Promise<Part[]> => {
+    // Return Part[]
 
-    // Input validation is handled by registerTools/SDK before execute is called
-    const { items } = input;
+    // Zod validation (throw error on failure)
+    const parsed = fetchToolInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      throw new Error(`Input validation failed: ${errorMessages}`);
+    }
+    const { items } = parsed.data;
 
     const results: FetchResultItem[] = [];
-    let overallSuccess = true;
-
-    // Removed the outermost try/catch block; defineTool handles unexpected errors
 
     // Process requests sequentially
     for (const item of items) {
-      // processSingleFetch already includes its own try/catch for fetch errors
       const result = await processSingleFetch(item);
       results.push(result);
-      if (!result.success) {
-        overallSuccess = false; // Mark overall as failed if any item fails
-      }
     }
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Processed ${items.length} fetch requests. Overall success: ${overallSuccess}`,
-        results: results,
-      },
-      null,
-      2,
-    );
-
-    // Return the specific output structure
-    return {
-      success: overallSuccess,
-      results: results,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Return the results wrapped in jsonPart
+    return [jsonPart(results, FetchToolOutputSchema)];
   },
 });
-
-// Ensure necessary types are still exported
-// export type { FetchToolInput, FetchToolOutput, FetchResultItem, FetchInputItem }; // Removed duplicate export

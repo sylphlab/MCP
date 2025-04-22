@@ -1,47 +1,53 @@
-import type { Stats } from 'node:fs'; // Import Stats type
+import { createHash } from 'node:crypto';
+import type { Stats } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-  PathValidationError, // PathValidationError might not be needed directly
-  validateAndResolvePath,
-} from '@sylphlab/mcp-core'; // Import base types and validation util
-import type { z } from 'zod';
-import { readFilesToolInputSchema } from './readFilesTool.schema.js'; // Import schema (added .js)
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import { z } from 'zod';
+import { readFilesToolInputSchema } from './readFilesTool.schema.js';
+
+// Define BufferEncoding type for Zod schema if needed, or rely on schema definition
+type BufferEncoding = 'utf-8' | 'base64';
 
 // Infer the TypeScript type from the Zod schema
 export type ReadFilesToolInput = z.infer<typeof readFilesToolInputSchema>;
 
 // --- Output Types ---
 export interface ReadFileResult {
-  /** The file path provided in the input. */
+  /** The file path processed (relative to workspace root). */
   path: string;
   /** Whether the read operation for this specific file was successful. */
   success: boolean;
   /** The content of the file, as a string (respecting encoding). */
   content?: string;
+  /** Optional array of lines with line numbers (if includeLineNumbers was true). */
+  lines?: { lineNumber: number; text: string }[];
+  /** Optional SHA-256 hash of the file content (if includeHash was true). */
+  hash?: string;
   /** Optional file system stats (if includeStats was true). */
   stat?: Stats;
   /** Optional error message if the operation failed for this file. */
   error?: string;
   /** Optional suggestion for fixing the error. */
   suggestion?: string;
-  // encodingUsed?: 'utf-8' | 'base64'; // Could add if needed
 }
 
-// Extend the base output type
-export interface ReadFilesToolOutput extends BaseMcpToolOutput {
-  /** Overall operation success (true if at least one file was read successfully). */
-  // success: boolean; // Inherited
-  /** Optional general error message if the tool encountered a major issue. */
-  error?: string;
-  /** Array of results for each file read operation. */
-  results: ReadFileResult[];
-}
+// Zod Schema for the individual file result (used in outputSchema)
+const ReadFileResultSchema = z.object({
+  path: z.string(),
+  success: z.boolean(),
+  content: z.string().optional(),
+  lines: z.array(z.object({ lineNumber: z.number(), text: z.string() })).optional(),
+  hash: z.string().optional(),
+  stat: z.custom<Stats>().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the specific output schema for this tool
+const ReadFilesOutputSchema = z.array(ReadFileResultSchema);
 
 // --- Tool Definition using defineTool ---
 
@@ -49,12 +55,9 @@ export const readFilesTool = defineTool({
   name: 'readFilesTool',
   description: 'Reads the content of one or more files within the workspace.',
   inputSchema: readFilesToolInputSchema,
+  outputSchema: ReadFilesOutputSchema,
 
-  execute: async ( // Core logic passed to defineTool
-    input: ReadFilesToolInput,
-    options: McpToolExecuteOptions,
-  ): Promise<ReadFilesToolOutput> => { // Still returns the specific output type
-
+  execute: async (input: ReadFilesToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = readFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -63,22 +66,32 @@ export const readFilesTool = defineTool({
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { paths: inputPaths, encoding, includeStats } = parsed.data;
+    // Get options from parsed data, using defaults from schema if not provided
+    const {
+      paths: inputPaths,
+      encoding,
+      includeStats,
+      includeLineNumbers,
+      includeHash,
+    } = parsed.data;
 
     const results: ReadFileResult[] = [];
-    let anySuccess = false; // True if at least one file is read successfully
 
     for (const itemPath of inputPaths) {
       let itemSuccess = false;
       let content: string | undefined = undefined;
       let itemStat: Stats | undefined = undefined;
+      let itemLines: { lineNumber: number; text: string }[] | undefined = undefined;
+      let itemHash: string | undefined = undefined;
       let error: string | undefined;
       let suggestionForError: string | undefined;
       let fullPath: string | undefined;
 
       // --- Validate Path ---
       const validationResult = validateAndResolvePath(
-        itemPath, options.workspaceRoot, options?.allowOutsideWorkspace,
+        itemPath,
+        options.workspaceRoot,
+        options?.allowOutsideWorkspace,
       );
       if (typeof validationResult !== 'string') {
         error = `Path validation failed: ${validationResult.error}`;
@@ -101,11 +114,23 @@ export const readFilesTool = defineTool({
 
         // Read the file content with specified encoding
         const fileBuffer = await readFile(fullPath);
-        content = fileBuffer.toString(encoding);
+        content = fileBuffer.toString(encoding as BufferEncoding);
+
+        // Calculate hash if requested
+        if (includeHash) {
+          itemHash = createHash('sha256').update(fileBuffer).digest('hex');
+        }
+
+        // Generate lines if requested
+        if (includeLineNumbers) {
+          // Corrected split regex
+          itemLines = content.split(/\r?\n/).map((line, index) => ({
+            lineNumber: index + 1,
+            text: line,
+          }));
+        }
 
         itemSuccess = true;
-        anySuccess = true; // Mark overall success if at least one works
-
       } catch (e: unknown) {
         itemSuccess = false;
         let errorCode: string | null = null;
@@ -142,31 +167,16 @@ export const readFilesTool = defineTool({
       results.push({
         path: itemPath,
         success: itemSuccess,
-        content,
-        stat: itemStat,
+        content: itemSuccess ? content : undefined, // Only include content on success
+        lines: itemSuccess ? itemLines : undefined,
+        hash: itemSuccess ? itemHash : undefined,
+        stat: itemSuccess ? itemStat : undefined,
         error,
         suggestion: !itemSuccess ? suggestionForError : undefined,
       });
     } // End for loop
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Read operation completed. Overall success (at least one): ${anySuccess}`,
-        results: results,
-      },
-      null,
-      2,
-    );
-
-    // Return the specific output structure
-    return {
-      success: anySuccess, // Success is true if at least one file was read
-      results: results,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Return the parts array directly
+    return [jsonPart(results, ReadFilesOutputSchema)];
   },
 });
-
-// Ensure necessary types are still exported
-// export type { ReadFilesToolInput, ReadFilesToolOutput, ReadFileResult }; // Removed duplicate export

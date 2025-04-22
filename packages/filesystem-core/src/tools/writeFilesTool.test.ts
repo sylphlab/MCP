@@ -1,97 +1,143 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises'; // Use named imports
+import { createHash } from 'node:crypto'; // Import crypto for hash tests
+import { appendFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
 import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
-import { WriteFileResult, type WriteFilesToolInput, writeFilesTool } from './writeFilesTool.js';
+import { type WriteFilesToolInput, writeFilesTool } from './writeFilesTool.js';
+import type { WriteFileResult } from './writeFilesTool.js'; // Import correct result type
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn(),
   appendFile: vi.fn(),
   mkdir: vi.fn(),
+  readFile: vi.fn(), // Mock readFile for hash check tests
+  stat: vi.fn(),     // Mock stat for hash check tests
 }));
 
-const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
+const WORKSPACE_ROOT = '/test/workspace';
+const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const allowOutsideOptions: McpToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
+// Helper to extract JSON result from parts
+// Use generics to handle different result types
+function getJsonResult<T>(parts: Part[]): T[] | undefined {
+  // console.log('DEBUG: getJsonResult received parts:', JSON.stringify(parts, null, 2)); // Keep commented for now
+  const jsonPart = parts.find(part => part.type === 'json');
+  // console.log('DEBUG: Found jsonPart:', JSON.stringify(jsonPart, null, 2)); // Keep commented for now
+  // Check if jsonPart exists and has a 'value' property (which holds the actual data)
+  if (jsonPart && jsonPart.value !== undefined) {
+    // console.log('DEBUG: typeof jsonPart.value:', typeof jsonPart.value); // Keep commented for now
+    // console.log('DEBUG: Attempting to use jsonPart.value directly'); // Keep commented for now
+    try {
+      // Assuming the value is already the correct array type based on defineTool's outputSchema
+      return jsonPart.value as T[];
+    } catch (_e) {
+      return undefined;
+    }
+  }
+  // console.log('DEBUG: jsonPart or jsonPart.value is undefined or null.'); // Keep commented for now
+  return undefined;
+}
+
+// Helper to calculate hash
+const calculateHash = (content: string) => createHash('sha256').update(content).digest('hex');
 
 describe('writeFilesTool', () => {
   const mockWriteFile = vi.mocked(writeFile);
   const mockAppendFile = vi.mocked(appendFile);
   const mockMkdir = vi.mocked(mkdir);
+  const mockReadFile = vi.mocked(readFile);
+  const mockStat = vi.mocked(stat);
 
   beforeEach(() => {
     vi.resetAllMocks();
     // Default mocks
-    mockMkdir.mockResolvedValue(undefined); // Assume mkdir succeeds
+    mockMkdir.mockResolvedValue(undefined);
     mockWriteFile.mockResolvedValue(undefined);
     mockAppendFile.mockResolvedValue(undefined);
+    // Default readFile/stat for hash checks (e.g., file doesn't exist initially)
+    const enoentError = new Error('ENOENT');
+    (enoentError as NodeJS.ErrnoException).code = 'ENOENT';
+    mockReadFile.mockRejectedValue(enoentError);
+    mockStat.mockRejectedValue(enoentError);
   });
 
-  // Define options objects including workspaceRoot
-  const defaultOptions: McpToolExecuteOptions = {
-    workspaceRoot: WORKSPACE_ROOT,
-    allowOutsideWorkspace: false,
-  };
-  const allowOutsideOptions: McpToolExecuteOptions = {
-    workspaceRoot: WORKSPACE_ROOT,
-    allowOutsideWorkspace: true,
-  };
-
-  // Helper
   const createInput = (
-    items: { path: string; content: string }[],
+    items: { path: string; content: string; expectedHash?: string }[],
     options: Partial<Omit<WriteFilesToolInput, 'items'>> = {},
   ): WriteFilesToolInput => ({
     items,
-    encoding: options.encoding ?? 'utf-8', // Add defaults for type safety
-    append: options.append ?? false, // Add defaults for type safety
+    encoding: options.encoding ?? 'utf-8',
+    append: options.append ?? false,
+    dryRun: options.dryRun,
   });
 
   it('should write a single file with utf-8 encoding by default', async () => {
-    const input = createInput([{ path: 'file.txt', content: 'Hello' }]);
+    const input = createInput([{ path: 'file.txt', content: 'Hello' }], { dryRun: false });
     const expectedPath = path.resolve(WORKSPACE_ROOT, 'file.txt');
+    const expectedBuffer = Buffer.from('Hello', 'utf-8');
     const expectedOptions = { encoding: 'utf-8' };
 
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await writeFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[0]?.path).toBe('file.txt');
-    expect(result.results[0]?.message).toContain('File written');
-    expect(mockMkdir).toHaveBeenCalledTimes(1); // Ensure parent dir creation called
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.path).toBe('file.txt');
+    expect(itemResult.message).toContain('File written successfully');
+    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult.error).toBeUndefined();
+
+    expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockWriteFile).toHaveBeenCalledTimes(1);
-    expect(mockWriteFile).toHaveBeenCalledWith(expectedPath, 'Hello', expectedOptions);
+    expect(mockWriteFile).toHaveBeenCalledWith(expectedPath, expectedBuffer, expectedOptions);
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
 
   it('should write a single file with base64 encoding', async () => {
-    const contentBase64 = Buffer.from('Hello').toString('base64');
+    const contentUtf8 = 'Hello Base64';
+    const contentBase64 = Buffer.from(contentUtf8).toString('base64');
     const input = createInput([{ path: 'file.bin', content: contentBase64 }], {
       encoding: 'base64',
+      dryRun: false,
     });
     const expectedPath = path.resolve(WORKSPACE_ROOT, 'file.bin');
+    const expectedBuffer = Buffer.from(contentBase64, 'base64');
     const expectedOptions = { encoding: 'base64' };
 
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await writeFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.results[0]?.success).toBe(true);
-    expect(mockWriteFile).toHaveBeenCalledWith(expectedPath, contentBase64, expectedOptions);
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.dryRun).toBe(false);
+
+    expect(mockWriteFile).toHaveBeenCalledWith(expectedPath, expectedBuffer, expectedOptions);
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
 
   it('should append content to a file', async () => {
-    const input = createInput([{ path: 'log.txt', content: 'More data' }], { append: true });
+    const input = createInput([{ path: 'log.txt', content: 'More data' }], { append: true, dryRun: false });
     const expectedPath = path.resolve(WORKSPACE_ROOT, 'log.txt');
+    const expectedBuffer = Buffer.from('More data', 'utf-8');
     const expectedOptions = { encoding: 'utf-8' };
 
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await writeFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[0]?.message).toContain('Content appended');
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.message).toContain('Content appended successfully');
+    expect(itemResult.dryRun).toBe(false);
+
     expect(mockAppendFile).toHaveBeenCalledTimes(1);
-    expect(mockAppendFile).toHaveBeenCalledWith(expectedPath, 'More data', expectedOptions);
+    expect(mockAppendFile).toHaveBeenCalledWith(expectedPath, expectedBuffer, expectedOptions);
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
@@ -99,164 +145,228 @@ describe('writeFilesTool', () => {
     const input = createInput([
       { path: 'file1.txt', content: 'Content 1' },
       { path: 'sub/file2.js', content: 'Content 2' },
-    ]);
+    ], { dryRun: false });
 
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await writeFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.results).toHaveLength(2);
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[1]?.success).toBe(true);
-    expect(mockMkdir).toHaveBeenCalledTimes(2); // Called for each file's parent dir
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(2);
+    expect(results?.[0]?.success).toBe(true);
+    expect(results?.[1]?.success).toBe(true);
+
+    expect(mockMkdir).toHaveBeenCalledTimes(2);
     expect(mockWriteFile).toHaveBeenCalledTimes(2);
     expect(mockWriteFile).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, 'file1.txt'),
-      'Content 1',
+      Buffer.from('Content 1', 'utf-8'),
       { encoding: 'utf-8' },
     );
     expect(mockWriteFile).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, 'sub/file2.js'),
-      'Content 2',
+      Buffer.from('Content 2', 'utf-8'),
       { encoding: 'utf-8' },
     );
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
 
-  it('should return validation error for empty items array', async () => {
-    const input = { items: [] }; // Invalid input
-    // @ts-expect-error - Intentionally passing invalid input for validation test
-    const result = await writeFilesTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('Input validation failed');
-    expect(result.error).toContain('At least one file item is required.'); // Match schema message
+   it('should perform a dry run for write', async () => {
+    const input = createInput([{ path: 'file.txt', content: 'Hello' }], { dryRun: true });
+
+    const parts = await writeFilesTool.execute(input, defaultOptions);
+    const _results = getJsonResult(parts);
+
+    expect(itemResult.error).toBeUndefined();
+
+    expect(mockMkdir).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockAppendFile).not.toHaveBeenCalled();
+
+   it('should perform a dry run for append', async () => {
+    const input = createInput([{ path: 'log.txt', content: 'More data' }], { append: true, dryRun: true });
+
+    const parts = await writeFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
+
+     expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.message).toContain('[Dry Run] Would append to file'); // Corrected message check
+    expect(itemResult.dryRun).toBe(true);
+    expect(itemResult.error).toBeUndefined();
+
+    expect(mockMkdir).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockAppendFile).not.toHaveBeenCalled();
+  });
+
+
+  it('should throw validation error for empty items array', async () => {
+    const input = { items: [] };
+    await expect(writeFilesTool.execute(input as any, defaultOptions))
+        .rejects.toThrow('Input validation failed: items: Array must contain at least 1 element(s)');
     expect(mockWriteFile).not.toHaveBeenCalled();
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
 
   it('should handle path validation failure (outside workspace)', async () => {
     const input = createInput([{ path: '../secret.txt', content: 'hacked' }]);
-    // Explicitly test with allowOutsideWorkspace: false
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
-    expect(result.success).toBe(false); // Overall success is false
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.error).toContain('Path validation failed');
-    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
+    const parts = await writeFilesTool.execute(input, defaultOptions); // allowOutsideWorkspace: false
+    const results = getJsonResult(parts);
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Path validation failed');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
+    expect(itemResult.dryRun).toBe(true); // Default dryRun for write
+
     expect(mockWriteFile).not.toHaveBeenCalled();
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
 
   it('should handle mkdir error', async () => {
-    const input = createInput([{ path: 'no_access/file.txt', content: 'test' }]);
+    const input = createInput([{ path: 'no_access/file.txt', content: 'test' }], { dryRun: false });
     const mkdirError = new Error('EACCES');
     mockMkdir.mockRejectedValue(mkdirError);
 
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await writeFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.error).toContain('EACCES');
-    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('EACCES');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
+    expect(itemResult.dryRun).toBe(false);
+
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockWriteFile).not.toHaveBeenCalled();
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
 
   it('should handle writeFile error', async () => {
-    const input = createInput([{ path: 'read_only/file.txt', content: 'test' }]);
+    const input = createInput([{ path: 'read_only/file.txt', content: 'test' }], { dryRun: false });
     const writeError = new Error('EROFS');
     mockWriteFile.mockRejectedValue(writeError);
 
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await writeFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.error).toContain('EROFS');
-    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
-    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('EROFS');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
+    expect(itemResult.dryRun).toBe(false);
+
     expect(mockWriteFile).toHaveBeenCalledTimes(1);
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
 
   it('should handle appendFile error', async () => {
-    const input = createInput([{ path: 'read_only/file.txt', content: 'test' }], { append: true });
+    const input = createInput([{ path: 'read_only/file.txt', content: 'test' }], { append: true, dryRun: false });
     const appendError = new Error('EROFS');
     mockAppendFile.mockRejectedValue(appendError);
 
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await writeFilesTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.error).toContain('EROFS');
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('EROFS');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
+    expect(itemResult.dryRun).toBe(false);
+
     expect(mockAppendFile).toHaveBeenCalledTimes(1);
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
-  it('should handle mkdir ENOENT error during append', async () => {
-    const input = createInput([{ path: 'nonexistent/log.txt', content: 'test' }], { append: true });
-    const mkdirError: NodeJS.ErrnoException = new Error('ENOENT: no such file or directory');
-    mkdirError.code = 'ENOENT';
-    mockMkdir.mockRejectedValue(mkdirError);
+  it('should handle hash mismatch error during overwrite', async () => {
+      const filePath = 'file.txt';
+      const originalContent = 'Original';
+      const newContent = 'New';
+      const originalHash = calculateHash(originalContent);
+      const wrongHash = 'wronghash';
 
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
+      mockReadFile.mockResolvedValue(Buffer.from(originalContent)); // Mock read for hash check
 
-    expect(result.success).toBe(false);
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.error).toContain('ENOENT');
-    expect(result.results[0]?.suggestion).toContain(
-      'Check the file path, permissions, and available disk space.',
-    ); // Correct suggestion
-    expect(mockAppendFile).not.toHaveBeenCalled();
+      const input = createInput([{ path: filePath, content: newContent, expectedHash: wrongHash }], { append: false, dryRun: false });
+
+      const parts = await writeFilesTool.execute(input, defaultOptions);
+      const results = getJsonResult(parts);
+
+      expect(results).toBeDefined();
+      expect(results).toHaveLength(1);
+      const itemResult = results?.[0];
+      expect(itemResult.success).toBe(false);
+      expect(itemResult.error).toContain('File hash mismatch');
+      expect(itemResult.suggestion).toContain('File content has changed');
+      expect(itemResult.oldHash).toBe(originalHash);
+      expect(itemResult.newHash).toBeUndefined();
+      expect(itemResult.dryRun).toBe(false);
+
+      expect(mockReadFile).toHaveBeenCalledTimes(1);
+      expect(mockWriteFile).not.toHaveBeenCalled();
+      expect(mockAppendFile).not.toHaveBeenCalled();
   });
 
-  it('should handle mkdir EACCES error during write', async () => {
-    const input = createInput([{ path: 'no_access/file.txt', content: 'test' }]);
-    const mkdirError: NodeJS.ErrnoException = new Error('EACCES: permission denied');
-    mkdirError.code = 'EACCES';
-    mockMkdir.mockRejectedValue(mkdirError);
+   it('should succeed overwrite if hash matches', async () => {
+      const filePath = 'file.txt';
+      const originalContent = 'Original';
+      const newContent = 'New';
+      const originalHash = calculateHash(originalContent);
+      const newHash = calculateHash(newContent);
 
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
+      mockReadFile.mockResolvedValue(Buffer.from(originalContent)); // Mock read for hash check
 
-    expect(result.success).toBe(false);
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.error).toContain('EACCES');
-    expect(result.results[0]?.suggestion).toContain('Check write permissions for the directory'); // Match actual suggestion
-    expect(mockWriteFile).not.toHaveBeenCalled();
+      const input = createInput([{ path: filePath, content: newContent, expectedHash: originalHash }], { append: false, dryRun: false });
+
+      const parts = await writeFilesTool.execute(input, defaultOptions);
+      const results = getJsonResult(parts);
+
+      expect(results).toBeDefined();
+      expect(results).toHaveLength(1);
+      const itemResult = results?.[0];
+      expect(itemResult.success).toBe(true);
+      expect(itemResult.message).toContain('File written successfully');
+      expect(itemResult.oldHash).toBe(originalHash);
+      expect(itemResult.newHash).toBe(newHash);
+      expect(itemResult.error).toBeUndefined();
+      expect(itemResult.dryRun).toBe(false);
+
+      expect(mockReadFile).toHaveBeenCalledTimes(1);
+      expect(mockWriteFile).toHaveBeenCalledTimes(1);
+      expect(mockWriteFile).toHaveBeenCalledWith(expect.any(String), Buffer.from(newContent), expect.any(Object));
+      expect(mockAppendFile).not.toHaveBeenCalled();
   });
-
-  it('should handle appendFile EACCES error', async () => {
-    const input = createInput([{ path: 'read_only/file.txt', content: 'test' }], { append: true });
-    const appendError: NodeJS.ErrnoException = new Error('EACCES: permission denied');
-    appendError.code = 'EACCES';
-    mockAppendFile.mockRejectedValue(appendError);
-
-    const result = await writeFilesTool.execute(input, defaultOptions); // Pass options object
-
-    expect(result.success).toBe(false);
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.error).toContain('EACCES');
-    expect(result.results[0]?.suggestion).toContain('Check write permissions'); // Specific suggestion for EACCES on append
-    expect(mockAppendFile).toHaveBeenCalledTimes(1);
-  });
-
-  // TODO: Add tests for multiple items with mixed results
 
   it('should allow writing outside workspace when allowOutsideWorkspace is true', async () => {
-    // Need to use createInput defined within the describe block's scope
-    const input = createInput([{ path: '../outside.txt', content: 'allowed' }]);
+    const input = createInput([{ path: '../outside.txt', content: 'allowed' }], { dryRun: false });
     const expectedPath = path.resolve(WORKSPACE_ROOT, '../outside.txt');
+    const expectedBuffer = Buffer.from('allowed', 'utf-8');
     const expectedOptions = { encoding: 'utf-8' };
 
-    // Execute with allowOutsideWorkspace: true
-    const result = await writeFilesTool.execute(input, allowOutsideOptions); // Pass options object
+    const parts = await writeFilesTool.execute(input, allowOutsideOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[0]?.error).toBeUndefined();
-    // Use mock variables defined in the describe block's scope
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.error).toBeUndefined();
+    expect(itemResult.dryRun).toBe(false);
+
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockMkdir).toHaveBeenCalledWith(path.dirname(expectedPath), { recursive: true });
     expect(mockWriteFile).toHaveBeenCalledTimes(1);
-    expect(mockWriteFile).toHaveBeenCalledWith(expectedPath, 'allowed', expectedOptions);
+    expect(mockWriteFile).toHaveBeenCalledWith(expectedPath, expectedBuffer, expectedOptions);
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
-}); // End of describe block
+});

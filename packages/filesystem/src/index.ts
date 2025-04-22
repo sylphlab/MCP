@@ -3,7 +3,7 @@
 // McpServer and StdioServerTransport are now handled by the factory
 // import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 // import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { BaseMcpToolOutput, McpTool } from '@sylphlab/mcp-core';
+import type { McpTool } from '@sylphlab/mcp-core';
 // Import the server start function
 import { startMcpServer } from '@sylphlab/mcp-utils';
 // Zod imports might not be needed here anymore if server factory handles registration details
@@ -23,10 +23,11 @@ import {
   statItemsTool,
   writeFilesTool,
 } from '@sylphlab/mcp-filesystem-core';
-import { version, name, description } from '../package.json'; // Import version from package.json
+import { description, name, version } from '../package.json'; // Import version from package.json
 
 // biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
-const tools: McpTool<any, any>[] = [ // Add back type annotation and ignore comment
+const tools: McpTool<any, any>[] = [
+  // Add back type annotation and ignore comment
   copyItemsTool,
   createFolderTool,
   deleteItemsTool,
@@ -38,18 +39,19 @@ const tools: McpTool<any, any>[] = [ // Add back type annotation and ignore comm
   searchContentTool,
   statItemsTool,
   writeFilesTool,
-] ; // Explicitly cast to McpTool array
+]; // Explicitly cast to McpTool array
 
 // --- Server Start ---
 // Use an async IIFE to handle top-level await for CJS compatibility
 // Error handling (including process.exit) is inside startMcpServer.
 (async () => {
   try {
-    await startMcpServer({ // Pass server metadata
+    await startMcpServer({
+      // Pass server metadata
       name,
       description,
-  version,
-      tools
+      version,
+      tools,
     });
     // If the script reaches here, the server started successfully and is running.
   } catch (_error) {

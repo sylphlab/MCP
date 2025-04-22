@@ -185,6 +185,12 @@ importers:
       '@sylphlab/mcp-core':
         specifier: workspace:*
         version: link:../core
+      '@types/diff-match-patch':
+        specifier: ^1.0.36
+        version: 1.0.36
+      diff-match-patch:
+        specifier: ^1.0.5
+        version: 1.0.5
       fast-glob:
         specifier: ^3.3.3
         version: 3.3.3

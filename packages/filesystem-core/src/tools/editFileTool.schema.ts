@@ -1,92 +1,31 @@
 import { z } from 'zod';
 
-// --- Zod Schemas for Edit Operations ---
+// --- Zod Schema for the Apply Diff Patch Operation ---
 
-const InsertOperationSchema = z.object({
-  operation: z.literal('insert'),
-  start_line: z.number().int().min(1, 'start_line must be 1 or greater.'),
-  content: z.string(),
+// Schema for the apply_diff_patch operation
+const ApplyDiffPatchOperationSchema = z.object({
+  operation: z.literal('apply_diff_patch'),
+  patch: z.string().min(1, 'Patch content cannot be empty.'),
+  // Note: This operation ignores start_line/end_line as diff contains context
 });
 
-const DeleteLinesOperationSchema = z
-  .object({
-    operation: z.literal('delete_lines'),
-    start_line: z.number().int().min(1, 'start_line must be 1 or greater.'),
-    end_line: z.number().int().min(1, 'end_line must be 1 or greater.'),
-  })
-  .refine((data) => data.end_line >= data.start_line, {
-    message: 'end_line must be greater than or equal to start_line',
-    path: ['end_line'], // Specify the path of the error
-  });
+// The only allowed edit operation
+export const EditOperationSchema = ApplyDiffPatchOperationSchema;
 
-const ReplaceLinesOperationSchema = z
-  .object({
-    operation: z.literal('replace_lines'),
-    start_line: z.number().int().min(1, 'start_line must be 1 or greater.'),
-    end_line: z.number().int().min(1, 'end_line must be 1 or greater.'),
-    content: z.string(),
-  })
-  .refine((data) => data.end_line >= data.start_line, {
-    message: 'end_line must be greater than or equal to start_line',
-    path: ['end_line'], // Specify the path of the error
-  });
-
-const SearchReplaceTextOperationSchema = z
-  .object({
-    operation: z.literal('search_replace_text'),
-    search: z.string().min(1, 'Search string cannot be empty.'),
-    replace: z.string(),
-    start_line: z.number().int().min(1, 'start_line must be 1 or greater.').optional(),
-    end_line: z.number().int().min(1, 'end_line must be 1 or greater.').optional(),
-  })
-  .refine(
-    (data) =>
-      data.end_line === undefined ||
-      data.start_line === undefined ||
-      data.end_line >= data.start_line,
-    {
-      message: 'end_line must be greater than or equal to start_line',
-      path: ['end_line'],
-    },
-  );
-
-const SearchReplaceRegexOperationSchema = z
-  .object({
-    operation: z.literal('search_replace_regex'),
-    regex: z.string().min(1, 'Regex pattern cannot be empty.'),
-    replace: z.string(),
-    flags: z.string().optional(),
-    start_line: z.number().int().min(1, 'start_line must be 1 or greater.').optional(),
-    end_line: z.number().int().min(1, 'end_line must be 1 or greater.').optional(),
-  })
-  .refine(
-    (data) =>
-      data.end_line === undefined ||
-      data.start_line === undefined ||
-      data.end_line >= data.start_line,
-    {
-      message: 'end_line must be greater than or equal to start_line',
-      path: ['end_line'],
-    },
-  );
-
-// Union of all possible edit operations
-export const EditOperationSchema = z.union([
-  InsertOperationSchema,
-  DeleteLinesOperationSchema,
-  ReplaceLinesOperationSchema,
-  SearchReplaceTextOperationSchema,
-  SearchReplaceRegexOperationSchema,
-]);
-
-// Schema for a single file change request
+// Schema for a single file change request, now restricted to one apply_diff_patch edit
 export const FileChangeSchema = z.object({
   path: z.string().min(1, 'File path cannot be empty.'),
-  edits: z.array(EditOperationSchema).min(1, 'At least one edit operation is required.'),
+  expectedHash: z.string().optional(), // Optional expected SHA-256 hash
+  // Enforce exactly one edit, which must be apply_diff_patch
+  edits: z
+    .array(ApplyDiffPatchOperationSchema)
+    .length(1, 'Exactly one apply_diff_patch operation is required.'),
 });
 
-// Main input schema: an array of file changes
+// Main input schema: restricted to exactly one file change
 export const editFileToolInputSchema = z.object({
-  changes: z.array(FileChangeSchema).min(1, 'At least one file change is required.'),
+  // Enforce exactly one change
+  changes: z.array(FileChangeSchema).length(1, 'Exactly one file change is required.'),
+  dryRun: z.boolean().optional(), // Optional dry run flag
   // allowOutsideWorkspace is handled by McpToolExecuteOptions
 });

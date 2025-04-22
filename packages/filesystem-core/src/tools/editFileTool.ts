@@ -1,304 +1,276 @@
+import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import DiffMatchPatch, { type patch_obj } from 'diff-match-patch';
+import { z } from 'zod';
 import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-  PathValidationError, // PathValidationError might not be needed directly
-  validateAndResolvePath,
-} from '@sylphlab/mcp-core'; // Import base types and validation util
-import type { z } from 'zod';
-import {
-  type EditOperationSchema,
-  type FileChangeSchema,
   editFileToolInputSchema,
-} from './editFileTool.schema.js'; // Import schemas (added .js)
+  // type ApplyDiffPatchEditSchema, // Removed invalid import
+} from './editFileTool.schema.js';
 
 // Infer the TypeScript type from the Zod schema
 export type EditFileToolInput = z.infer<typeof editFileToolInputSchema>;
-export type EditOperation = z.infer<typeof EditOperationSchema>;
+// Infer the specific edit type we expect (schema enforces only one edit of this type)
+type ApplyDiffPatchEdit = EditFileToolInput['changes'][0]['edits'][0];
 
-// --- Output Types ---
+// --- Output Types (Internal Result Structures) ---
 export interface EditResult {
-  /** Index of the edit operation in the input array. */
   editIndex: number;
-  /** Whether this specific edit was applied successfully. */
+  operation: string;
   success: boolean;
-  /** Optional message (e.g., "Inserted content", "Replacements made"). */ // Updated message example
   message?: string;
-  /** Optional error if this specific edit failed. */
   error?: string;
-  /** Optional suggestion for fixing the error. */
   suggestion?: string;
 }
 
 export interface FileEditResult {
-  /** The file path provided in the input. */
   path: string;
-  /** Whether all edits for this file were applied successfully. */
   success: boolean;
-  /** Optional error message if file reading/writing failed or a major issue occurred. */
+  dryRun: boolean;
   error?: string;
-  /** Optional suggestion if file processing failed early (e.g., path validation or read error). */
   suggestion?: string;
-  /** Array of results for each edit operation applied to this file. */
+  oldHash?: string;
+  newHash?: string;
   edit_results: EditResult[];
 }
 
-// Extend the base output type
-export interface EditFileToolOutput extends BaseMcpToolOutput {
-  /** Overall operation success (true only if ALL file changes were fully successful). */
-  // success: boolean; // Inherited
-  /** Optional general error message if the tool encountered a major issue. */
-  error?: string;
-  /** Array of results for each file change operation. */
-  results: FileEditResult[];
-}
+// Zod Schema for the individual edit result (part of FileEditResult)
+const EditResultSchema = z.object({
+  editIndex: z.number(),
+  operation: z.string(),
+  success: z.boolean(),
+  message: z.string().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Zod Schema for the result of processing a single file (used in outputSchema)
+const FileEditResultSchema = z.object({
+  path: z.string(),
+  success: z.boolean(),
+  dryRun: z.boolean(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+  oldHash: z.string().optional(),
+  newHash: z.string().optional(),
+  edit_results: z.array(EditResultSchema),
+});
+
+// Define the specific output schema for this tool
+const EditFileOutputSchema = z.array(FileEditResultSchema);
 
 // --- Tool Definition using defineTool ---
 
 export const editFileTool = defineTool({
   name: 'editFileTool',
-  description:
-    'Applies selective edits (insert, delete, replace by line or search pattern) to one or more files.',
-  inputSchema: editFileToolInputSchema,
+  description: 'Applies precise, context-aware edits to a single file using a diff patch.',
+  inputSchema: editFileToolInputSchema, // Schema enforces only one apply_diff_patch
+  outputSchema: EditFileOutputSchema,
 
-  execute: async ( // Core logic passed to defineTool
-    input: EditFileToolInput,
-    options: McpToolExecuteOptions,
-  ): Promise<EditFileToolOutput> => { // Still returns the specific output type
-
+  execute: async (input: EditFileToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = editFileToolInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
-      // Return error structure instead of throwing
-      return {
-        success: false,
-        error: `Input validation failed: ${errorMessages}`,
-        results: [], // Ensure results is an empty array on validation failure
-        content: [{ type: 'text', text: `Input validation failed: ${errorMessages}` }],
-      };
+      throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { changes } = parsed.data;
+    // Destructure after successful parse. Schema guarantees changes[0] exists.
+    const { changes, dryRun: isDryRunGlobal } = parsed.data;
+    const change = changes[0];
+    // Add explicit check to satisfy TS, though schema guarantees it exists
+    if (!change) {
+      // This should be unreachable due to schema validation
+      throw new Error('Internal error: Failed to access change data after validation.');
+    }
+    // Schema guarantees only one edit, and it's apply_diff_patch
+    const edit = change.edits[0] as ApplyDiffPatchEdit;
 
-    const fileResults: FileEditResult[] = [];
-    let overallSuccess = true; // Assume success until a failure occurs
+    const fileResults: FileEditResult[] = []; // Will contain only one result
+    const filePath = change.path;
+    const editResults: EditResult[] = [];
+    const expectedHash = change.expectedHash;
+    let fileSuccess = true;
+    let fileError: string | undefined;
+    let fileSuggestion: string | undefined;
+    let oldFileHash: string | undefined;
+    let newFileHash: string | undefined;
+    let fullPath: string;
+    // apply_diff_patch is considered 'safe' by default unless overridden globally
+    const isDryRun = isDryRunGlobal ?? false;
 
-    // Removed the outermost try/catch block; defineTool handles unexpected errors
-
-    for (const change of changes) {
-      const filePath = change.path;
-      const editResults: EditResult[] = [];
-      let fileSuccess = true; // Success for this specific file
-      let fileError: string | undefined;
-      let fileSuggestion: string | undefined;
-      let fullPath: string;
-
-      // --- Validate and Resolve Path ---
-      const validationResult = validateAndResolvePath(
-        filePath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
-      );
-      if (typeof validationResult !== 'string') {
-        fileError = validationResult.error;
-        fileSuggestion = validationResult.suggestion;
-        fileSuccess = false;
-        overallSuccess = false; // Mark overall as failed
-        fileResults.push({
-          path: filePath, success: false, error: fileError, suggestion: fileSuggestion, edit_results: [],
-        });
-        continue; // Skip this file change
-      }
+    // --- Validate and Resolve Path ---
+    const validationResult = validateAndResolvePath(
+      filePath,
+      options.workspaceRoot,
+      options?.allowOutsideWorkspace,
+    );
+    if (typeof validationResult !== 'string') {
+      fileError = validationResult.error;
+      fileSuggestion = validationResult.suggestion;
+      fileSuccess = false;
+      // Push error result directly as FileEditResult
+      fileResults.push({
+        path: filePath,
+        success: false,
+        dryRun: isDryRun,
+        error: fileError,
+        suggestion: fileSuggestion,
+        oldHash: undefined,
+        newHash: undefined,
+        edit_results: [], // No edits attempted
+      });
+    } else {
       fullPath = validationResult;
       // --- End Path Validation ---
 
-      // Keep try/catch for file read/write and edit loop processing
+      // Keep try/catch for file read/write and patch processing
       try {
         // Read the file content
-        const originalContent = await readFile(fullPath, 'utf-8');
-        const lines = originalContent === '' ? [] : originalContent.split(/\r?\n/);
-        if (lines.length > 0 && lines[lines.length - 1] === '') {
-          lines.pop();
+        const originalFileBuffer = await readFile(fullPath);
+        const originalContent = originalFileBuffer.toString('utf-8');
+        oldFileHash = createHash('sha256').update(originalFileBuffer).digest('hex');
+
+        // --- Hash Check ---
+        if (expectedHash && expectedHash !== oldFileHash) {
+          throw new Error(
+            `File hash mismatch. Expected ${expectedHash}, but found ${oldFileHash}.`,
+          );
         }
-        const currentLines = [...lines];
+        // --- End Hash Check ---
 
-        // Process edits for this file
-        for (const [index, edit] of change.edits.entries()) {
-          let editSuccess = false;
-          let editMessage: string | undefined;
-          let editError: string | undefined;
-          let suggestion: string | undefined;
-          const currentLineCount = currentLines.length;
+        let currentContent = originalContent;
+        let contentModified = false;
+        let editSuccess = false;
+        let editMessage: string | undefined;
+        let editError: string | undefined;
+        let suggestion: string | undefined;
 
-          // Keep try/catch for individual edit operation errors
+        // --- Apply Diff Patch ---
+        try {
+          const dmp = new DiffMatchPatch();
+          let patches: patch_obj[];
           try {
-            const startLine = edit.start_line ?? 1;
-            const startLineIndex = startLine - 1;
+            // Use 'as any' to bypass potential type definition mismatch for patch_fromText
+            patches = dmp.patch_fromText(edit.patch) as any;
+          } catch (patchError: unknown) {
+            throw new Error(
+              `Failed to parse patch text: ${patchError instanceof Error ? patchError.message : String(patchError)}`,
+            );
+          }
 
-            // Boundary checks... (kept as before)
-            const maxStartIndex = edit.operation === 'insert' ? currentLineCount : Math.max(0, currentLineCount - 1);
-            const maxStartLine = edit.operation === 'insert' ? currentLineCount + 1 : currentLineCount;
-            if (startLineIndex < 0 || startLineIndex > maxStartIndex) {
-              throw new Error(`start_line ${startLine} is out of bounds (1-${maxStartLine}).`);
-            }
+          // Use 'as any' to bypass potential type definition mismatch for patch_apply
+          const [newContent, patchResults] = dmp.patch_apply(patches as any, currentContent);
 
-            switch (edit.operation) {
-              case 'insert': {
-                const contentLines = edit.content.split(/\r?\n/);
-                const insertIndex = Math.min(startLineIndex, currentLineCount);
-                currentLines.splice(insertIndex, 0, ...contentLines);
-                editMessage = `Inserted ${contentLines.length} line(s) at line ${startLine}.`;
-                editSuccess = true;
-                break;
-              }
-              case 'delete_lines': {
-                const endLine = edit.end_line;
-                const endLineIndex = endLine - 1;
-                if (endLineIndex < 0 || endLineIndex >= currentLineCount) {
-                  throw new Error(`end_line ${endLine} is out of bounds (1-${currentLineCount}).`);
-                }
-                const deleteCount = endLineIndex - startLineIndex + 1;
-                currentLines.splice(startLineIndex, deleteCount);
-                editMessage = `Deleted ${deleteCount} line(s) from line ${startLine}.`;
-                editSuccess = true;
-                break;
-              }
-              case 'replace_lines': {
-                const endLine = edit.end_line;
-                const endLineIndex = endLine - 1;
-                if (endLineIndex < 0 || endLineIndex >= currentLineCount) {
-                  throw new Error(`end_line ${endLine} is out of bounds (1-${currentLineCount}).`);
-                }
-                const deleteCount = endLineIndex - startLineIndex + 1;
-                const contentLines = edit.content.split(/\r?\n/);
-                currentLines.splice(startLineIndex, deleteCount, ...contentLines);
-                editMessage = `Replaced ${deleteCount} line(s) starting at line ${startLine} with ${contentLines.length} line(s).`;
-                editSuccess = true;
-                break;
-              }
-              case 'search_replace_text':
-              case 'search_replace_regex': {
-                const endLine = edit.end_line ?? currentLineCount;
-                const endLineIndex = endLine - 1;
-                if (endLineIndex < 0 || endLineIndex >= currentLineCount) {
-                  throw new Error(`end_line ${endLine} is out of bounds (1-${currentLineCount}).`);
-                }
-                let replacementsMade = 0;
-                const effectiveStart = startLineIndex;
-                const effectiveEnd = Math.min(endLineIndex, currentLineCount - 1);
-                let regex: RegExp | null = null;
-
-                if (edit.operation === 'search_replace_regex') {
-                  try {
-                    regex = new RegExp(edit.regex, edit.flags ?? '');
-                  } catch (e: unknown) {
-                    const errorMsg = e instanceof Error ? e.message : 'Unknown regex error';
-                    throw new Error(`Invalid regex pattern: ${errorMsg}`);
-                  }
-                }
-
-                for (let i = effectiveStart; i <= effectiveEnd; i++) {
-                  const originalLine = currentLines[i];
-                  if (originalLine === undefined) continue;
-                  let modifiedLine: string;
-                  let lineReplacements = 0;
-                  if (regex) {
-                    modifiedLine = originalLine.replace(regex, edit.replace);
-                    lineReplacements = (originalLine.match(regex) || []).length;
-                  } else if (edit.operation === 'search_replace_text') {
-                    modifiedLine = originalLine.replace(edit.search, edit.replace);
-                    if (originalLine !== modifiedLine) lineReplacements = 1;
-                  } else {
-                    modifiedLine = originalLine;
-                  }
-                  if (originalLine !== modifiedLine) {
-                    currentLines[i] = modifiedLine;
-                    replacementsMade += lineReplacements;
-                  }
-                }
-                editMessage = `${replacementsMade} replacement(s) made between lines ${startLine} and ${endLine}.`;
-                if (replacementsMade === 0) editMessage = `No replacements needed between lines ${startLine} and ${endLine}.`;
-                editSuccess = true;
-                break;
-              }
-            }
-          } catch (e: unknown) {
-            // Handle individual edit errors
-            editSuccess = false;
-            fileSuccess = false; // Mark file as failed if any edit fails
-            const errorMsg = e instanceof Error ? e.message : 'Unknown edit error';
-            editError = `Edit #${index} (${edit.operation}) failed: ${errorMsg}`;
-            if (errorMsg.includes('out of bounds')) {
-              suggestion = `Check line numbers (1-${currentLineCount}). Ensure start_line <= end_line.`;
-            } else if (errorMsg.includes('Invalid regex')) {
-              suggestion = 'Verify the regex pattern syntax.';
+          if (patchResults.every((r: boolean) => r)) {
+            if (newContent !== currentContent) {
+              currentContent = newContent;
+              contentModified = true;
+              editMessage = 'Patch applied successfully.';
             } else {
-              suggestion = 'Check edit operation parameters and file content.';
+              editMessage = 'Patch applied, but resulted in no changes.';
             }
+            editSuccess = true;
+          } else {
+            const failedIndices = patchResults
+              .map((r: boolean, i: number) => (!r ? i : -1))
+              .filter((i: number) => i !== -1);
+            throw new Error(
+              `Patch application failed for patch index(es): ${failedIndices.join(', ')}.`,
+            );
           }
-
-          // Push result for this edit
-          editResults.push({ editIndex: index, success: editSuccess, message: editMessage, error: editError, suggestion });
-        } // End for loop for edits
-
-        // Write back if the file processing itself didn't fail and edits were attempted
-        if (fileSuccess) {
-          const modifiedContentJoined = currentLines.join('\n');
-          const originalContentTrimmed = originalContent.replace(/\r?\n$/, '');
-          if (modifiedContentJoined !== originalContentTrimmed) {
-            await writeFile(fullPath, modifiedContentJoined, 'utf-8');
+        } catch (e: unknown) {
+          editSuccess = false;
+          fileSuccess = false; // Mark file as failed if edit fails
+          const errorMsg = e instanceof Error ? e.message : 'Unknown edit error';
+          editError = `Edit #0 (${edit.operation}) failed: ${errorMsg}`;
+          if (errorMsg.includes('File hash mismatch')) {
+            suggestion =
+              'File content has changed since last read. Re-read the file and try again.';
+          } else if (errorMsg.includes('Patch application failed')) {
+            suggestion =
+              'The provided patch could not be applied cleanly. Ensure the patch matches the current file content.';
+          } else {
+            suggestion = 'Check patch content and file state.';
           }
+        }
+        // --- End Apply Diff Patch ---
+
+        // Push the single edit result
+        editResults.push({
+          editIndex: 0,
+          operation: edit.operation,
+          success: editSuccess,
+          message: editMessage,
+          error: editError,
+          suggestion,
+        });
+
+        // Calculate potential new hash if modified
+        if (contentModified) {
+          const finalBuffer = Buffer.from(currentContent, 'utf-8');
+          newFileHash = createHash('sha256').update(finalBuffer).digest('hex');
         } else {
-           overallSuccess = false; // Ensure overall success reflects file failure
+          newFileHash = oldFileHash; // No change, hash remains the same
         }
 
+        // Write back only if not dry run, file processing succeeded, and content actually changed
+        if (!isDryRun && fileSuccess && contentModified) {
+          const finalBuffer = Buffer.from(currentContent, 'utf-8');
+          await writeFile(fullPath, finalBuffer);
+        } else if (isDryRun && fileSuccess && contentModified) {
+          // Add dry run message to the successful edit result
+          const successfulEdit = editResults.find((er) => er.editIndex === 0 && er.success);
+          if (successfulEdit) {
+            successfulEdit.message = `[Dry Run] ${successfulEdit.message ?? 'Patch would be applied.'}`;
+          }
+        }
+
+        // If the edit failed, overall file success is false
+        if (!editSuccess) {
+          fileSuccess = false;
+        }
       } catch (e: unknown) {
-        // Catch errors during file read or initial processing
+        // Catch errors during file read or hash check
         fileSuccess = false;
-        overallSuccess = false;
         const errorMsg = e instanceof Error ? e.message : 'Unknown file processing error';
         fileError = `Error processing file '${filePath}': ${errorMsg}`;
-        fileSuggestion = `Check if file '${filePath}' exists and if you have read/write permissions.`;
-        // If read failed, mark all planned edits as failed
+        if (errorMsg.includes('File hash mismatch')) {
+          fileSuggestion =
+            'File content has changed since last read. Re-read the file and provide the correct expectedHash.';
+        } else {
+          fileSuggestion = `Check if file '${filePath}' exists and if you have read/write permissions.`;
+        }
+        // If read/hash check failed, mark the planned edit as failed if not already done
         if (editResults.length === 0) {
-          change.edits.forEach((_editOp, index) => {
-            editResults.push({
-              editIndex: index, success: false, error: `File processing failed before edit: ${errorMsg}`, suggestion: fileSuggestion,
-            });
+          editResults.push({
+            editIndex: 0,
+            operation: edit.operation,
+            success: false,
+            error: `File processing failed before edit: ${errorMsg}`,
+            suggestion: fileSuggestion,
           });
         }
       }
 
-      // Push result for this file change
+      // Push the final result for this file change
       fileResults.push({
-        path: filePath, success: fileSuccess, error: fileError, suggestion: fileSuggestion, edit_results: editResults,
+        path: filePath,
+        success: fileSuccess,
+        dryRun: isDryRun,
+        error: fileError, // File-level error (read/hash/path validation)
+        suggestion: fileSuggestion, // File-level suggestion
+        oldHash: oldFileHash,
+        newHash: newFileHash,
+        edit_results: editResults, // Results of individual edits (patch apply)
       });
-    } // End for loop for changes
+    } // End if/else block for path validation
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Edit operation completed. Overall success: ${overallSuccess}`,
-        results: fileResults,
-      },
-      null,
-      2,
-    );
-
-    // Return the specific output structure
-    return {
-      success: overallSuccess,
-      results: fileResults,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Return the parts array directly
+    return [jsonPart(fileResults, EditFileOutputSchema)];
   }, // Closing brace for execute method
 }); // Closing brace for defineTool call
-
-// Ensure necessary types are still exported
-// export type { EditFileToolInput, EditFileToolOutput, FileEditResult, EditResult, EditOperation }; // Removed duplicate export

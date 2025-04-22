@@ -1,68 +1,117 @@
-import path from 'node:path'; // Import path
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-// Correct imports based on core/src/index.ts
-import type {
-  BaseMcpToolOutput,
-  McpContentPart,
-  McpTool, // McpTool might not be needed directly
-  McpToolExecuteOptions,
-} from '@sylphlab/mcp-core';
-// Removed VercelAIEmbeddingFunction import
-import type { IEmbeddingFunction } from 'chromadb'; // Import IEmbeddingFunction type
+import path from 'node:path';
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { IEmbeddingFunction } from 'chromadb';
 import { z } from 'zod';
 import { getRagCollection } from '../chroma.js';
 
+// --- Input Schema ---
 // Define Input Schema using Zod (optional, could be empty)
-const IndexStatusInput = z.object({}).optional(); // No input needed
+const IndexStatusInputSchema = z.object({}).optional(); // No input needed
 
-// Define Output Type extending BaseMcpToolOutput
-interface IndexStatusOutput extends BaseMcpToolOutput {
-  count: number;
-  collectionName: string;
+// --- TypeScript Type ---
+export type IndexStatusInput = z.infer<typeof IndexStatusInputSchema>;
+
+// --- Output Types ---
+export interface IndexStatusResult {
+  /** Whether retrieving status was successful. */
+  success: boolean;
+  /** Number of items in the index collection. */
+  count?: number;
+  /** Name of the index collection. */
+  collectionName?: string;
+  /** Error message, if retrieval failed. */
+  error?: string;
+  /** Suggestion for fixing the error. */
+  suggestion?: string;
 }
 
-// Implement the tool using defineTool
+// Zod Schema for the individual result
+const IndexStatusResultSchema = z.object({
+  success: z.boolean(),
+  count: z.number().int().nonnegative().optional(),
+  collectionName: z.string().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant array
+const IndexStatusOutputSchema = z.array(IndexStatusResultSchema);
+
+// --- Tool Definition using defineTool ---
 export const indexStatusTool = defineTool({
   name: 'getIndexStatus',
   description: 'Gets the status of the RAG index (e.g., number of items).',
-  inputSchema: IndexStatusInput, // Use Zod schema directly
+  inputSchema: IndexStatusInputSchema,
+  outputSchema: IndexStatusOutputSchema, // Use the array schema
 
-  execute: async ( // Core logic passed to defineTool
-    _input: z.infer<typeof IndexStatusInput>, // Input is optional/empty
-    options: McpToolExecuteOptions, // Options are received here
-  ): Promise<IndexStatusOutput> => { // Still returns the specific output type
+  execute: async (
+    _input: IndexStatusInput, // Input is optional/empty
+    options: McpToolExecuteOptions,
+  ): Promise<Part[]> => {
+    // Return Part[]
 
-    // Removed try/catch, defineTool wrapper handles errors
+    // Zod validation (though input is empty/optional)
+    const parsed = IndexStatusInputSchema.safeParse(_input);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(
+          ([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : ''}`,
+        )
+        .join('; ');
+      throw new Error(`Input validation failed: ${errorMessages}`);
+    }
 
-    // Determine chromaDbPath using options.workspaceRoot
-    const chromaDbPath = path.join(options.workspaceRoot, '.mcp', 'chroma_db');
+    // Add upfront check for workspaceRoot within options
+    if (!options?.workspaceRoot) {
+      throw new Error('Workspace root is not available in options.');
+    }
 
-    // Create a minimal dummy embedding function locally
-    // TODO: Refactor getRagCollection to not require embeddingFn for count()
-    const dummyEmbeddingFn: IEmbeddingFunction = {
-      generate: async (texts: string[]) => texts.map(() => []),
-    };
+    const results: IndexStatusResult[] = [];
+    let count: number | undefined;
+    let collectionName: string | undefined;
+    let error: string | undefined;
+    let suggestion: string | undefined;
+    let success = false;
 
-    // Get collection and count (errors here will be caught by defineTool)
-    const collection = await getRagCollection(
-      dummyEmbeddingFn,
-      options.workspaceRoot,
-      chromaDbPath,
-    );
-    const count = await collection.count();
+    try {
+      const chromaDbPath = path.join(options.workspaceRoot, '.mcp', 'chroma_db');
 
-    // Construct success output
-    const contentText = `Index contains ${count} items in collection "${collection.name}".`;
-    const contentPart: McpContentPart = { type: 'text', text: contentText };
+      // Create a minimal dummy embedding function locally
+      // TODO: Refactor getRagCollection to not require embeddingFn for count()
+      const dummyEmbeddingFn: IEmbeddingFunction = {
+        generate: async (texts: string[]) => texts.map(() => []),
+      };
 
-    return {
-      success: true,
-      content: [contentPart], // Must include content array
-      count: count,
-      collectionName: collection.name,
-    };
+      const collection = await getRagCollection(
+        dummyEmbeddingFn,
+        options.workspaceRoot,
+        chromaDbPath,
+      );
+      count = await collection.count();
+      collectionName = collection.name;
+      success = true;
+    } catch (e: unknown) {
+      success = false;
+      error = e instanceof Error ? e.message : 'Unknown error getting index status';
+      suggestion = 'Check ChromaDB setup, path, and connectivity.';
+      count = undefined;
+      collectionName = undefined;
+    }
+
+    // Push the single result
+    results.push({
+      success,
+      count,
+      collectionName,
+      error,
+      suggestion,
+    });
+
+    // Return the result wrapped in jsonPart
+    return [jsonPart(results, IndexStatusOutputSchema)];
   },
 });
 
-// Ensure necessary types are still exported
-export type { IndexStatusInput, IndexStatusOutput };
+// Export necessary types

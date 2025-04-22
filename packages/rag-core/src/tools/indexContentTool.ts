@@ -1,20 +1,15 @@
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  type BaseMcpToolOutput,
-  type McpContentPart,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-} from '@sylphlab/mcp-core'; // Added McpToolExecuteOptions
-import hljs from 'highlight.js'; // Import highlight.js
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import hljs from 'highlight.js';
 import { z } from 'zod';
-import { type ChunkingOptions, chunkCodeAst } from '../chunking.js'; // Import interface type
+import { type ChunkingOptions, chunkCodeAst } from '../chunking.js';
 import {
   EmbeddingModelConfigSchema,
   EmbeddingModelProvider,
   defaultEmbeddingConfig,
   generateEmbeddings,
-} from '../embedding.js'; // Import default config
+} from '../embedding.js';
 import {
   IndexManager,
   type IndexedItem,
@@ -24,185 +19,197 @@ import {
 import { SupportedLanguage } from '../parsing.js';
 import type { Chunk } from '../types.js';
 
-// Define the input schema for the indexContentTool
-// Expecting an array of items to index, each with content, source, and language
+// --- Input Schemas (Copied from original for clarity) ---
 export const IndexContentInputItemSchema = z.object({
-  id: z.string().optional(), // Optional ID, generate if not provided?
+  id: z.string().optional(),
   content: z.string(),
-  source: z.string().optional(), // e.g., file path or URL
-  language: z.nativeEnum(SupportedLanguage).optional(), // Language is now optional
-  // Add optional metadata field?
+  source: z.string().optional(),
+  language: z.nativeEnum(SupportedLanguage).optional(),
 });
 
-// Define Zod schema for ChunkingOptions locally for input validation
 const ChunkingOptionsSchema = z
   .object({
     maxChunkSize: z.number().int().positive().optional(),
     chunkOverlap: z.number().int().nonnegative().optional(),
   })
-  .optional(); // Make the whole options object optional
+  .optional();
 
-// McpToolInput is a type, not a Zod schema object.
-// We define the schema based on the expected structure.
 export const IndexContentInputSchema = z.object({
   items: z.array(IndexContentInputItemSchema),
-  chunkingOptions: ChunkingOptionsSchema, // Use the locally defined schema
+  chunkingOptions: ChunkingOptionsSchema,
   embeddingConfig: EmbeddingModelConfigSchema.optional(),
   vectorDbConfig: VectorDbConfigSchema.optional(),
 });
 
-// Output type is defined by the return value of execute, conforming to BaseMcpToolOutput
-// No separate output schema definition needed on the tool object itself.
+// --- TypeScript Types ---
+export type IndexContentInputItem = z.infer<typeof IndexContentInputItemSchema>;
+export type IndexContentToolInput = z.infer<typeof IndexContentInputSchema>;
 
+// --- Output Types ---
+export interface IndexContentResultItem {
+  /** Optional ID from the input item. */
+  id?: string;
+  /** Source provided in the input item. */
+  source?: string;
+  /** Whether processing this item (chunking, embedding, indexing) was successful overall. */
+  success: boolean;
+  /** Number of chunks generated and upserted for this item. */
+  chunksUpserted: number;
+  /** Error message, if processing failed for this item. */
+  error?: string;
+  /** Suggestion for fixing the error. */
+  suggestion?: string;
+}
+
+// Zod Schema for the individual result
+const IndexContentResultItemSchema = z.object({
+  id: z.string().optional(),
+  source: z.string().optional(),
+  success: z.boolean(),
+  chunksUpserted: z.number().int().nonnegative(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant array
+const IndexContentOutputSchema = z.array(IndexContentResultItemSchema);
+
+// --- Tool Definition using defineTool ---
 export const indexContentTool = defineTool({
   name: 'indexContent',
   description: 'Chunks, embeds, and indexes provided text content.',
   inputSchema: IndexContentInputSchema,
-  // outputSchema property removed
+  outputSchema: IndexContentOutputSchema, // Use the array schema
 
-  execute: async ( // Core logic passed to defineTool
-    input: z.infer<typeof IndexContentInputSchema>,
-    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
-  ): Promise<BaseMcpToolOutput> => { // Return type is BaseMcpToolOutput
+  execute: async (
+    input: IndexContentToolInput,
+    _options: McpToolExecuteOptions,
+  ): Promise<Part[]> => {
+    // Return Part[]
 
-    // Input validation is handled by registerTools/SDK
-    const { items, chunkingOptions, embeddingConfig, vectorDbConfig } = input;
+    // Zod validation (throw error on failure)
+    const parsed = IndexContentInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      throw new Error(`Input validation failed: ${errorMessages}`);
+    }
+    const { items, chunkingOptions, embeddingConfig, vectorDbConfig } = parsed.data;
 
-    // Provide default config if none is given in input
+    // Initialize IndexManager (outside loop for efficiency)
     const currentIndexConfig = vectorDbConfig ?? { provider: VectorDbProvider.InMemory };
-    // Use static create method for async initialization
-    const indexManager = await IndexManager.create(currentIndexConfig);
-
-    const allIndexedItems: IndexedItem[] = []; // Explicitly type the array
-
-    for (const item of items) {
-      let languageToUse: SupportedLanguage | null = item.language ?? null;
-
-      // 2. Detect language if not provided using highlight.js
-      if (!languageToUse) {
-        // highlightAuto might be slow for very large inputs, consider limiting input size
-        // const contentSample = item.content.substring(0, 5000); // Limit sample size
-        const detectionResult = hljs.highlightAuto(item.content);
-        const detectedLang = detectionResult.language; // Lowercase language name or undefined
-        const _relevance = detectionResult.relevance;
-
-        // Map highlight.js language names to SupportedLanguage enum
-        // Add more mappings as needed
-        switch (detectedLang?.toLowerCase()) {
-          case 'javascript':
-          case 'js':
-          case 'jsx': // Treat JSX as JS for parsing? Or add TSX?
-            languageToUse = SupportedLanguage.JavaScript;
-            break;
-          case 'typescript':
-          case 'ts':
-          case 'tsx':
-            languageToUse = SupportedLanguage.TypeScript; // Or TSX if enum exists & needed
-            break;
-          case 'python':
-          case 'py':
-            languageToUse = SupportedLanguage.Python;
-            break;
-          // Add cases for other SupportedLanguages...
-          default:
-            languageToUse = null; // Trigger fallback
-        }
-      }
-
-      // 3. Chunk the content
-      let chunks: Chunk[];
-      try {
-        chunks = await chunkCodeAst(item.content, languageToUse, chunkingOptions);
-      } catch (error) {
-        const _errorMessage = error instanceof Error ? error.message : String(error);
-        continue; // Skip to the next item
-      }
-
-      if (chunks.length === 0) {
-        continue;
-      }
-
-      // The result from chunkCodeAst is already Chunk[] with basic metadata
-      // We just need to ensure source and language are consistent if not already set
-      const chunkObjects: Chunk[] = chunks.map((chunk: Chunk, index: number) => ({
-        // Add types to map params
-        ...chunk, // Spread the existing chunk (content + metadata from chunker)
-        metadata: {
-          source: item.source || chunk.metadata?.source, // Prioritize item source
-          language: item.language || chunk.metadata?.language, // Prioritize item language
-          chunkIndex: index, // Add chunk index metadata relative to this item
-          // Keep existing metadata like nodeType, startLine, endLine from chunker
-          ...chunk.metadata,
-        },
-      }));
-
-      // 4. Generate embeddings (Renumbered step)
-      let embeddings: number[][];
-      try {
-        // Provide complete default mock config if none is given in input
-        const currentEmbeddingConfig = embeddingConfig ?? defaultEmbeddingConfig; // Use exported default
-        embeddings = await generateEmbeddings(chunkObjects, currentEmbeddingConfig);
-      } catch (error) {
-        const _errorMessage = error instanceof Error ? error.message : String(error);
-        continue; // Skip to the next item
-      }
-
-      if (embeddings.length !== chunkObjects.length) {
-        continue;
-      }
-
-      // 5. Prepare items for indexing
-      const indexedItems = chunkObjects.map((chunk, index) => ({
-        ...chunk,
-        id: `${item.source || item.id || `item-${Date.now()}`}-chunk-${index}`, // Generate unique ID
-        vector: embeddings[index],
-      }));
-
-      allIndexedItems.push(...indexedItems);
-    } // End of loop through items
-
-    // 6. Upsert items into the index
-    // Keep try/catch for upsert error, return specific error message
-    if (allIndexedItems.length > 0) {
-      try {
-        await indexManager.upsertItems(allIndexedItems);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        // Throw error for defineTool wrapper to catch and format consistently
-        throw new Error(`Error upserting items into index: ${errorMessage}`);
-      }
-    } else {
-      // If no items were processed successfully to be indexed, maybe indicate this?
-      // For now, just proceed to success summary.
+    let indexManager: IndexManager;
+    try {
+      indexManager = await IndexManager.create(currentIndexConfig);
+    } catch (managerError) {
+      throw new Error(
+        `Failed to initialize IndexManager: ${managerError instanceof Error ? managerError.message : String(managerError)}`,
+      );
     }
 
-    // Construct a more structured output
-    const summaryText = `Successfully processed ${items.length} items. Upserted ${allIndexedItems.length} chunks into the index.`;
-    const outputContent: McpContentPart[] = [
-      {
-        type: 'text',
-        text: summaryText,
-      },
-    ];
+    const results: IndexContentResultItem[] = [];
 
-    // Add structured data alongside the text content
-    const outputData = {
-      processedItemCount: items.length,
-      upsertedChunkCount: allIndexedItems.length,
-      // Optionally include IDs if useful, but can be large
-      // upsertedIds: allIndexedItems.map(item => item.id),
-    };
+    for (const item of items) {
+      const itemResult: IndexContentResultItem = {
+        id: item.id,
+        source: item.source,
+        success: false,
+        chunksUpserted: 0,
+      };
 
-    return {
-      success: true,
-      content: outputContent,
-      // Include structured data in the output (assuming BaseMcpToolOutput allows extra props or has a data field)
-      // If BaseMcpToolOutput is strict, we might need to serialize 'outputData' into a text content part.
-      // For now, assume extra properties are allowed or will be handled by the SDK layer.
-      data: outputData, // Keep additional data field
-    };
+      try {
+        let languageToUse: SupportedLanguage | null = item.language ?? null;
+
+        // Detect language if not provided
+        if (!languageToUse && item.content) {
+          const detectionResult = hljs.highlightAuto(item.content);
+          const detectedLang = detectionResult.language;
+          switch (detectedLang?.toLowerCase()) {
+            case 'javascript':
+            case 'js':
+            case 'jsx':
+              languageToUse = SupportedLanguage.JavaScript;
+              break;
+            case 'typescript':
+            case 'ts':
+            case 'tsx':
+              languageToUse = SupportedLanguage.TypeScript;
+              break;
+            case 'python':
+            case 'py':
+              languageToUse = SupportedLanguage.Python;
+              break;
+            // Add other mappings as needed
+            default:
+              languageToUse = null;
+          }
+        }
+
+        // Chunk the content
+        const chunks = await chunkCodeAst(item.content, languageToUse, chunkingOptions);
+        if (chunks.length === 0) {
+          // If no chunks, report success but 0 chunks upserted
+          itemResult.success = true;
+          results.push(itemResult);
+          continue; // Skip to next item
+        }
+
+        const chunkObjects: Chunk[] = chunks.map((chunk, index) => ({
+          ...chunk,
+          metadata: {
+            source: item.source || chunk.metadata?.source,
+            language: languageToUse || chunk.metadata?.language,
+            chunkIndex: index,
+            ...chunk.metadata,
+          },
+        }));
+
+        // Generate embeddings
+        const currentEmbeddingConfig = embeddingConfig ?? defaultEmbeddingConfig;
+        const embeddings = await generateEmbeddings(chunkObjects, currentEmbeddingConfig);
+        if (embeddings.length !== chunkObjects.length) {
+          throw new Error('Mismatch between number of chunks and generated embeddings.');
+        }
+
+        // Prepare items for indexing
+        const indexedItems: IndexedItem[] = chunkObjects.map((chunk, index) => ({
+          ...chunk,
+          id: `${item.source || item.id || `item-${Date.now()}`}-chunk-${index}`,
+          vector: embeddings[index],
+        }));
+
+        // Upsert items
+        await indexManager.upsertItems(indexedItems);
+
+        itemResult.success = true;
+        itemResult.chunksUpserted = indexedItems.length;
+      } catch (error: unknown) {
+        itemResult.success = false;
+        itemResult.error = error instanceof Error ? error.message : String(error);
+        // Add basic suggestion
+        if (itemResult.error.includes('embedding') || itemResult.error.includes('Embedding')) {
+          itemResult.suggestion =
+            'Check embedding model configuration and API key/endpoint validity.';
+        } else if (
+          itemResult.error.includes('index') ||
+          itemResult.error.includes('Index') ||
+          itemResult.error.includes('upsert')
+        ) {
+          itemResult.suggestion = 'Check vector database configuration and connectivity.';
+        } else if (itemResult.error.includes('chunk') || itemResult.error.includes('Chunk')) {
+          itemResult.suggestion =
+            'Check chunking options and content validity for the detected/specified language.';
+        } else {
+          itemResult.suggestion = 'An unexpected error occurred during processing.';
+        }
+      }
+      results.push(itemResult);
+    } // End of loop through items
+
+    // Return the results wrapped in jsonPart
+    return [jsonPart(results, IndexContentOutputSchema)];
   },
 });
 
-// Ensure necessary types are still exported
-// export type { IndexContentInputSchema, IndexContentInputItemSchema, ChunkingOptionsSchema }; // Removed duplicate export
+// Export necessary types

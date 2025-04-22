@@ -1,72 +1,99 @@
 import os from 'node:os';
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-} from '@sylphlab/mcp-core';
-import type { z } from 'zod';
-import { GetInterfacesToolInputSchema } from './getInterfacesTool.schema.js'; // Import schema (added .js)
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import { z } from 'zod';
+import { GetInterfacesToolInputSchema } from './getInterfacesTool.schema.js';
 
 // --- TypeScript Types ---
 export type GetInterfacesToolInput = z.infer<typeof GetInterfacesToolInputSchema>;
 
-// Define a more specific type for the result if possible, based on os.networkInterfaces()
-// This is complex, so using 'any' for now, but could be refined.
-export type NetworkInterfaces = { [key: string]: os.NetworkInterfaceInfo[] | undefined }; // Added export here
+// Define a more specific type for the result based on os.networkInterfaces()
+export type NetworkInterfaces = { [key: string]: os.NetworkInterfaceInfo[] | undefined };
 
-// Output interface
-export interface GetInterfacesToolOutput extends BaseMcpToolOutput {
+// --- Output Types ---
+export interface GetInterfacesResult {
+  /** Optional ID from the input. */
   id?: string;
-  result?: NetworkInterfaces; // Result is the network interfaces object
+  /** Whether retrieving interfaces was successful. */
+  success: boolean;
+  /** The network interfaces object, if successful. */
+  result?: NetworkInterfaces;
+  /** Error message, if retrieval failed. */
   error?: string;
+  /** Suggestion for fixing the error. */
   suggestion?: string;
 }
+
+// Zod Schema for the individual result
+const GetInterfacesResultSchema = z.object({
+  id: z.string().optional(),
+  success: z.boolean(),
+  // Using z.custom for complex os types, refine if needed
+  result: z.custom<NetworkInterfaces>().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant array
+const GetInterfacesOutputSchema = z.array(GetInterfacesResultSchema);
 
 // --- Tool Definition using defineTool ---
 export const getInterfacesTool = defineTool({
   name: 'getInterfaces',
   description: 'Retrieves details about the network interfaces on the machine.',
   inputSchema: GetInterfacesToolInputSchema,
+  outputSchema: GetInterfacesOutputSchema, // Use the array schema
 
-  execute: async ( // Core logic passed to defineTool
+  execute: async (
     input: GetInterfacesToolInput,
-    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
-  ): Promise<GetInterfacesToolOutput> => { // Still returns the specific output type
+    _options: McpToolExecuteOptions,
+  ): Promise<Part[]> => {
+    // Return Part[]
 
-    const { id } = input;
+    // Zod validation (throw error on failure)
+    const parsed = GetInterfacesToolInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      throw new Error(`Input validation failed: ${errorMessages}`);
+    }
+    const { id } = parsed.data; // Input schema might be empty, handle accordingly
 
-    // Removed try/catch, defineTool wrapper handles errors
+    const results: GetInterfacesResult[] = [];
+    let interfaces: NetworkInterfaces | undefined;
+    let error: string | undefined;
+    let suggestion: string | undefined;
+    let success = false;
 
-    const interfaces = os.networkInterfaces();
+    try {
+      interfaces = os.networkInterfaces();
+      if (!interfaces || Object.keys(interfaces).length === 0) {
+        // Consider it an error if no interfaces are found, as it's unusual
+        throw new Error('No network interfaces found on the system.');
+      }
+      success = true;
+      suggestion = 'Result contains local network interface details.';
+    } catch (e: unknown) {
+      success = false;
+      error = e instanceof Error ? e.message : 'Unknown error retrieving network interfaces';
+      suggestion = 'Check system permissions or if network interfaces are available.';
+      interfaces = undefined;
+    }
 
-    // Construct the success output
-    const contentText = JSON.stringify(
-      {
-        success: true,
-        id: id,
-        result: interfaces,
-        suggestion: 'Result contains local network interface details.',
-      },
-      (_key, value) => { // Handle potential BigInts if any interface info contains them
-        if (typeof value === 'bigint') {
-          return value.toString();
-        }
-        return value;
-      },
-      2,
-    );
-    return {
-      success: true,
-      id: id,
-      result: interfaces, // Keep original field
-      content: [{ type: 'text', text: contentText }], // Put JSON in content
-      suggestion: 'Result contains local network interface details.', // Keep original field
-    };
-    // Errors during os.networkInterfaces() are unlikely but will be caught by defineTool
+    // Push the single result
+    results.push({
+      id,
+      success,
+      result: interfaces,
+      error,
+      suggestion,
+    });
+
+    // Return the result wrapped in jsonPart
+    return [jsonPart(results, GetInterfacesOutputSchema)];
   },
 });
 
-// Ensure necessary types are still exported
-// Removed conflicting combined export
+// Export necessary types

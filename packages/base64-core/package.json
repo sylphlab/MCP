@@ -13,9 +13,7 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "build:types": "tsc -b --verbose",
@@ -24,13 +22,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
-  "keywords": [
-    "mcp",
-    "core",
-    "base64",
-    "encode",
-    "decode"
-  ],
+  "keywords": ["mcp", "core", "base64", "encode", "decode"],
   "author": "",
   "license": "ISC",
   "dependencies": {

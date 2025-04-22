@@ -1,16 +1,11 @@
 import type { Stats } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-  validateAndResolvePath,
-} from '@sylphlab/mcp-core';
-import type { z } from 'zod';
-import { statItemsToolInputSchema } from './statItemsTool.schema.js'; // Import schema (added .js)
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import { z } from 'zod';
+import { statItemsToolInputSchema } from './statItemsTool.schema.js';
 
 export type StatItemsToolInput = z.infer<typeof statItemsToolInputSchema>;
 
@@ -22,21 +17,25 @@ export interface StatItemResult {
   suggestion?: string;
 }
 
-export interface StatItemsToolOutput extends BaseMcpToolOutput {
-  error?: string;
-  results: StatItemResult[];
-}
+// Zod Schema for the individual stat result (used in outputSchema)
+const StatItemResultSchema = z.object({
+  path: z.string(),
+  success: z.boolean(),
+  stat: z.custom<Stats>().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant
+const StatItemsOutputSchema = z.array(StatItemResultSchema);
 
 export const statItemsTool = defineTool({
   name: 'statItemsTool',
   description: 'Gets file system stats for one or more specified paths within the workspace.',
   inputSchema: statItemsToolInputSchema,
+  outputSchema: StatItemsOutputSchema,
 
-  execute: async ( // Core logic passed to defineTool
-    input: StatItemsToolInput,
-    options: McpToolExecuteOptions,
-  ): Promise<StatItemsToolOutput> => { // Still returns the specific output type
-
+  execute: async (input: StatItemsToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = statItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -48,7 +47,6 @@ export const statItemsTool = defineTool({
     const { paths: inputPaths } = parsed.data;
 
     const results: StatItemResult[] = [];
-    let anySuccess = false; // True if at least one path is stat'd successfully
 
     for (const itemPath of inputPaths) {
       let itemSuccess = false;
@@ -59,13 +57,14 @@ export const statItemsTool = defineTool({
 
       // --- Validate Path ---
       const validationResult = validateAndResolvePath(
-        itemPath, options.workspaceRoot, options?.allowOutsideWorkspace,
+        itemPath,
+        options.workspaceRoot,
+        options?.allowOutsideWorkspace,
       );
       if (typeof validationResult !== 'string') {
         error = validationResult?.error ?? 'Unknown path validation error';
         suggestion = validationResult?.suggestion ?? 'Review path and workspace settings.';
         results.push({ path: itemPath, success: false, error, suggestion });
-        // Don't mark overallSuccess as false for path validation failure
         continue; // Skip this path
       }
       resolvedPath = validationResult;
@@ -75,10 +74,8 @@ export const statItemsTool = defineTool({
       try {
         itemStat = await stat(resolvedPath);
         itemSuccess = true;
-        anySuccess = true; // Mark overall success if at least one works
       } catch (e: unknown) {
         itemSuccess = false;
-        // Don't mark overallSuccess as false for individual stat failure
         let errorCode: string | null = null;
         let errorMsg = 'Unknown error';
 
@@ -102,34 +99,15 @@ export const statItemsTool = defineTool({
 
       // Push result for this path
       results.push({
-        path: itemPath, success: itemSuccess, stat: itemStat, error, suggestion: !itemSuccess ? suggestion : undefined,
+        path: itemPath,
+        success: itemSuccess,
+        stat: itemSuccess ? itemStat : undefined,
+        error,
+        suggestion: !itemSuccess ? suggestion : undefined,
       });
     } // End loop
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Stat operation completed. Overall success (at least one): ${anySuccess}`,
-        results: results,
-      },
-      (_key, value) => { // Prefix unused 'key' with underscore
-        // Custom replacer to handle BigInt in Stats object if present
-        if (typeof value === 'bigint') {
-          return value.toString(); // Convert BigInt to string
-        }
-        return value;
-      },
-      2, // Pretty-print JSON
-    );
-
-    // Return the specific output structure
-    return {
-      success: anySuccess, // Success is true if at least one stat succeeded
-      results: results,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Return the parts array directly
+    return [jsonPart(results, StatItemsOutputSchema)];
   },
 });
-
-// Ensure necessary types are still exported
-// export type { StatItemsToolInput, StatItemsToolOutput, StatItemResult }; // Removed duplicate export

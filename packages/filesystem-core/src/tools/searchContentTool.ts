@@ -1,17 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
+import { defineTool } from '@sylphlab/mcp-core';
 import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-  PathValidationError, // PathValidationError might not be needed directly
+  jsonPart,
+  textPart, // Keep textPart for summary
   validateAndResolvePath,
-} from '@sylphlab/mcp-core'; // Import base types and validation util
-import glob from 'fast-glob'; // Import fast-glob
-import type { z } from 'zod';
-import { searchContentToolInputSchema } from './searchContentTool.schema.js'; // Import schema (added .js)
+} from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import glob from 'fast-glob';
+import { z } from 'zod';
+import { searchContentToolInputSchema } from './searchContentTool.schema.js';
 
 // Infer the TypeScript type from the Zod schema
 export type SearchContentToolInput = z.infer<typeof searchContentToolInputSchema>;
@@ -43,15 +41,26 @@ export interface FileSearchResult {
   suggestion?: string;
 }
 
-// Extend the base output type
-export interface SearchContentToolOutput extends BaseMcpToolOutput {
-  /** Overall operation success (true only if ALL matched files were searched successfully). */
-  // success: boolean; // Inherited
-  /** Optional general error message if the tool encountered a major issue. */
-  error?: string;
-  /** Array of results for each file searched. */
-  results: FileSearchResult[];
-}
+// Zod Schema for SearchMatch
+const SearchMatchSchema = z.object({
+  lineNumber: z.number(),
+  lineContent: z.string(),
+  matchText: z.string(),
+  contextBefore: z.array(z.string()).optional(),
+  contextAfter: z.array(z.string()).optional(),
+});
+
+// Zod Schema for FileSearchResult
+const FileSearchResultSchema = z.object({
+  path: z.string(),
+  success: z.boolean(),
+  matches: z.array(SearchMatchSchema).optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant
+const SearchContentOutputSchema = z.array(FileSearchResultSchema);
 
 // --- Tool Definition using defineTool ---
 
@@ -59,12 +68,12 @@ export const searchContentTool = defineTool({
   name: 'searchContentTool',
   description: 'Searches for content within multiple files (supports globs).',
   inputSchema: searchContentToolInputSchema,
+  outputSchema: SearchContentOutputSchema,
 
-  execute: async ( // Core logic passed to defineTool
+  execute: async (
     input: SearchContentToolInput,
     options: McpToolExecuteOptions,
-  ): Promise<SearchContentToolOutput> => { // Still returns the specific output type
-
+  ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = searchContentToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -73,30 +82,40 @@ export const searchContentTool = defineTool({
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
+    // Destructure all input properties
     const {
-      paths: pathPatterns, query, isRegex, matchCase, contextLinesBefore, contextLinesAfter, maxResultsPerFile,
+      paths: pathPatterns,
+      query,
+      isRegex,
+      matchCase,
+      contextLinesBefore,
+      contextLinesAfter,
+      maxResultsPerFile,
     } = parsed.data;
 
     const fileResults: FileSearchResult[] = [];
-    let overallSuccess = true; // Assume success until a failure occurs
     let resolvedFilePaths: string[] = [];
 
     // Keep try/catch for glob errors
     try {
       resolvedFilePaths = await glob(pathPatterns, {
-        cwd: options.workspaceRoot, absolute: false, onlyFiles: true, dot: true, ignore: ['**/node_modules/**', '**/.git/**'],
+        cwd: options.workspaceRoot,
+        absolute: false,
+        onlyFiles: true,
+        dot: true,
+        ignore: ['**/node_modules/**', '**/.git/**'],
       });
       if (resolvedFilePaths.length === 0) {
-        // No files matched is not an error
-        return { success: true, results: [], content: [] };
+        // No files matched is not an error, return empty results
+        return [
+          jsonPart([], SearchContentOutputSchema),
+          textPart('No files matched the provided patterns.'),
+        ];
       }
     } catch (globError: unknown) {
-      // If glob itself fails, throw an error for defineTool to catch
       const errorMsg = globError instanceof Error ? globError.message : 'Unknown glob error';
       throw new Error(`Glob pattern error: ${errorMsg}`);
     }
-
-    // Removed the outermost try/catch block for file processing loop
 
     for (const relativeFilePath of resolvedFilePaths) {
       const fullPath = path.resolve(options.workspaceRoot, relativeFilePath);
@@ -105,7 +124,7 @@ export const searchContentTool = defineTool({
       const matches: SearchMatch[] = [];
       let suggestion: string | undefined;
 
-      // --- Path Validation (Keep this check) ---
+      // --- Path Validation ---
       const relativeCheck = path.relative(options.workspaceRoot, fullPath);
       if (
         !options?.allowOutsideWorkspace &&
@@ -114,13 +133,11 @@ export const searchContentTool = defineTool({
         fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
         suggestion = `Ensure the path pattern '${pathPatterns.join(', ')}' does not resolve to paths outside the workspace.`;
         fileSuccess = false;
-        overallSuccess = false;
         fileResults.push({ path: relativeFilePath, success: false, error: fileError, suggestion });
         continue; // Skip this file
       }
       // --- End Path Validation ---
 
-      // Keep try/catch for individual file processing errors
       try {
         const content = await readFile(fullPath, 'utf-8');
         const lines = content.split(/\r?\n/);
@@ -129,54 +146,57 @@ export const searchContentTool = defineTool({
         // Prepare search query/regex
         let searchRegex: RegExp;
         if (isRegex) {
-          try { // Keep try/catch for regex compilation
+          try {
             const flags = matchCase ? 'g' : 'gi';
             searchRegex = new RegExp(query, flags);
           } catch (e: unknown) {
             const errorMsg = e instanceof Error ? e.message : 'Unknown regex error';
-            throw new Error(`Invalid regex query: ${errorMsg}`); // Throw for file processing catch
+            throw new Error(`Invalid regex query: ${errorMsg}`);
           }
         } else {
+          // Escape special characters for literal search
+          const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const flags = matchCase ? 'g' : 'gi';
-          searchRegex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+          searchRegex = new RegExp(escapedQuery, flags);
         }
 
-        // Search lines... (logic remains the same)
+        // Search lines
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
-          if (line === undefined) continue;
+          if (line === undefined) continue; // Should not happen with split, but safety check
           let matchResult: RegExpExecArray | null;
           searchRegex.lastIndex = 0; // Reset lastIndex for each line
 
-          for (;;) {
-            matchResult = searchRegex.exec(line);
-            if (matchResult === null) break;
+          while ((matchResult = searchRegex.exec(line)) !== null) {
             if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) break;
 
             const matchText = matchResult[0];
             const lineNumber = i + 1;
             const contextBefore = lines.slice(Math.max(0, i - contextLinesBefore), i);
-            const contextAfter = lines.slice(i + 1, Math.min(lines.length, i + 1 + contextLinesAfter));
+            const contextAfter = lines.slice(
+              i + 1,
+              Math.min(lines.length, i + 1 + contextLinesAfter),
+            );
 
             matches.push({
-              lineNumber, lineContent: line, matchText,
+              lineNumber,
+              lineContent: line,
+              matchText,
               contextBefore: contextLinesBefore > 0 ? contextBefore : undefined,
               contextAfter: contextLinesAfter > 0 ? contextAfter : undefined,
             });
             fileMatchCount++;
 
+            // Prevent infinite loop for zero-length matches with global flag
             if (matchResult.index === searchRegex.lastIndex && searchRegex.global) {
-              searchRegex.lastIndex++; // Prevent infinite loop for zero-length matches
+              searchRegex.lastIndex++;
             }
-            if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) break;
           }
-          if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) break;
+          if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) break; // Break outer loop too
         } // End line loop
-
       } catch (e: unknown) {
         // Handle file read or regex compilation errors
         fileSuccess = false;
-        overallSuccess = false;
         let errorCode: string | null = null;
         let errorMsg = 'Unknown error';
 
@@ -197,36 +217,25 @@ export const searchContentTool = defineTool({
         }
       }
 
-      // Push result for this file
-      if (fileSuccess) {
-        fileResults.push({
-          path: relativeFilePath, success: true, matches: matches.length > 0 ? matches : undefined,
-        });
-      } else {
-        fileResults.push({
-          path: relativeFilePath, success: false, error: fileError, suggestion: suggestion,
-        });
-      }
+      // Push result for this file (always, including errors or no matches)
+      fileResults.push({
+        path: relativeFilePath,
+        success: fileSuccess,
+        matches: fileSuccess && matches.length > 0 ? matches : undefined,
+        error: fileError,
+        suggestion: suggestion,
+      });
     } // End files loop
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Search operation completed. Overall success: ${overallSuccess}`,
-        results: fileResults,
-      },
-      null,
-      2,
-    );
+    // Construct parts array
+    const finalParts: Part[] = [
+      jsonPart(fileResults, SearchContentOutputSchema),
+      textPart(
+        `Search operation attempted for ${resolvedFilePaths.length} matched file(s). ${fileResults.filter((r) => r.success).length} processed successfully.`,
+      ), // Added summary
+    ];
 
-    // Return the specific output structure
-    return {
-      success: overallSuccess,
-      results: fileResults,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Return the parts array directly
+    return finalParts;
   },
 });
-
-// Ensure necessary types are still exported
-// export type { SearchContentToolInput, SearchContentToolOutput, FileSearchResult, SearchMatch }; // Removed duplicate export

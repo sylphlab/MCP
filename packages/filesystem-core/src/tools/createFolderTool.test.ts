@@ -1,40 +1,59 @@
-import { mkdir } from 'node:fs/promises'; // Use named import
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
 import { type MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type CreateFolderToolInput, createFolderTool } from './createFolderTool.js';
+import type { CreateFolderResult } from './createFolderTool.js'; // Import correct result type
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
   mkdir: vi.fn(),
-  // Add other functions if needed by the code under test
 }));
 
-const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
+const WORKSPACE_ROOT = '/test/workspace';
+const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+// Helper to extract JSON result from parts
+// Use generics to handle different result types
+function getJsonResult<T>(parts: Part[]): T[] | undefined {
+  // console.log('DEBUG: getJsonResult received parts:', JSON.stringify(parts, null, 2)); // Keep commented for now
+  const jsonPart = parts.find((part) => part.type === 'json');
+  // console.log('DEBUG: Found jsonPart:', JSON.stringify(jsonPart, null, 2)); // Keep commented for now
+  // Check if jsonPart exists and has a 'value' property (which holds the actual data)
+  if (jsonPart && jsonPart.value !== undefined) {
+    // console.log('DEBUG: typeof jsonPart.value:', typeof jsonPart.value); // Keep commented for now
+    // console.log('DEBUG: Attempting to use jsonPart.value directly'); // Keep commented for now
+    try {
+      // Assuming the value is already the correct array type based on defineTool's outputSchema
+      return jsonPart.value as T[];
+    } catch (_e) {
+      return undefined;
+    }
+  }
+  // console.log('DEBUG: jsonPart or jsonPart.value is undefined or null.'); // Keep commented for now
+  return undefined;
+}
 
 describe('createFolderTool', () => {
   const mockMkdir = mkdir as MockedFunction<typeof mkdir>;
 
   beforeEach(() => {
     vi.resetAllMocks();
+    mockMkdir.mockResolvedValue(undefined); // Default mkdir to success
   });
 
   it('should successfully create a single folder', async () => {
-    // Arrange
-    const input: CreateFolderToolInput = {
-      folderPaths: ['new/folder'],
-      // allowOutsideWorkspace removed
-    };
-    mockMkdir.mockResolvedValue(undefined); // Mock successful creation
+    const input: CreateFolderToolInput = { folderPaths: ['new/folder'] };
+    const parts = await createFolderTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    // Act
-    const result = await createFolderTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.path).toBe('new/folder');
+    expect(itemResult.error).toBeUndefined();
+    expect(itemResult.message).toContain('Folder created successfully');
 
-    // Assert
-    expect(result.success).toBe(true);
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[0]?.path).toBe('new/folder');
-    expect(result.results[0]?.error).toBeUndefined();
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockMkdir).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'new/folder'), {
       recursive: true,
@@ -42,21 +61,15 @@ describe('createFolderTool', () => {
   });
 
   it('should successfully create multiple folders', async () => {
-    // Arrange
-    const input: CreateFolderToolInput = {
-      folderPaths: ['folder1', 'folder2/sub'],
-      // allowOutsideWorkspace removed
-    };
-    mockMkdir.mockResolvedValue(undefined);
+    const input: CreateFolderToolInput = { folderPaths: ['folder1', 'folder2/sub'] };
+    const parts = await createFolderTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    // Act
-    const result = await createFolderTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(2);
+    expect(results?.[0]?.success).toBe(true);
+    expect(results?.[1]?.success).toBe(true);
 
-    // Assert
-    expect(result.success).toBe(true);
-    expect(result.results).toHaveLength(2);
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[1]?.success).toBe(true);
     expect(mockMkdir).toHaveBeenCalledTimes(2);
     expect(mockMkdir).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'folder1'), {
       recursive: true,
@@ -66,96 +79,78 @@ describe('createFolderTool', () => {
     });
   });
 
-  it('should return validation error for empty folderPaths array', async () => {
-    // Arrange
+  it('should throw validation error for empty folderPaths array', async () => {
     const input = { folderPaths: [] }; // Invalid input
-
-    // Act
-    const result = await createFolderTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
-
-    // Assert
-    expect(result.success).toBe(false); // Overall success is false
-    expect(result.error).toBeDefined();
-    expect(result.error).toContain('Input validation failed');
-    expect(result.error).toContain('folderPaths array cannot be empty');
-    expect(result.results).toHaveLength(0);
+    await expect(createFolderTool.execute(input as any, defaultOptions)).rejects.toThrow(
+      'Input validation failed: folderPaths: folderPaths array cannot be empty.',
+    );
     expect(mockMkdir).not.toHaveBeenCalled();
   });
 
   it('should handle path validation failure (outside workspace)', async () => {
-    // Arrange
-    const input: CreateFolderToolInput = {
-      folderPaths: ['../outside'],
-      // allowOutsideWorkspace removed
-    };
-
-    // Act
-    const result = await createFolderTool.execute(input, {
-      workspaceRoot: WORKSPACE_ROOT,
+    const input: CreateFolderToolInput = { folderPaths: ['../outside'] };
+    const parts = await createFolderTool.execute(input, {
+      ...defaultOptions,
       allowOutsideWorkspace: false,
-    }); // Pass options object
+    });
+    const results = getJsonResult(parts);
 
-    // Assert
-    expect(result.success).toBe(false); // Overall success is false
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.error).toContain('Path validation failed');
-    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Path validation failed');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
     expect(mockMkdir).not.toHaveBeenCalled();
   });
 
   it('should handle mkdir errors', async () => {
-    // Arrange
-    const input: CreateFolderToolInput = {
-      folderPaths: ['valid/path', 'error/path'],
-      // allowOutsideWorkspace removed
-    };
+    const input: CreateFolderToolInput = { folderPaths: ['valid/path', 'error/path'] };
     const testError = new Error('Permission denied');
-    // Mock first call success, second call failure
     mockMkdir.mockResolvedValueOnce(undefined).mockRejectedValueOnce(testError);
 
-    // Act
-    const result = await createFolderTool.execute(input, {
-      workspaceRoot: WORKSPACE_ROOT,
-      allowOutsideWorkspace: false,
-    }); // Pass options object
+    const parts = await createFolderTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    // Assert
-    expect(result.success).toBe(true); // Overall success is true because one succeeded
-    expect(result.results).toHaveLength(2);
-    // First item
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[0]?.error).toBeUndefined();
-    // Second item
-    expect(result.results[1]?.success).toBe(false);
-    expect(result.results[1]?.error).toContain('Permission denied');
-    expect(result.results[1]?.suggestion).toEqual(expect.any(String));
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(2);
+
+    // First item (success)
+    const itemResult1 = results?.[0];
+    expect(itemResult1.success).toBe(true);
+    expect(itemResult1.path).toBe('valid/path');
+    expect(itemResult1.error).toBeUndefined();
+
+    // Second item (failure)
+    const itemResult2 = results?.[1];
+    expect(itemResult2.success).toBe(false);
+    expect(itemResult2.path).toBe('error/path');
+    expect(itemResult2.error).toContain('Permission denied');
+    expect(itemResult2.suggestion).toEqual(expect.any(String));
+
     expect(mockMkdir).toHaveBeenCalledTimes(2);
   });
 
-  it('should NOT fail path validation if path is outside workspace and allowOutsideWorkspace is true', async () => {
-    const input: CreateFolderToolInput = {
-      folderPaths: ['../outside/new'],
-      // allowOutsideWorkspace removed from input
-    };
-    mockMkdir.mockResolvedValue(undefined); // Mock success
+  it('should succeed creating folder outside workspace when allowed', async () => {
+    const input: CreateFolderToolInput = { folderPaths: ['../outside/new'] };
+    mockMkdir.mockResolvedValue(undefined);
 
-    // Act
-    const result = await createFolderTool.execute(input, {
-      workspaceRoot: WORKSPACE_ROOT,
+    const parts = await createFolderTool.execute(input, {
+      ...defaultOptions,
       allowOutsideWorkspace: true,
-    }); // Pass options object
+    });
+    const results = getJsonResult(parts);
 
-    // Assert
-    expect(result.success).toBe(true); // Should succeed as validation is skipped
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[0]?.error).toBeUndefined();
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.error).toBeUndefined();
+
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockMkdir).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, '../outside/new'), // Check resolved path
       { recursive: true },
     );
   });
-
-  // TODO: Add tests for invalid path characters if applicable on target OS
 });

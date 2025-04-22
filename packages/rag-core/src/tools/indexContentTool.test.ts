@@ -1,30 +1,43 @@
-import { BaseMcpToolOutput, type McpToolExecuteOptions, type TextPart } from '@sylphlab/mcp-core'; // Import TextPart and McpToolExecuteOptions
-import hljs from 'highlight.js'; // Import highlight.js for spying
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part and McpToolExecuteOptions
+import hljs from 'highlight.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-// Remove top-level declaration of mockUpsertItems
 import type { z } from 'zod';
-import * as chunkingModule from '../chunking.js'; // Import the module for spying
-import { EmbeddingModelProvider } from '../embedding.js'; // Import EmbeddingModelProvider enum
-import * as embeddingModule from '../embedding.js'; // Import the module for spying
-import { IndexManager, VectorDbProvider } from '../indexManager.js'; // Import IndexManager class directly
+import * as chunkingModule from '../chunking.js';
+import { EmbeddingModelProvider } from '../embedding.js';
+import * as embeddingModule from '../embedding.js';
+import { IndexManager, VectorDbProvider } from '../indexManager.js';
 import { SupportedLanguage } from '../parsing.js';
 import type { Chunk } from '../types.js';
-
-// --- Mocks --- No mocks defined here
-
-// Remove all vi.mock calls for chunking and highlight.js
-
-// --- Dynamic Import ---
-// Import the tool *after* mocks are set up
 import { type IndexContentInputSchema, indexContentTool } from './indexContentTool.js';
+import type { IndexContentResultItem } from './indexContentTool.js'; // Import correct result type
 
-// --- Test Suite ---
-describe('indexContentTool', () => {
-  const mockWorkspaceRoot = '/test/workspace'; // Define mock workspace root
-  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot }; // Define options
+// --- Mocks ---
+vi.mock('../chunking.js');
+vi.mock('../embedding.js');
+vi.mock('../indexManager.js');
+vi.mock('highlight.js');
+vi.mock('../embedding.js', (_importOriginal) => {
+// Helper to extract JSON result from parts
+function getJsonResult<T>(parts: Part[]): T[] | undefined {
+  // console.log('DEBUG: getJsonResult received parts:', JSON.stringify(parts, null, 2)); // Keep commented for now
+  const jsonPart = parts.find(part => part.type === 'json');
+  // console.log('DEBUG: Found jsonPart:', JSON.stringify(jsonPart, null, 2)); // Keep commented for now
+  // Check if jsonPart exists and has a 'value' property (which holds the actual data)
+  if (jsonPart && jsonPart.value !== undefined) {
+    // console.log('DEBUG: Attempting to use jsonPart.value directly'); // Keep commented for now
+      // Assuming the value is already the correct array type based on defineTool's outputSchema
+      return jsonPart.value as T[];
+    } catch (e) 
+      return undefined;
+  }
+    }
+    }
+  // Mock instance for IndexManager
+  const mockIndexManagerInstance = {
+    vi.resetAllMocks(); // Reset all mocks
 
-  beforeEach(async () => {
-    // Reset spies in afterEach
+    // Mock static create method to return the mock instance
+    vi.mocked(IndexManager.create).mockResolvedValue(mockIndexManagerInstance as any);
 
     // Disable console logging
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -33,7 +46,7 @@ describe('indexContentTool', () => {
   });
 
   afterEach(() => {
-    vi.restoreAllMocks(); // Restore console
+    vi.restoreAllMocks(); // Restore console and other potential spies
   });
 
   // Helper to create valid input
@@ -44,7 +57,7 @@ describe('indexContentTool', () => {
       provider: EmbeddingModelProvider.Ollama,
       modelName: 'test-model',
       batchSize: 1,
-    }, // Added batchSize
+    },
     vectorDbConfig: { provider: VectorDbProvider.ChromaDB, collectionName: 'test-coll' },
     ...overrides,
   });
@@ -53,15 +66,14 @@ describe('indexContentTool', () => {
     const input = createValidInput();
     const chunks: Chunk[] = [
       { id: 'chunk-1', content: 'const x = 1;', metadata: { startLine: 1, endLine: 1 } },
-    ]; // Added id
+    ];
     const embeddings = [[0.1, 0.2]];
     const expectedIndexedItems = [
       {
         ...chunks[0],
-        id: expect.stringContaining('file.js-chunk-0'), // Check for generated ID structure
+        id: expect.stringContaining('file.js-chunk-0'),
         vector: embeddings[0],
         metadata: {
-          // Ensure metadata is merged correctly
           ...chunks[0].metadata,
           source: 'file.js',
           language: SupportedLanguage.JavaScript,
@@ -70,29 +82,21 @@ describe('indexContentTool', () => {
       },
     ];
 
-    // Spy on functions for this test
-    const chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst').mockResolvedValue(chunks);
-    const generateEmbeddingsSpy = vi
-      .spyOn(embeddingModule, 'generateEmbeddings')
-      .mockResolvedValue(embeddings);
-    const highlightAutoSpy = vi.spyOn(hljs, 'highlightAuto'); // Use hljs directly
+    // Setup mocks for this test
+    vi.mocked(chunkingModule.chunkCodeAst).mockResolvedValue(chunks);
+    vi.mocked(embeddingModule.generateEmbeddings).mockResolvedValue(embeddings);
+    const highlightAutoSpy = vi.spyOn(hljs, 'highlightAuto');
 
-    // Spy on IndexManager.create for this test
-    const mockUpsertItemsInstance = vi.fn().mockResolvedValue(undefined);
-    const createSpy = vi.spyOn(IndexManager, 'create').mockResolvedValue({
-      upsertItems: mockUpsertItemsInstance,
-    } as any);
+    const parts = await indexContentTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
-
-    // Expect createSpy to be called with config
-    expect(createSpy).toHaveBeenCalledWith(input.vectorDbConfig); // TODO: Add back expect.any(Function) later
-    expect(chunkCodeAstSpy).toHaveBeenCalledWith(
+    expect(IndexManager.create).toHaveBeenCalledWith(input.vectorDbConfig);
+    expect(chunkingModule.chunkCodeAst).toHaveBeenCalledWith(
       input.items[0].content,
       input.items[0].language,
       input.chunkingOptions,
     );
-    expect(generateEmbeddingsSpy).toHaveBeenCalledWith(
+    expect(embeddingModule.generateEmbeddings).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
           metadata: expect.objectContaining({
@@ -103,259 +107,205 @@ describe('indexContentTool', () => {
       ]),
       input.embeddingConfig,
     );
-    expect(mockUpsertItemsInstance).toHaveBeenCalledWith(expectedIndexedItems); // Assert on the instance's mock
-    expect(highlightAutoSpy).not.toHaveBeenCalled(); // Language was provided
-    expect(result.success).toBe(true);
-    expect((result.content[0] as TextPart).text).toContain(
-      'Successfully processed 1 items. Upserted 1 chunks',
-    ); // Assert type
-    expect((result as any).data).toEqual({ processedItemCount: 1, upsertedChunkCount: 1 });
+    expect(mockUpsertItemsInstance).toHaveBeenCalledWith(expectedIndexedItems);
+    expect(highlightAutoSpy).not.toHaveBeenCalled();
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.chunksUpserted).toBe(1);
+    expect(itemResult.error).toBeUndefined();
   });
 
   it('should use language detection when language is not provided', async () => {
     const input = createValidInput({ items: [{ content: 'print("hello")', source: 'script.py' }] }); // No language
-    const chunks: Chunk[] = [{ id: 'chunk-py', content: 'print("hello")', metadata: {} }]; // Added id
+    const chunks: Chunk[] = [{ id: 'chunk-py', content: 'print("hello")', metadata: {} }];
     const embeddings = [[0.3, 0.4]];
 
-    // Spy on IndexManager.create for this test
-    const mockUpsertItemsInstance = vi.fn().mockResolvedValue(undefined);
-    const createSpy = vi.spyOn(IndexManager, 'create').mockResolvedValue({
-      upsertItems: mockUpsertItemsInstance,
-    } as any);
+    // Setup mocks
+    vi.mocked(hljs.highlightAuto).mockReturnValue({ language: 'python', relevance: 10 } as any);
+    vi.mocked(chunkingModule.chunkCodeAst).mockResolvedValue(chunks);
+    vi.mocked(embeddingModule.generateEmbeddings).mockResolvedValue(embeddings);
 
-    // Spy and set mock behavior for this test
-    const highlightAutoSpy = vi
-      .spyOn(hljs, 'highlightAuto')
-      .mockReturnValue({ language: 'python', relevance: 10 } as any); // Use 'as any'
-    const chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst').mockResolvedValue(chunks);
-    const generateEmbeddingsSpy = vi
-      .spyOn(embeddingModule, 'generateEmbeddings')
-      .mockResolvedValue(embeddings);
+    await indexContentTool.execute(input, defaultOptions);
 
-    await indexContentTool.execute(input, defaultOptions); // Pass options object
-
-    expect(createSpy).toHaveBeenCalled();
-    expect(highlightAutoSpy).toHaveBeenCalledWith(input.items[0].content);
-    expect(chunkCodeAstSpy).toHaveBeenCalledWith(
+    expect(IndexManager.create).toHaveBeenCalled();
+    expect(hljs.highlightAuto).toHaveBeenCalledWith(input.items[0].content);
+    expect(chunkingModule.chunkCodeAst).toHaveBeenCalledWith(
       input.items[0].content,
-      SupportedLanguage.Python,
+      SupportedLanguage.Python, // Expect detected language
       input.chunkingOptions,
-    ); // Expect detected language
-    expect(generateEmbeddingsSpy).toHaveBeenCalled();
-    expect(mockUpsertItemsInstance).toHaveBeenCalled(); // Assert on the instance's mock
+    );
+    expect(embeddingModule.generateEmbeddings).toHaveBeenCalled();
+    expect(mockUpsertItemsInstance).toHaveBeenCalled();
   });
 
-  it('should use fallback chunking when language detection fails or is unsupported', async () => {
+   it('should use fallback chunking when language detection fails or is unsupported', async () => {
     const input = createValidInput({
       items: [{ content: 'some plain text', source: 'notes.txt' }],
     }); // No language
-    const chunks: Chunk[] = [{ id: 'chunk-txt', content: 'some plain text', metadata: {} }]; // Added id
+    const chunks: Chunk[] = [{ id: 'chunk-txt', content: 'some plain text', metadata: {} }];
     const embeddings = [[0.5, 0.6]];
 
-    // Spy on IndexManager.create for this test
-    const mockUpsertItemsInstance = vi.fn().mockResolvedValue(undefined);
-    const createSpy = vi.spyOn(IndexManager, 'create').mockResolvedValue({
-      upsertItems: mockUpsertItemsInstance,
-    } as any);
+    // Setup mocks
+    vi.mocked(hljs.highlightAuto).mockReturnValue({ language: 'unknown', relevance: 0 } as any);
+    vi.mocked(chunkingModule.chunkCodeAst).mockResolvedValue(chunks);
+    vi.mocked(embeddingModule.generateEmbeddings).mockResolvedValue(embeddings);
 
-    // Spy and set mock behavior for this test
-    const highlightAutoSpy = vi
-      .spyOn(hljs, 'highlightAuto')
-      .mockReturnValue({ language: 'unknown', relevance: 0 } as any); // Use 'as any'
-    const chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst').mockResolvedValue(chunks);
-    const generateEmbeddingsSpy = vi
-      .spyOn(embeddingModule, 'generateEmbeddings')
-      .mockResolvedValue(embeddings);
+    await indexContentTool.execute(input, defaultOptions);
 
-    await indexContentTool.execute(input, defaultOptions); // Pass options object
-
-    expect(createSpy).toHaveBeenCalled();
-    expect(highlightAutoSpy).toHaveBeenCalledWith(input.items[0].content);
-    expect(chunkCodeAstSpy).toHaveBeenCalledWith(
+    expect(IndexManager.create).toHaveBeenCalled();
+    expect(hljs.highlightAuto).toHaveBeenCalledWith(input.items[0].content);
+    expect(chunkingModule.chunkCodeAst).toHaveBeenCalledWith(
       input.items[0].content,
-      null,
+      null, // Expect null language for fallback
       input.chunkingOptions,
-    ); // Expect null language for fallback
-    expect(generateEmbeddingsSpy).toHaveBeenCalled();
-    expect(mockUpsertItemsInstance).toHaveBeenCalled(); // Assert on the instance's mock
+    );
+    expect(embeddingModule.generateEmbeddings).toHaveBeenCalled();
+    expect(mockUpsertItemsInstance).toHaveBeenCalled();
   });
 
   it('should use default configs if not provided', async () => {
     const input = { items: [{ content: 'abc', language: SupportedLanguage.TypeScript }] }; // Minimal input
-    const chunks: Chunk[] = [{ id: 'chunk-abc', content: 'abc', metadata: {} }]; // Added id
+    const chunks: Chunk[] = [{ id: 'chunk-abc', content: 'abc', metadata: {} }];
     const embeddings = [[0.7, 0.8]];
     const { defaultEmbeddingConfig } = await import('../embedding.js'); // Get default for assertion
 
-    // Spy on IndexManager.create for this test
-    const mockUpsertItemsInstance = vi.fn().mockResolvedValue(undefined);
-    const createSpy = vi.spyOn(IndexManager, 'create').mockResolvedValue({
-      upsertItems: mockUpsertItemsInstance,
-    } as any);
+    // Setup mocks
+    vi.mocked(chunkingModule.chunkCodeAst).mockResolvedValue(chunks);
+    vi.mocked(embeddingModule.generateEmbeddings).mockResolvedValue(embeddings);
 
-    // Spy and set mock behavior for this test
-    // Spy and set mock behavior for this test
-    const chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst').mockResolvedValue(chunks);
-    const generateEmbeddingsSpy = vi
-      .spyOn(embeddingModule, 'generateEmbeddings')
-      .mockResolvedValue(embeddings);
+    await indexContentTool.execute(input, defaultOptions);
 
-    await indexContentTool.execute(input, defaultOptions); // Pass options object
-
-    expect(createSpy).toHaveBeenCalledWith({ provider: VectorDbProvider.InMemory }); // Default DB config
-    expect(generateEmbeddingsSpy).toHaveBeenCalledWith(expect.any(Array), defaultEmbeddingConfig); // Default embedding config
-    expect(chunkCodeAstSpy).toHaveBeenCalledWith('abc', SupportedLanguage.TypeScript, undefined); // Default chunking options
-    expect(mockUpsertItemsInstance).toHaveBeenCalled(); // Assert upsert was called
+    expect(IndexManager.create).toHaveBeenCalledWith({ provider: VectorDbProvider.InMemory }); // Default DB config
+    expect(embeddingModule.generateEmbeddings).toHaveBeenCalledWith(expect.any(Array), defaultEmbeddingConfig); // Default embedding config
+    expect(chunkingModule.chunkCodeAst).toHaveBeenCalledWith('abc', SupportedLanguage.TypeScript, undefined); // Default chunking options
+    expect(mockUpsertItemsInstance).toHaveBeenCalled();
   });
 
-  it('should handle chunking errors gracefully', async () => {
+  it('should handle chunking errors gracefully per item', async () => {
     const input = createValidInput();
     const chunkError = new Error('Chunking failed');
 
-    // Spy on IndexManager.create for this test
-    const mockUpsertItemsInstance = vi.fn();
-    const createSpy = vi.spyOn(IndexManager, 'create').mockResolvedValue({
-      upsertItems: mockUpsertItemsInstance,
-    } as any);
-
-    // Spy and set mock behavior for this test
-    // Spy and set mock behavior for this test
-    const _chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst').mockRejectedValue(chunkError);
+    // Setup mocks
+    vi.mocked(chunkingModule.chunkCodeAst).mockRejectedValue(chunkError);
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings');
 
-    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
+    const parts = await indexContentTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(createSpy).toHaveBeenCalled(); // create is still called
+    expect(IndexManager.create).toHaveBeenCalled();
     expect(generateEmbeddingsSpy).not.toHaveBeenCalled();
-    expect(mockUpsertItemsInstance).not.toHaveBeenCalled(); // Assert instance mock wasn't called
-    // Use exact string matching based on previous output
-    // Should still report success overall, but with 0 items upserted
-    expect(result.success).toBe(true);
-    expect((result.content[0] as TextPart).text).toContain(
-      'Successfully processed 1 items. Upserted 0 chunks',
-    ); // Assert type
-    expect((result as any).data).toEqual({ processedItemCount: 1, upsertedChunkCount: 0 });
+    expect(mockUpsertItemsInstance).not.toHaveBeenCalled();
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.chunksUpserted).toBe(0);
+    expect(itemResult.error).toBe(chunkError.message);
+    expect(itemResult.suggestion).toContain('chunking');
   });
 
-  it('should handle embedding errors gracefully', async () => {
+  it('should handle embedding errors gracefully per item', async () => {
     const input = createValidInput();
-    const chunks: Chunk[] = [{ id: 'chunk-emb-err', content: 'abc', metadata: {} }]; // Added id
+    const chunks: Chunk[] = [{ id: 'chunk-emb-err', content: 'abc', metadata: {} }];
     const embeddingError = new Error('Embedding failed');
 
-    // Spy on IndexManager.create for this test
-    const mockUpsertItemsInstance = vi.fn();
-    const createSpy = vi.spyOn(IndexManager, 'create').mockResolvedValue({
-      upsertItems: mockUpsertItemsInstance,
-    } as any);
+    // Setup mocks
+    vi.mocked(chunkingModule.chunkCodeAst).mockResolvedValue(chunks);
+    vi.mocked(embeddingModule.generateEmbeddings).mockRejectedValue(embeddingError);
 
-    // Spy and set mock behavior for this test
-    // Spy and set mock behavior for this test
-    const _chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst').mockResolvedValue(chunks);
-    const generateEmbeddingsSpy = vi
-      .spyOn(embeddingModule, 'generateEmbeddings')
-      .mockRejectedValue(embeddingError);
+    const parts = await indexContentTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
+    expect(IndexManager.create).toHaveBeenCalled();
+    expect(embeddingModule.generateEmbeddings).toHaveBeenCalled();
+    expect(mockUpsertItemsInstance).not.toHaveBeenCalled();
 
-    expect(createSpy).toHaveBeenCalled(); // create is still called
-    expect(generateEmbeddingsSpy).toHaveBeenCalled(); // Ensure generateEmbeddings was called
-    expect(mockUpsertItemsInstance).not.toHaveBeenCalled(); // Assert instance mock wasn't called
-    // Use exact string matching based on previous output
-    expect(result.success).toBe(true);
-    expect((result.content[0] as TextPart).text).toContain(
-      'Successfully processed 1 items. Upserted 0 chunks',
-    ); // Assert type
-    expect((result as any).data).toEqual({ processedItemCount: 1, upsertedChunkCount: 0 });
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.chunksUpserted).toBe(0);
+    expect(itemResult.error).toBe(embeddingError.message);
+    expect(itemResult.suggestion).toContain('embedding');
   });
 
-  it('should handle chunk/embedding count mismatch', async () => {
+   it('should handle chunk/embedding count mismatch gracefully per item', async () => {
     const input = createValidInput();
     const chunks: Chunk[] = [
       { id: 'chunk-mm-1', content: 'abc', metadata: {} },
       { id: 'chunk-mm-2', content: 'def', metadata: {} },
-    ]; // 2 chunks, Added ids
+    ]; // 2 chunks
     const embeddings = [[0.1, 0.2]]; // Only 1 embedding
 
-    // Spy on IndexManager.create for this test
-    const mockUpsertItemsInstance = vi.fn();
-    const createSpy = vi.spyOn(IndexManager, 'create').mockResolvedValue({
-      upsertItems: mockUpsertItemsInstance,
-    } as any);
+    // Setup mocks
+    vi.mocked(chunkingModule.chunkCodeAst).mockResolvedValue(chunks);
+    vi.mocked(embeddingModule.generateEmbeddings).mockResolvedValue(embeddings); // Mismatch
 
-    // Spy and set mock behavior for this test
-    // Spy and set mock behavior for this test
-    const _chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst').mockResolvedValue(chunks);
-    const generateEmbeddingsSpy = vi
-      .spyOn(embeddingModule, 'generateEmbeddings')
-      .mockResolvedValue(embeddings); // Mismatch
+    const parts = await indexContentTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
+    expect(IndexManager.create).toHaveBeenCalled();
+    expect(embeddingModule.generateEmbeddings).toHaveBeenCalled();
+    expect(mockUpsertItemsInstance).not.toHaveBeenCalled();
 
-    expect(createSpy).toHaveBeenCalled(); // create is still called
-    expect(generateEmbeddingsSpy).toHaveBeenCalled(); // Ensure generateEmbeddings was called
-    expect(mockUpsertItemsInstance).not.toHaveBeenCalled(); // Assert instance mock wasn't called
-    expect(result.success).toBe(true);
-    expect((result.content[0] as TextPart).text).toContain(
-      'Successfully processed 1 items. Upserted 0 chunks',
-    ); // Assert type
-    expect((result as any).data).toEqual({ processedItemCount: 1, upsertedChunkCount: 0 });
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.chunksUpserted).toBe(0);
+    expect(itemResult.error).toContain('Mismatch between number of chunks and generated embeddings');
+    expect(itemResult.suggestion).toContain('unexpected error'); // Default suggestion
   });
 
-  it('should handle index upsert errors', async () => {
+  it('should handle index upsert errors gracefully per item', async () => {
     const input = createValidInput();
-    const chunks: Chunk[] = [{ id: 'chunk-upsert-err', content: 'abc', metadata: {} }]; // Added id
+    const chunks: Chunk[] = [{ id: 'chunk-upsert-err', content: 'abc', metadata: {} }];
     const embeddings = [[0.1, 0.2]];
     const upsertError = new Error('DB connection failed');
 
-    // Spy on IndexManager.create for this test
-    const mockUpsertItemsInstance = vi.fn().mockRejectedValue(upsertError);
-    const createSpy = vi.spyOn(IndexManager, 'create').mockResolvedValue({
-      upsertItems: mockUpsertItemsInstance,
-    } as any);
+    // Setup mocks
+    vi.mocked(chunkingModule.chunkCodeAst).mockResolvedValue(chunks);
+    vi.mocked(embeddingModule.generateEmbeddings).mockResolvedValue(embeddings);
+    mockUpsertItemsInstance.mockRejectedValue(upsertError); // Make upsert fail
 
-    // Spy and set mock behavior for this test
-    // Spy and set mock behavior for this test
-    const _chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst').mockResolvedValue(chunks);
-    const generateEmbeddingsSpy = vi
-      .spyOn(embeddingModule, 'generateEmbeddings')
-      .mockResolvedValue(embeddings);
+    const parts = await indexContentTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
+    expect(IndexManager.create).toHaveBeenCalled();
+    expect(embeddingModule.generateEmbeddings).toHaveBeenCalled();
+    expect(mockUpsertItemsInstance).toHaveBeenCalled();
 
-    expect(createSpy).toHaveBeenCalled(); // create is still called
-    expect(generateEmbeddingsSpy).toHaveBeenCalled(); // Ensure generateEmbeddings was called
-    expect(mockUpsertItemsInstance).toHaveBeenCalled(); // Ensure upsert was called
-
-    // Use exact string matching based on previous output
-    expect(result.success).toBe(false);
-    expect((result.content[0] as TextPart).text).toContain(
-      `Error upserting items into index: ${upsertError.message}`,
-    ); // Assert type
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.chunksUpserted).toBe(0);
+    expect(itemResult.error).toBe(upsertError.message);
+    expect(itemResult.suggestion).toContain('index');
   });
 
   it('should handle empty input items array', async () => {
     const input = createValidInput({ items: [] });
 
-    // Spy on IndexManager.create for this test
-    const mockUpsertItemsInstance = vi.fn();
-    const createSpy = vi.spyOn(IndexManager, 'create').mockResolvedValue({
-      upsertItems: mockUpsertItemsInstance,
-    } as any);
-
-    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
-
-    expect(createSpy).toHaveBeenCalled(); // create is still called
-    // Spy on functions (though they won't be called)
     // Spy on functions (though they won't be called)
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings');
     const chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst');
+
+    const parts = await indexContentTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
+
+
+    expect(IndexManager.create).toHaveBeenCalled(); // create is still called
     expect(chunkCodeAstSpy).not.toHaveBeenCalled();
     expect(generateEmbeddingsSpy).not.toHaveBeenCalled();
-    expect(mockUpsertItemsInstance).not.toHaveBeenCalled(); // Assert instance mock wasn't called
-    expect(result.success).toBe(true);
-    expect((result.content[0] as TextPart).text).toContain(
-      'Successfully processed 0 items. Upserted 0 chunks',
-    ); // Assert type
-    expect((result as any).data).toEqual({ processedItemCount: 0, upsertedChunkCount: 0 });
+    expect(mockUpsertItemsInstance).not.toHaveBeenCalled();
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(0); // Expect empty results array
   });
 
   it('should handle items where chunking produces no chunks', async () => {
@@ -363,26 +313,23 @@ describe('indexContentTool', () => {
       items: [{ content: '// only comment', language: SupportedLanguage.JavaScript }],
     });
 
-    // Spy on IndexManager.create for this test
-    const mockUpsertItemsInstance = vi.fn();
-    const createSpy = vi.spyOn(IndexManager, 'create').mockResolvedValue({
-      upsertItems: mockUpsertItemsInstance,
-    } as any);
-
-    // Spy on functions (though generateEmbeddings won't be called)
-    const chunkCodeAstSpy = vi.spyOn(chunkingModule, 'chunkCodeAst').mockResolvedValue([]); // Simulate no chunks generated
+    // Setup mocks
+    vi.mocked(chunkingModule.chunkCodeAst).mockResolvedValue([]); // Simulate no chunks
     const generateEmbeddingsSpy = vi.spyOn(embeddingModule, 'generateEmbeddings');
 
-    const result = await indexContentTool.execute(input, defaultOptions); // Pass options object
+    const parts = await indexContentTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(createSpy).toHaveBeenCalled(); // create is still called
-    expect(chunkCodeAstSpy).toHaveBeenCalled();
+    expect(IndexManager.create).toHaveBeenCalled();
+    expect(chunkingModule.chunkCodeAst).toHaveBeenCalled();
     expect(generateEmbeddingsSpy).not.toHaveBeenCalled();
-    expect(mockUpsertItemsInstance).not.toHaveBeenCalled(); // Assert instance mock wasn't called
-    expect(result.success).toBe(true);
-    expect((result.content[0] as TextPart).text).toContain(
-      'Successfully processed 1 items. Upserted 0 chunks',
-    ); // Assert type
-    expect((result as any).data).toEqual({ processedItemCount: 1, upsertedChunkCount: 0 });
+    expect(mockUpsertItemsInstance).not.toHaveBeenCalled();
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true); // Success, but 0 chunks
+    expect(itemResult.chunksUpserted).toBe(0);
+    expect(itemResult.error).toBeUndefined();
   });
 });

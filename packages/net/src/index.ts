@@ -9,23 +9,18 @@ import { startMcpServer } from '@sylphlab/mcp-utils';
 
 // Import tool objects from the core libraries
 import {
-  fetchTool, // Moved from fetch-core
   downloadTool, // Add downloadTool import
+  fetchTool, // Moved from fetch-core
   getInterfacesTool,
   getPublicIpTool,
 } from '@sylphlab/mcp-net-core';
-import { name, version, description } from '../package.json'; // Import metadata
+import { description, name, version } from '../package.json'; // Import metadata
 
 // --- Server Setup ---
 
 // Array of imported tool objects
 // biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
-const tools: McpTool<any, any>[] = [
-  getPublicIpTool,
-  getInterfacesTool,
-  fetchTool,
-  downloadTool,
-];
+const tools: McpTool<any, any>[] = [getPublicIpTool, getInterfacesTool, fetchTool, downloadTool];
 
 // --- Server Start ---
 // Directly call startMcpServer at the top level

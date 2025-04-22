@@ -1,55 +1,69 @@
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-} from '@sylphlab/mcp-core';
-import type { z } from 'zod';
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import { z } from 'zod';
 import {
   type JsonInputItemSchema,
   type JsonOperationEnum,
   jsonToolInputSchema,
-} from './jsonTool.schema.js'; // Import schemas (added .js)
+} from './jsonTool.schema.js';
 
 // --- TypeScript Types ---
 export type JsonOperation = z.infer<typeof JsonOperationEnum>;
 export type JsonInputItem = z.infer<typeof JsonInputItemSchema>;
 export type JsonToolInput = z.infer<typeof jsonToolInputSchema>;
 
+// --- Output Types ---
 // Interface for a single JSON result item
 export interface JsonResultItem {
-  id?: string; // Corresponds to input id if provided
+  /** Optional ID from the input item. */
+  id?: string;
+  /** Whether the JSON operation for this item was successful. */
   success: boolean;
-  result?: unknown; // Parsed object or stringified JSON
+  /** The result of the operation (parsed object or stringified JSON), if successful. */
+  result?: unknown;
+  /** Error message, if the operation failed for this item. */
   error?: string;
+  /** Suggestion for fixing the error. */
   suggestion?: string;
 }
 
-// Output interface for the tool (includes multiple results)
-export interface JsonToolOutput extends BaseMcpToolOutput {
-  results: JsonResultItem[];
-  error?: string; // Optional overall error if the tool itself fails unexpectedly
-}
+// Zod Schema for the individual result
+const JsonResultItemSchema = z.object({
+  id: z.string().optional(),
+  success: z.boolean(),
+  result: z.unknown().optional(), // Use z.unknown() for potentially complex JSON objects
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant array
+const JsonToolOutputSchema = z.array(JsonResultItemSchema);
 
 // --- Helper Function ---
 
 // Helper function to process a single JSON operation item
 async function processSingleJson(item: JsonInputItem): Promise<JsonResultItem> {
   const { id, operation } = item;
-  const resultItem: JsonResultItem = { id, success: false }; // Initialize success to false
+  const resultItem: JsonResultItem = { id, success: false };
 
   try {
     let operationResult: unknown;
     switch (operation) {
       case 'parse':
+        if (typeof item.data !== 'string') {
+          // This should ideally be caught by input schema validation, but double-check
+          throw new Error('Input data for parse operation must be a string.');
+        }
         operationResult = JSON.parse(item.data);
         break;
 
       case 'stringify':
-        // Add options like space later: operationResult = JSON.stringify(item.data, null, item.space);
+        // Add options like space later if needed in schema
         operationResult = JSON.stringify(item.data);
         break;
+      // default: // Should be unreachable due to schema validation
+      //   throw new Error(`Unsupported JSON operation: ${operation}`);
     }
 
     resultItem.success = true;
@@ -58,12 +72,12 @@ async function processSingleJson(item: JsonInputItem): Promise<JsonResultItem> {
     const errorMsg = e instanceof Error ? e.message : 'Unknown JSON error';
     resultItem.error = `JSON operation '${operation}' failed: ${errorMsg}`;
     if (operation === 'parse') {
-      resultItem.suggestion = 'Ensure input data is a valid JSON string.';
+      resultItem.suggestion =
+        'Ensure input data is a valid JSON string. Check for syntax errors like missing quotes or commas.';
     } else if (operation === 'stringify') {
       resultItem.suggestion =
-        'Ensure input data is serializable (no circular references, BigInts, etc.).';
+        'Ensure input data is serializable (no circular references, BigInts, etc.). Check the structure of the object.';
     }
-    // Ensure success is false if an error occurred
     resultItem.success = false;
   }
   return resultItem;
@@ -73,49 +87,31 @@ async function processSingleJson(item: JsonInputItem): Promise<JsonResultItem> {
 export const jsonTool = defineTool({
   name: 'json',
   description: 'Performs JSON operations (parse or stringify) on one or more inputs.',
-  inputSchema: jsonToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: jsonToolInputSchema,
+  outputSchema: JsonToolOutputSchema, // Use the array schema
 
-  execute: async ( // Core logic passed to defineTool
-    input: JsonToolInput,
-    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
-  ): Promise<JsonToolOutput> => { // Still returns the specific output type
+  execute: async (input: JsonToolInput, _options: McpToolExecuteOptions): Promise<Part[]> => {
+    // Return Part[]
 
-    // Input validation is handled by registerTools/SDK before execute is called
-    const { items } = input;
+    // Zod validation (throw error on failure)
+    const parsed = jsonToolInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      throw new Error(`Input validation failed: ${errorMessages}`);
+    }
+    const { items } = parsed.data;
 
     const results: JsonResultItem[] = [];
-    let overallSuccess = true;
 
-    // Removed the outermost try/catch block; defineTool handles unexpected errors
-
-    // Process requests sequentially
+    // Process requests sequentially (or could be parallelized)
     for (const item of items) {
-      // processSingleJson already includes its own try/catch for JSON errors
       const result = await processSingleJson(item);
       results.push(result);
-      if (!result.success) {
-        overallSuccess = false; // Mark overall as failed if any item fails
-      }
     }
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Processed ${items.length} JSON operations. Overall success: ${overallSuccess}`,
-        results: results,
-      },
-      null,
-      2,
-    );
-
-    // Return the specific output structure
-    return {
-      success: overallSuccess,
-      results: results,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Return the results wrapped in jsonPart
+    return [jsonPart(results, JsonToolOutputSchema)];
   },
 });
-
-// Ensure necessary types are still exported
-// export type { JsonToolInput, JsonToolOutput, JsonResultItem, JsonInputItem, JsonOperation }; // Removed duplicate export

@@ -13,9 +13,7 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "bin": {
     "mcp-base64": "./dist/index.js"
   },
@@ -23,11 +21,7 @@
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
   },
-  "keywords": [
-    "mcp",
-    "tool",
-    "base64"
-  ],
+  "keywords": ["mcp", "tool", "base64"],
   "author": "",
   "license": "ISC",
   "devDependencies": {

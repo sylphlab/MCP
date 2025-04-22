@@ -1,15 +1,15 @@
 import os from 'node:os'; // Import os for mocking
-import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import options type and Part
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Import individual tools and types
 import {
   type GetInterfacesToolInput,
-  GetInterfacesToolOutput,
   type GetPublicIpToolInput,
-  GetPublicIpToolOutput,
   getInterfacesTool,
   getPublicIpTool,
-} from './index.js'; // Added .js extension
+} from './index.js';
+import type { GetInterfacesResult } from './tools/getInterfacesTool.js'; // Import correct result type
+import type { GetPublicIpResult } from './tools/getPublicIpTool.js'; // Import correct result type
 
 // Mock the os module for getInterfaces
 vi.mock('node:os');
@@ -18,6 +18,27 @@ vi.mock('node:os');
 const mockWorkspaceRoot = '';
 // Define options objects including workspaceRoot
 const defaultOptions: McpToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot };
+
+// Helper to extract JSON result from parts
+// Use generics to handle different result types
+function getJsonResult<T>(parts: Part[]): T[] | undefined {
+  // console.log('DEBUG: getJsonResult received parts:', JSON.stringify(parts, null, 2)); // Keep commented for now
+  const jsonPart = parts.find((part) => part.type === 'json');
+  // console.log('DEBUG: Found jsonPart:', JSON.stringify(jsonPart, null, 2)); // Keep commented for now
+  // Check if jsonPart exists and has a 'value' property (which holds the actual data)
+  if (jsonPart && jsonPart.value !== undefined) {
+    // console.log('DEBUG: typeof jsonPart.value:', typeof jsonPart.value); // Keep commented for now
+    // console.log('DEBUG: Attempting to use jsonPart.value directly'); // Keep commented for now
+    try {
+      // Assuming the value is already the correct array type based on defineTool's outputSchema
+      return jsonPart.value as T[];
+    } catch (_e) {
+      return undefined;
+    }
+  }
+  // console.log('DEBUG: jsonPart or jsonPart.value is undefined or null.'); // Keep commented for now
+  return undefined;
+}
 
 describe('getPublicIpTool.execute', () => {
   beforeEach(() => {
@@ -30,87 +51,110 @@ describe('getPublicIpTool.execute', () => {
   });
 
   it('should fetch public IP successfully', async () => {
-    const input: GetPublicIpToolInput = { id: 'a' }; // Input might just be an ID or empty
-    const result = await getPublicIpTool.execute(input, defaultOptions); // Pass options object
+    const input: GetPublicIpToolInput = { id: 'a' };
+    const parts = await getPublicIpTool.execute(input, defaultOptions);
+    const results = getJsonResult<GetPublicIpResult>(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.result).toBe('8.8.8.8'); // Correct property name
-    expect(result.error).toBeUndefined();
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.ip).toBe('8.8.8.8');
+    expect(itemResult.error).toBeUndefined();
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith('https://ipinfo.io/json'); // Correct URL
+    expect(global.fetch).toHaveBeenCalledWith('https://ipinfo.io/json');
   });
 
   it('should handle public IP fetch error', async () => {
-    // Mock fetch to fail
-    vi.mocked(global.fetch).mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: 'Server Error',
-    } as Response);
+    // Mock fetch to fail primary and fallback
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce({ ok: false, status: 500, statusText: 'Server Error' } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+      } as Response);
 
     const input: GetPublicIpToolInput = { id: 'd' };
-    const result = await getPublicIpTool.execute(input, defaultOptions); // Pass options object
+    const parts = await getPublicIpTool.execute(input, defaultOptions);
+    const results = getJsonResult<GetPublicIpResult>(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.result).toBeUndefined(); // Correct property name
-    // Update expected error to include fallback details
-    expect(result.error).toBe(
-      'Tool \'getPublicIp\' execution failed: Failed to fetch public IP: HTTP error! status: 500. Fallback also failed: Fallback failed: Fallback HTTP error! status: 500', // Added prefix
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.ip).toBeUndefined();
+    expect(itemResult.error).toContain(
+      'Failed to fetch public IP from ipinfo.io: ipinfo.io HTTP error! status: 500',
+    );
+    expect(itemResult.error).toContain('Fallback failed: api.ipify.org HTTP error! status: 503');
+    expect(itemResult.suggestion).toBe(
+      'Check network connectivity and reachability of public IP services (ipinfo.io, api.ipify.org).',
     );
   });
 
   it('should handle network error during public IP fetch', async () => {
-    // Mock fetch to throw a network error
+    // Mock fetch to throw a network error on both attempts
     vi.mocked(global.fetch).mockRejectedValue(new Error('Network failed'));
 
     const input: GetPublicIpToolInput = { id: 'g' };
-    const result = await getPublicIpTool.execute(input, defaultOptions); // Pass options object
+    const parts = await getPublicIpTool.execute(input, defaultOptions);
+    const results = getJsonResult<GetPublicIpResult>(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.ip).toBeUndefined();
-    expect(result.error).toContain('Failed to fetch public IP: Network failed');
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.ip).toBeUndefined();
+    expect(itemResult.error).toContain('Failed to fetch public IP from ipinfo.io: Network failed');
+    expect(itemResult.error).toContain('Fallback failed: Network failed');
+    expect(itemResult.suggestion).toBe(
+      'Check network connectivity and reachability of public IP services (ipinfo.io, api.ipify.org).',
+    );
   });
-
-  // Note: Caching logic is internal to the tool, testing multiple calls implicitly tests caching if implemented
 });
 
 describe('getInterfacesTool.execute', () => {
+  const mockInterfaces = {
+    lo: [
+      {
+        address: '127.0.0.1',
+        netmask: '255.0.0.0',
+        family: 'IPv4',
+        mac: '00:00:00:00:00:00',
+        internal: true,
+        cidr: '127.0.0.1/8',
+      },
+    ],
+    eth0: [
+      {
+        address: '192.168.1.100',
+        netmask: '255.255.255.0',
+        family: 'IPv4',
+        mac: '01:02:03:04:05:06',
+        internal: false,
+        cidr: '192.168.1.100/24',
+      },
+    ],
+  };
+
   beforeEach(() => {
     vi.resetAllMocks();
     // Mock os.networkInterfaces()
-    vi.mocked(os.networkInterfaces).mockReturnValue({
-      lo: [
-        {
-          address: '127.0.0.1',
-          netmask: '255.0.0.0',
-          family: 'IPv4',
-          mac: '00:00:00:00:00:00',
-          internal: true,
-          cidr: '127.0.0.1/8',
-        },
-      ],
-      eth0: [
-        {
-          address: '192.168.1.100',
-          netmask: '255.255.255.0',
-          family: 'IPv4',
-          mac: '01:02:03:04:05:06',
-          internal: false,
-          cidr: '192.168.1.100/24',
-        },
-      ],
-    });
+    vi.mocked(os.networkInterfaces).mockReturnValue(mockInterfaces);
   });
 
   it('should get network interfaces successfully', async () => {
-    const input: GetInterfacesToolInput = { id: 'b' }; // Input might just be an ID or empty
-    const result = await getInterfacesTool.execute(input, defaultOptions); // Pass options object
+    const input: GetInterfacesToolInput = { id: 'b' };
+    const parts = await getInterfacesTool.execute(input, defaultOptions);
+    const results = getJsonResult<GetInterfacesResult>(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.result).toBeDefined(); // Correct property name
-    expect(result.result?.eth0).toBeDefined(); // Correct property name
-    expect(result.result?.eth0?.[0]?.address).toBe('192.168.1.100'); // Correct property name
-    expect(result.error).toBeUndefined();
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.result).toEqual(mockInterfaces); // Check the actual result object
+    expect(itemResult.error).toBeUndefined();
     expect(os.networkInterfaces).toHaveBeenCalledTimes(1);
   });
 
@@ -121,10 +165,17 @@ describe('getInterfacesTool.execute', () => {
     });
 
     const input: GetInterfacesToolInput = { id: 'h' };
-    const result = await getInterfacesTool.execute(input, defaultOptions); // Pass options object
+    const parts = await getInterfacesTool.execute(input, defaultOptions);
+    const results = getJsonResult<GetInterfacesResult>(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.result).toBeUndefined(); // Correct property name
-    expect(result.error).toBe(`Tool 'getInterfaces' execution failed: ${mockError.message}`); // Added prefix
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.result).toBeUndefined();
+    expect(itemResult.error).toBe(mockError.message); // Error comes directly from the catch block
+    expect(itemResult.suggestion).toBe(
+      'Check system permissions or if network interfaces are available.',
+    );
   });
 });

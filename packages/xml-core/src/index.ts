@@ -5,6 +5,6 @@ export { xmlTool } from './tools/xmlTool.js';
 export { xmlToolInputSchema, XmlOperationEnum } from './tools/xmlTool.schema.js'; // Export schema from schema file
 export type {
   XmlToolInput,
-  XmlToolOutput,
+  XmlResultItem, // Export the new result item type
   XmlOperation, // Still useful to export the operation type
 } from './tools/xmlTool.js';

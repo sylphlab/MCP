@@ -1,41 +1,49 @@
-import type { Stats } from 'node:fs'; // Import Stats type
-import { stat } from 'node:fs/promises'; // Use named import
+import type { Stats } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import path from 'node:path';
-import type { McpToolExecuteOptions } from '@sylphlab/mcp-core'; // Import options type
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
 import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type StatItemsToolInput, statItemsTool } from './statItemsTool.js';
+import type { StatItemResult } from './statItemsTool.js'; // Import correct result type
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
   stat: vi.fn(),
 }));
 
-const WORKSPACE_ROOT = '/test/workspace'; // Define a consistent mock workspace root
+const WORKSPACE_ROOT = '/test/workspace';
+const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const allowOutsideOptions: McpToolExecuteOptions = {
+  ...defaultOptions,
+  allowOutsideWorkspace: true,
+};
+// Helper to extract JSON result from parts
+// Use generics to handle different result types
+function getJsonResult<T>(parts: Part[]): T[] | undefined {
+  // console.log('DEBUG: getJsonResult received parts:', JSON.stringify(parts, null, 2)); // Keep commented for now
+  const jsonPart = parts.find((part) => part.type === 'json');
+  // console.log('DEBUG: Found jsonPart:', JSON.stringify(jsonPart, null, 2)); // Keep commented for now
+  // Check if jsonPart exists and has a 'value' property (which holds the actual data)
+  if (jsonPart && jsonPart.value !== undefined) {
+    // console.log('DEBUG: typeof jsonPart.value:', typeof jsonPart.value); // Keep commented for now
+    // console.log('DEBUG: Attempting to use jsonPart.value directly'); // Keep commented for now
+    try {
+      // Assuming the value is already the correct array type based on defineTool's outputSchema
+      return jsonPart.value as T[];
+    } catch (_e) {
+      return undefined;
+    }
+  }
+  // console.log('DEBUG: jsonPart or jsonPart.value is undefined or null.'); // Keep commented for now
+  return undefined;
+}
 
 // Helper to create mock Stats objects
 const createMockStats = (isFile: boolean): Stats =>
   ({
     isFile: () => isFile,
     isDirectory: () => !isFile,
-    // Add other properties if needed, or cast to Partial<Stats>
-    dev: 0,
-    ino: 0,
-    mode: 0,
-    nlink: 0,
-    uid: 0,
-    gid: 0,
-    rdev: 0,
     size: 99,
-    blksize: 4096,
-    blocks: 1,
-    atimeMs: 0,
-    mtimeMs: 0,
-    ctimeMs: 0,
-    birthtimeMs: 0,
-    atime: new Date(),
-    mtime: new Date(),
-    ctime: new Date(),
-    birthtime: new Date(),
   }) as Stats;
 
 describe('statItemsTool', () => {
@@ -47,29 +55,22 @@ describe('statItemsTool', () => {
     mockStat.mockResolvedValue(createMockStats(true));
   });
 
-  // Define options objects including workspaceRoot
-  const defaultOptions: McpToolExecuteOptions = {
-    workspaceRoot: WORKSPACE_ROOT,
-    allowOutsideWorkspace: false,
-  };
-  const allowOutsideOptions: McpToolExecuteOptions = {
-    workspaceRoot: WORKSPACE_ROOT,
-    allowOutsideWorkspace: true,
-  };
-
   it('should successfully get stats for a single item', async () => {
     const input: StatItemsToolInput = { paths: ['file.txt'] };
     const mockStatsData = createMockStats(true);
     mockStat.mockResolvedValue(mockStatsData);
 
-    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
+    const parts = await statItemsTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[0]?.path).toBe('file.txt');
-    expect(result.results[0]?.stat).toEqual(mockStatsData);
-    expect(result.results[0]?.error).toBeUndefined();
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.path).toBe('file.txt');
+    expect(itemResult.stat).toEqual(mockStatsData);
+    expect(itemResult.error).toBeUndefined();
+
     expect(mockStat).toHaveBeenCalledTimes(1);
     expect(mockStat).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, 'file.txt'));
   });
@@ -80,14 +81,15 @@ describe('statItemsTool', () => {
     const mockStats2 = createMockStats(true);
     mockStat.mockResolvedValueOnce(mockStats1).mockResolvedValueOnce(mockStats2);
 
-    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
+    const parts = await statItemsTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.results).toHaveLength(2);
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[0]?.stat).toEqual(mockStats1);
-    expect(result.results[1]?.success).toBe(true);
-    expect(result.results[1]?.stat).toEqual(mockStats2);
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(2);
+    expect(results?.[0]?.success).toBe(true);
+    expect(results?.[0]?.stat).toEqual(mockStats1);
+    expect(results?.[1]?.success).toBe(true);
+    expect(results?.[1]?.stat).toEqual(mockStats2);
     expect(mockStat).toHaveBeenCalledTimes(2);
   });
 
@@ -97,13 +99,16 @@ describe('statItemsTool', () => {
     (enoentError as NodeJS.ErrnoException).code = 'ENOENT';
     mockStat.mockRejectedValue(enoentError);
 
-    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
+    const parts = await statItemsTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(false); // Overall success is false if any path not found
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.stat).toBeUndefined();
-    expect(result.results[0]?.error).toContain("Path 'nonexistent.txt' not found");
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.stat).toBeUndefined();
+    expect(itemResult.error).toContain("Path 'nonexistent.txt' not found");
+    expect(itemResult.suggestion).toEqual(expect.any(String));
     expect(mockStat).toHaveBeenCalledTimes(1);
   });
 
@@ -113,15 +118,17 @@ describe('statItemsTool', () => {
     (accessError as NodeJS.ErrnoException).code = 'EACCES';
     mockStat.mockRejectedValue(accessError);
 
-    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
+    const parts = await statItemsTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.stat).toBeUndefined();
-    expect(result.results[0]?.error).toContain('Failed to get stats');
-    expect(result.results[0]?.error).toContain('EACCES');
-    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.stat).toBeUndefined();
+    expect(itemResult.error).toContain('Failed to get stats');
+    expect(itemResult.error).toContain('EACCES');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
     expect(mockStat).toHaveBeenCalledTimes(1);
   });
 
@@ -133,39 +140,47 @@ describe('statItemsTool', () => {
 
     mockStat.mockResolvedValueOnce(mockStatsFound).mockRejectedValueOnce(enoentError);
 
-    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
+    const parts = await statItemsTool.execute(input, defaultOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true); // Overall success is true because one succeeded
-    expect(result.results).toHaveLength(2);
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(2);
+
     // First item (success)
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[0]?.stat).toEqual(mockStatsFound);
-    expect(result.results[0]?.error).toBeUndefined();
+    const itemResult1 = results?.[0];
+    expect(itemResult1.success).toBe(true);
+    expect(itemResult1.stat).toEqual(mockStatsFound);
+    expect(itemResult1.error).toBeUndefined();
+
     // Second item (not found)
-    expect(result.results[1]?.success).toBe(false);
-    expect(result.results[1]?.stat).toBeUndefined();
-    expect(result.results[1]?.error).toContain('not found');
-    expect(result.results[1]?.suggestion).toEqual(expect.any(String)); // Expect a suggestion for ENOENT
+    const itemResult2 = results?.[1];
+    expect(itemResult2.success).toBe(false);
+    expect(itemResult2.stat).toBeUndefined();
+    expect(itemResult2.error).toContain('not found');
+    expect(itemResult2.suggestion).toEqual(expect.any(String));
+
     expect(mockStat).toHaveBeenCalledTimes(2);
   });
 
-  it('should return validation error for empty paths array', async () => {
-    const input = { paths: [] }; // Invalid input
-    const result = await statItemsTool.execute(input, { workspaceRoot: WORKSPACE_ROOT }); // Pass options object
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('Input validation failed');
-    expect(result.error).toContain('paths array cannot be empty');
+  it('should throw validation error for empty paths array', async () => {
+    const input = { paths: [] };
+    await expect(statItemsTool.execute(input as any, defaultOptions)).rejects.toThrow(
+      'Input validation failed: paths: paths array cannot be empty.',
+    );
     expect(mockStat).not.toHaveBeenCalled();
   });
 
   it('should handle path validation failure (outside workspace)', async () => {
     const input: StatItemsToolInput = { paths: ['../outside.txt'] };
-    // Explicitly test with allowOutsideWorkspace: false
-    const result = await statItemsTool.execute(input, defaultOptions); // Pass options object
-    expect(result.success).toBe(false); // Overall success is false
-    expect(result.results[0]?.success).toBe(false);
-    expect(result.results[0]?.error).toContain('Path validation failed');
-    expect(result.results[0]?.suggestion).toEqual(expect.any(String));
+    const parts = await statItemsTool.execute(input, defaultOptions); // allowOutsideWorkspace defaults false
+    const results = getJsonResult(parts);
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Path validation failed');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
     expect(mockStat).not.toHaveBeenCalled();
   });
 
@@ -174,14 +189,16 @@ describe('statItemsTool', () => {
     const mockStatsData = createMockStats(true);
     mockStat.mockResolvedValue(mockStatsData);
 
-    // Execute with allowOutsideWorkspace: true
-    const result = await statItemsTool.execute(input, allowOutsideOptions); // Pass options object
+    const parts = await statItemsTool.execute(input, allowOutsideOptions);
+    const results = getJsonResult(parts);
 
-    expect(result.success).toBe(true);
-    expect(result.results[0]?.success).toBe(true);
-    expect(result.results[0]?.error).toBeUndefined();
-    expect(result.results[0]?.stat).toEqual(mockStatsData);
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.error).toBeUndefined();
+    expect(itemResult.stat).toEqual(mockStatsData);
     expect(mockStat).toHaveBeenCalledTimes(1);
     expect(mockStat).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, '../outside.txt'));
   });
-}); // End of describe block
+});

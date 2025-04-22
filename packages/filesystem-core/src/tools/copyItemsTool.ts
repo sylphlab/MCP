@@ -1,16 +1,18 @@
-import { cp } from 'node:fs/promises'; // Use named import
-import path from 'node:path';
+import { cp, stat } from 'node:fs/promises'; // Use named import, add stat
 import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-  PathValidationError, // PathValidationError might not be needed directly
+  // Import values normally
+  jsonPart, // Import helper value
   validateAndResolvePath,
+} from '@sylphlab/mcp-core';
+import type {
+  // Import types separately
+  McpToolExecuteOptions,
+  Part,
 } from '@sylphlab/mcp-core'; // Import base types and validation util
-import type { z } from 'zod';
-import { type CopyItemSchema, copyItemsToolInputSchema } from './copyItemsTool.schema.js'; // Import schema (added .js)
+import { z } from 'zod'; // Import z directly
+// import type { z } from 'zod'; // z imported above
+import { copyItemsToolInputSchema } from './copyItemsTool.schema.js'; // Import schema (added .js)
 
 // --- Input Types ---
 
@@ -27,6 +29,8 @@ export interface CopyItemResult {
   destinationPath: string;
   /** Whether the copy operation for this specific item was successful. */
   success: boolean;
+  /** Indicates if the operation was a dry run. */
+  dryRun: boolean; // Added
   /** Optional message providing more details (e.g., "Copied successfully"). */
   message?: string;
   /** Optional error message if the operation failed for this item. */
@@ -35,15 +39,22 @@ export interface CopyItemResult {
   suggestion?: string;
 }
 
+// Zod Schema for the individual copy result (used in outputSchema)
+const CopyItemResultSchema = z.object({
+  sourcePath: z.string(),
+  destinationPath: z.string(),
+  success: z.boolean(),
+  dryRun: z.boolean(),
+  message: z.string().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
 // Extend the base output type
-export interface CopyItemsToolOutput extends BaseMcpToolOutput {
-  /** Overall operation success (true only if ALL items copied successfully). */
-  // success: boolean; // Inherited
-  /** Optional general error message if the tool encountered a major issue. */
-  error?: string;
-  /** Array of results for each copy operation. */
-  results: CopyItemResult[];
-}
+// Removed CopyItemsToolOutput - execute now returns InternalToolExecutionResult
+
+// Define the output schema instance as a constant
+const CopyItemsOutputSchema = z.array(CopyItemResultSchema);
 
 // --- Tool Definition using defineTool ---
 
@@ -52,11 +63,14 @@ export const copyItemsTool = defineTool({
   description:
     'Copies one or more files or folders within the workspace. Handles recursion. Use relative paths.',
   inputSchema: copyItemsToolInputSchema,
+  outputSchema: CopyItemsOutputSchema, // Use the constant schema instance
 
-  execute: async ( // Core logic passed to defineTool
+  execute: async (
+    // Core logic passed to defineTool
     input: CopyItemsToolInput,
     options: McpToolExecuteOptions,
-  ): Promise<CopyItemsToolOutput> => { // Still returns the specific output type
+  ): Promise<Part[]> => {
+    // Removed generic
 
     // Zod validation (throw error on failure)
     const parsed = copyItemsToolInputSchema.safeParse(input);
@@ -65,17 +79,13 @@ export const copyItemsTool = defineTool({
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       // Return error structure instead of throwing
-      return {
-        success: false,
-        error: `Input validation failed: ${errorMessages}`,
-        results: [], // Ensure results is an empty array on validation failure
-        content: [{ type: 'text', text: `Input validation failed: ${errorMessages}` }],
-      };
+      throw new Error(`Input validation failed: ${errorMessages}`);
     }
     const { items, overwrite } = parsed.data;
+    // Determine dryRun status: default false if overwrite is false, true if overwrite is true
+    const isDryRun = parsed.data.dryRun ?? overwrite; // Default depends on overwrite safety
 
     const results: CopyItemResult[] = [];
-    let overallSuccess = true;
 
     for (const item of items) {
       let itemSuccess = false;
@@ -94,11 +104,13 @@ export const copyItemsTool = defineTool({
       if (typeof sourceValidationResult !== 'string') {
         error = sourceValidationResult.error;
         suggestion = sourceValidationResult.suggestion;
-        overallSuccess = false;
         results.push({
           sourcePath: item.sourcePath,
           destinationPath: item.destinationPath,
-          success: false, error, suggestion,
+          success: false,
+          dryRun: isDryRun,
+          error,
+          suggestion,
         });
         continue; // Skip this item
       }
@@ -112,11 +124,13 @@ export const copyItemsTool = defineTool({
       if (typeof destValidationResult !== 'string') {
         error = destValidationResult.error;
         suggestion = destValidationResult.suggestion;
-        overallSuccess = false;
         results.push({
           sourcePath: item.sourcePath,
           destinationPath: item.destinationPath,
-          success: false, error, suggestion,
+          success: false,
+          dryRun: isDryRun,
+          error,
+          suggestion,
         });
         continue; // Skip this item
       }
@@ -125,30 +139,62 @@ export const copyItemsTool = defineTool({
 
       // Keep try/catch for individual item copy errors
       try {
-        await cp(sourceFullPath, destinationFullPath, {
-          recursive: true,
-          force: overwrite,
-          errorOnExist: !overwrite,
-        });
-        itemSuccess = true;
-        message = `Copied '${item.sourcePath}' to '${item.destinationPath}' successfully.`;
+        // Check destination existence for dry run and overwrite logic
+        let destinationExists = false;
+        try {
+          await stat(destinationFullPath);
+          destinationExists = true;
+        } catch (statError: unknown) {
+          if (
+            !(
+              statError &&
+              typeof statError === 'object' &&
+              'code' in statError &&
+              (statError as { code: unknown }).code === 'ENOENT'
+            )
+          ) {
+            throw statError; // Re-throw unexpected stat errors
+          }
+        }
+
+        if (destinationExists && !overwrite) {
+          throw new Error(
+            `Destination path '${item.destinationPath}' already exists and overwrite is false.`,
+          );
+        }
+
+        if (isDryRun) {
+          itemSuccess = true;
+          message = `[Dry Run] Would copy '${item.sourcePath}' to '${item.destinationPath}'${destinationExists && overwrite ? ' (overwriting existing)' : ''}.`;
+        } else {
+          await cp(sourceFullPath, destinationFullPath, {
+            recursive: true,
+            force: overwrite, // If overwrite is true, force will handle existing destination
+            errorOnExist: false, // Let force handle it or the check above handle it
+          });
+          itemSuccess = true;
+          message = `Copied '${item.sourcePath}' to '${item.destinationPath}' successfully${destinationExists && overwrite ? ' (overwrote existing)' : ''}.`;
+        }
       } catch (e: unknown) {
         itemSuccess = false;
-        overallSuccess = false; // Mark overall as failed if any item fails
+        const errorMsg = e instanceof Error ? e.message : 'Unknown error'; // Re-add definition
         // Check for system error codes
         if (e && typeof e === 'object' && 'code' in e) {
           const code = (e as { code: unknown }).code;
           if (code === 'ENOENT') {
             error = `Failed to copy '${item.sourcePath}': Source path does not exist.`;
             suggestion = `Verify the source path '${item.sourcePath}' exists and is accessible.`;
-          } else if (code === 'EEXIST' && !overwrite) {
+          } else if (
+            code === 'EEXIST' ||
+            errorMsg.includes('already exists and overwrite is false')
+          ) {
+            // Catch error message too
             error = `Failed to copy to '${item.destinationPath}': Destination path already exists and overwrite is false.`;
             suggestion = `Enable the 'overwrite' option or choose a different destination path.`;
           }
         }
         // If no specific code matched or it wasn't a system error, use the general message
         if (!error) {
-          const errorMsg = e instanceof Error ? e.message : 'Unknown error';
           error = `Failed to copy '${item.sourcePath}' to '${item.destinationPath}': ${errorMsg}`;
           suggestion = 'Check file paths, permissions, and available disk space.';
         }
@@ -158,31 +204,15 @@ export const copyItemsTool = defineTool({
       results.push({
         sourcePath: item.sourcePath,
         destinationPath: item.destinationPath,
-        success: itemSuccess,
+        success: itemSuccess, // Reflects success of the operation (or simulation)
+        dryRun: isDryRun, // Indicate if it was a dry run
         message: itemSuccess ? message : undefined,
         error,
         suggestion: !itemSuccess ? suggestion : undefined,
       });
     } // End for loop
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Copy operation completed. Overall success: ${overallSuccess}`,
-        results: results,
-      },
-      null,
-      2,
-    );
-
-    // Return the specific output structure
-    return {
-      success: overallSuccess,
-      results: results,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Construct parts array
+    return [jsonPart(results, CopyItemsOutputSchema)];
   },
 });
-
-// Ensure necessary types are still exported
-// export type { CopyItemsToolInput, CopyItemsToolOutput, CopyItemResult }; // Removed duplicate export

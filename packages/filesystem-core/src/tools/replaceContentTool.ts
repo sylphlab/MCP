@@ -1,20 +1,19 @@
+import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
+import { defineTool } from '@sylphlab/mcp-core';
 import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-  PathValidationError, // PathValidationError might not be needed directly
+  jsonPart,
+  textPart, // Keep textPart for summary
   validateAndResolvePath,
-} from '@sylphlab/mcp-core'; // Import base types and validation util
-import glob from 'fast-glob'; // Import fast-glob
-import type { z } from 'zod';
+} from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import glob from 'fast-glob';
+import { z } from 'zod';
 import {
   type ReplaceOperationSchema,
   replaceContentToolInputSchema,
-} from './replaceContentTool.schema.js'; // Import schema (added .js)
+} from './replaceContentTool.schema.js';
 
 // Infer the TypeScript type from the Zod schema
 export type ReplaceContentToolInput = z.infer<typeof replaceContentToolInputSchema>;
@@ -26,25 +25,37 @@ export interface FileReplaceResult {
   path: string;
   /** Whether the replacement operations for this specific file were successful. */
   success: boolean;
+  /** Indicates if the operation was a dry run. */
+  dryRun: boolean;
   /** Number of replacements made in this file across all operations. */
   replacementsMade: number;
-  /** True if the file content was actually changed and written back. */
+  /** True if the file content was actually changed and written back (or would have been in dry run). */
   contentChanged: boolean;
+  /** SHA-256 hash of the file content *before* modifications (if calculated). */
+  oldHash?: string;
+  /** SHA-256 hash of the file content *after* successful modifications (if not dryRun). */
+  newHash?: string;
   /** Optional error message if processing failed for this file. */
   error?: string;
   /** Optional suggestion for fixing the error. */
   suggestion?: string;
 }
 
-// Extend the base output type
-export interface ReplaceContentToolOutput extends BaseMcpToolOutput {
-  /** Overall operation success (true only if ALL matched files processed successfully). */
-  // success: boolean; // Inherited
-  /** Optional general error message if the tool encountered a major issue. */
-  error?: string;
-  /** Array of results for each file processed. */
-  results: FileReplaceResult[];
-}
+// Zod Schema for the individual file result (used in outputSchema)
+const FileReplaceResultSchema = z.object({
+  path: z.string(),
+  success: z.boolean(),
+  dryRun: z.boolean(),
+  replacementsMade: z.number(),
+  contentChanged: z.boolean(),
+  oldHash: z.string().optional(),
+  newHash: z.string().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant
+const ReplaceContentOutputSchema = z.array(FileReplaceResultSchema);
 
 // --- Tool Definition using defineTool ---
 
@@ -52,12 +63,12 @@ export const replaceContentTool = defineTool({
   name: 'replaceContentTool',
   description: 'Performs search and replace operations across multiple files (supports globs).',
   inputSchema: replaceContentToolInputSchema,
+  outputSchema: ReplaceContentOutputSchema,
 
-  execute: async ( // Core logic passed to defineTool
+  execute: async (
     input: ReplaceContentToolInput,
     options: McpToolExecuteOptions,
-  ): Promise<ReplaceContentToolOutput> => { // Still returns the specific output type
-
+  ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = replaceContentToolInputSchema.safeParse(input);
     if (!parsed.success) {
@@ -67,12 +78,13 @@ export const replaceContentTool = defineTool({
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
     const { paths: pathPatterns, operations } = parsed.data;
+    // Get dryRun flag, default to true as replace is considered unsafe
+    const isDryRun = parsed.data.dryRun ?? true;
 
     const fileResults: FileReplaceResult[] = [];
-    let overallSuccess = true; // Assume success until a failure occurs
     let resolvedFilePaths: string[] = [];
 
-    // Keep try/catch for glob errors, as this is setup before the main loop
+    // Keep try/catch for glob errors
     try {
       resolvedFilePaths = await glob(pathPatterns, {
         cwd: options.workspaceRoot,
@@ -83,16 +95,16 @@ export const replaceContentTool = defineTool({
       });
 
       if (resolvedFilePaths.length === 0) {
-        // If no files match, it's not an error, just return empty results
-        return { success: true, results: [], content: [] };
+        // If no files match, return empty results
+        return [
+          jsonPart([], ReplaceContentOutputSchema),
+          textPart('No files matched the provided patterns.'),
+        ];
       }
     } catch (globError: unknown) {
-      // If glob itself fails, throw an error for defineTool to catch
       const errorMsg = globError instanceof Error ? globError.message : 'Unknown glob error';
       throw new Error(`Glob pattern error: ${errorMsg}`);
     }
-
-    // Removed the outermost try/catch block for file processing loop
 
     for (const relativeFilePath of resolvedFilePaths) {
       const fullPath = path.resolve(options.workspaceRoot, relativeFilePath);
@@ -100,9 +112,11 @@ export const replaceContentTool = defineTool({
       let fileError: string | undefined;
       let totalReplacementsMade = 0;
       let contentChanged = false;
+      let oldFileHash: string | undefined;
+      let newFileHash: string | undefined;
       let suggestion: string | undefined;
 
-      // --- Path Validation (Keep this check) ---
+      // --- Path Validation ---
       const relativeCheck = path.relative(options.workspaceRoot, fullPath);
       if (
         !options?.allowOutsideWorkspace &&
@@ -111,41 +125,48 @@ export const replaceContentTool = defineTool({
         fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
         suggestion = `Ensure the path pattern '${pathPatterns.join(', ')}' does not resolve to paths outside the workspace.`;
         fileSuccess = false;
-        overallSuccess = false;
         fileResults.push({
-          path: relativeFilePath, success: false, replacementsMade: 0, contentChanged: false, error: fileError, suggestion,
+          path: relativeFilePath,
+          success: false,
+          dryRun: isDryRun,
+          replacementsMade: 0,
+          contentChanged: false,
+          error: fileError,
+          suggestion,
         });
         continue; // Skip this file
       }
       // --- End Path Validation ---
 
-      // Keep try/catch for individual file processing errors
       try {
         const originalContent = await readFile(fullPath, 'utf-8');
+        const originalBuffer = Buffer.from(originalContent, 'utf-8');
+        oldFileHash = createHash('sha256').update(originalBuffer).digest('hex');
         let currentContent = originalContent;
 
         for (const op of operations) {
           let operationReplacements = 0;
           let tempContent = '';
           if (op.isRegex) {
-            try { // Keep try/catch for regex compilation errors
+            try {
               const regex = new RegExp(op.search, op.flags ?? '');
               tempContent = currentContent.replace(regex, op.replace);
               if (tempContent !== currentContent) {
+                // Count matches accurately for regex replacement
                 operationReplacements = (currentContent.match(regex) || []).length;
               }
             } catch (e: unknown) {
               const errorMsg = e instanceof Error ? e.message : 'Unknown regex error';
-              // Throw specific error for this operation within the file processing try/catch
               throw new Error(`Invalid regex '${op.search}': ${errorMsg}`);
             }
           } else {
             const searchString = op.search;
+            // Count occurrences for simple string replacement
             operationReplacements = currentContent.split(searchString).length - 1;
             if (operationReplacements > 0) {
               tempContent = currentContent.replaceAll(searchString, op.replace);
             } else {
-              tempContent = currentContent;
+              tempContent = currentContent; // No change if no occurrences
             }
           }
 
@@ -156,14 +177,18 @@ export const replaceContentTool = defineTool({
         } // End operations loop
 
         if (currentContent !== originalContent) {
-          await writeFile(fullPath, currentContent, 'utf-8');
           contentChanged = true;
-        }
+          const finalBuffer = Buffer.from(currentContent, 'utf-8');
+          newFileHash = createHash('sha256').update(finalBuffer).digest('hex');
 
+          if (!isDryRun) {
+            await writeFile(fullPath, finalBuffer);
+          }
+        } else {
+          newFileHash = oldFileHash;
+        }
       } catch (e: unknown) {
-        // Handle file read/write or regex errors gracefully
         fileSuccess = false;
-        overallSuccess = false;
         let errorCode: string | null = null;
         let errorMsg = 'Unknown error';
 
@@ -184,30 +209,29 @@ export const replaceContentTool = defineTool({
         }
       }
 
-      // Push result for this file
+      // Push result for this file (including errors)
       fileResults.push({
-        path: relativeFilePath, success: fileSuccess, replacementsMade: totalReplacementsMade, contentChanged: contentChanged, error: fileError, suggestion: !fileSuccess ? suggestion : undefined,
+        path: relativeFilePath,
+        success: fileSuccess,
+        dryRun: isDryRun,
+        replacementsMade: totalReplacementsMade,
+        contentChanged: contentChanged,
+        oldHash: oldFileHash,
+        newHash: fileSuccess ? newFileHash : undefined, // Only include newHash on success
+        error: fileError,
+        suggestion: !fileSuccess ? suggestion : undefined,
       });
     } // End files loop
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Replace operation completed. Overall success: ${overallSuccess}`,
-        results: fileResults,
-      },
-      null,
-      2,
-    );
+    // Construct parts array
+    const finalParts: Part[] = [
+      jsonPart(fileResults, ReplaceContentOutputSchema),
+      textPart(
+        `Replace operation attempted for ${resolvedFilePaths.length} matched file(s). ${fileResults.filter((r) => r.success).length} processed successfully, ${fileResults.filter((r) => r.contentChanged).length} changed.`,
+      ), // Added summary
+    ];
 
-    // Return the specific output structure
-    return {
-      success: overallSuccess,
-      results: fileResults,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Return the parts array directly
+    return finalParts;
   },
 });
-
-// Ensure necessary types are still exported
-// export type { ReplaceContentToolInput, ReplaceContentToolOutput, FileReplaceResult, ReplaceOperation }; // Removed duplicate export

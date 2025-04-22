@@ -1,51 +1,56 @@
 import path from 'node:path';
-import type { McpToolExecuteOptions, TextPart } from '@sylphlab/mcp-core'; // Import TextPart and McpToolExecuteOptions
-import type { IEmbeddingFunction } from 'chromadb'; // Import type
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part and McpToolExecuteOptions
+import type { IEmbeddingFunction } from 'chromadb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { indexStatusTool } from './indexStatusTool.js'; // Import the tool
+import type { IndexStatusResult } from './indexStatusTool.js'; // Import correct result type
 
 // --- Mocks ---
 const mockCount = vi.fn();
-// Declare mock inside factory
-// const mockGetRagCollection = vi.fn();
+let mockGetRagCollection: any; // Declare here, assign in beforeEach
 
-// Mock internal modules
-vi.mock('../chroma.js', () => {
-  // Declare mock inside factory
-  const mockGetRagCollectionInternal = vi.fn();
-  return { getRagCollection: mockGetRagCollectionInternal };
-});
-
-// Get mock instance after mocking (needs await or top-level await)
-// Get it inside tests or beforeEach instead
-// biome-ignore lint/suspicious/noExplicitAny: Mock variable type
-let mockGetRagCollection: any;
-
-// --- Dynamic Import ---
-// Import the tool *after* mocks are set up
-import { indexStatusTool } from './indexStatusTool.js';
-
-// --- Test Suite ---
-describe('indexStatusTool', () => {
-  const workspaceRoot = '/fake/workspace';
-  const expectedDbPath = path.join(workspaceRoot, '.mcp', 'chroma_db');
+vi.mock('../chroma.js', async () => {
+  const actual = await vi.importActual('../chroma.js');
+  mockGetRagCollection = vi.fn(); // Assign mock function here
+  return {
+    ...actual, // Keep other exports if any
+    getRagCollection: mockGetRagCollection,
+  };
+  // Helper to extract JSON result from parts
+  // Use generics to handle different result types
+  function getJsonResult<T>(parts: Part[]): T[] | undefined {
+    // console.log('DEBUG: getJsonResult received parts:', JSON.stringify(parts, null, 2)); // Keep commented for now
+    const jsonPart = parts.find((part) => part.type === 'json');
+    // console.log('DEBUG: Found jsonPart:', JSON.stringify(jsonPart, null, 2)); // Keep commented for now
+    // Check if jsonPart exists and has a 'value' property (which holds the actual data)
+    if (jsonPart && jsonPart.value !== undefined) {
+      // console.log('DEBUG: typeof jsonPart.value:', typeof jsonPart.value); // Keep commented for now
+      // console.log('DEBUG: Attempting to use jsonPart.value directly'); // Keep commented for now
+      try {
+        // Assuming the value is already the correct array type based on defineTool's outputSchema
+        return jsonPart.value as T[];
+      } catch (_e) {
+        return undefined;
+      }
+    }
+    // console.log('DEBUG: jsonPart or jsonPart.value is undefined or null.'); // Keep commented for now
+    return undefined;
+  }
   const mockCollectionName = 'mock-collection';
-  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: workspaceRoot }; // Define options
+  const defaultOptions: McpToolExecuteOptions = { workspaceRoot: workspaceRoot };
 
   beforeEach(async () => {
-    // Make async
     // Reset mocks
     mockCount.mockReset();
-    // Get mock instance here
-    mockGetRagCollection = vi.mocked((await import('../chroma.js')).getRagCollection);
-    mockGetRagCollection.mockClear(); // Clear the mock
-
-    // Mock the resolved value of getRagCollection to return a mock collection object
-    mockGetRagCollection.mockResolvedValue({
-      count: mockCount,
-      name: mockCollectionName,
-      // Add other collection methods if needed, though only count and name are used
-      // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
-    } as any); // Cast to any
+    if (mockGetRagCollection) {
+      // Ensure mock is assigned before clearing
+      mockGetRagCollection.mockClear();
+      // Mock the resolved value of getRagCollection
+      mockGetRagCollection.mockResolvedValue({
+        count: mockCount,
+        name: mockCollectionName,
+      } as any);
+    }
 
     // Disable console logging
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -54,87 +59,73 @@ describe('indexStatusTool', () => {
   });
 
   afterEach(() => {
-    vi.restoreAllMocks(); // Restore console
+    vi.restoreAllMocks();
   });
 
   it('should return the item count and collection name on success', async () => {
     const itemCount = 123;
     mockCount.mockResolvedValue(itemCount);
 
-    // Input is optional/ignored, pass undefined or empty object
-    const result = await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
+    const parts = await indexStatusTool.execute(undefined, defaultOptions);
+    const results = getJsonResult(parts);
 
     expect(mockGetRagCollection).toHaveBeenCalledWith(
-      expect.objectContaining({
-        // Check if a dummy embedding function was passed
-        generate: expect.any(Function),
-      }),
+      expect.objectContaining({ generate: expect.any(Function) }),
       workspaceRoot,
       expectedDbPath,
     );
     expect(mockCount).toHaveBeenCalled();
-    expect(result.success).toBe(true);
-    expect(result.count).toBe(itemCount);
-    expect(result.collectionName).toBe(mockCollectionName);
-    expect(result.content).toHaveLength(1);
-    expect((result.content[0] as TextPart).text).toBe(
-      `Index contains ${itemCount} items in collection "${mockCollectionName}".`,
-    );
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.count).toBe(itemCount);
+    expect(itemResult.collectionName).toBe(mockCollectionName);
+    expect(itemResult.error).toBeUndefined();
   });
 
   it('should handle errors when getting the collection', async () => {
     const collectionError = new Error('Failed to connect to DB');
     mockGetRagCollection.mockRejectedValue(collectionError);
 
-    const result = await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
+    // Expect the execute call itself to throw now
+    await expect(indexStatusTool.execute(undefined, defaultOptions)).rejects.toThrow(
+      collectionError.message,
+    );
 
     expect(mockGetRagCollection).toHaveBeenCalled();
-    expect(mockCount).not.toHaveBeenCalled(); // count() should not be called
-    expect(result.success).toBe(false);
-    expect(result.count).toBeUndefined(); // Expect undefined as error is caught by defineTool
-    expect(result.collectionName).toBeUndefined(); // Expect undefined
-    expect(result.error).toBe(`Tool 'getIndexStatus' execution failed: ${collectionError.message}`); // Expect prefixed error
-    expect(result.content).toHaveLength(1);
-    expect((result.content[0] as TextPart).text).toBe( // Content text should also be prefixed
-      `Tool execution failed: ${collectionError.message}`,
-    );
+    expect(mockCount).not.toHaveBeenCalled();
   });
 
   it('should handle errors when counting items', async () => {
     const countError = new Error('Failed to count items');
     mockCount.mockRejectedValue(countError);
 
-    const result = await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
+    // Expect the execute call itself to throw now
+    await expect(indexStatusTool.execute(undefined, defaultOptions)).rejects.toThrow(
+      countError.message,
+    );
 
     expect(mockGetRagCollection).toHaveBeenCalled();
     expect(mockCount).toHaveBeenCalled();
-    expect(result.success).toBe(false);
-    expect(result.count).toBeUndefined(); // Expect undefined as error is caught by defineTool
-    expect(result.collectionName).toBeUndefined(); // Expect undefined
-    expect(result.error).toBe(`Tool 'getIndexStatus' execution failed: ${countError.message}`); // Expect prefixed error
-    expect(result.content).toHaveLength(1);
-    expect((result.content[0] as TextPart).text).toBe( // Content text should also be prefixed
-      `Tool execution failed: ${countError.message}`,
-    );
   });
 
-  it('should warn if dummy embedding function generate is called', async () => {
+  // This test might be less relevant now as errors are thrown, but keep if needed
+  it('should warn if dummy embedding function generate is called (though unlikely)', async () => {
     const itemCount = 5;
     mockCount.mockResolvedValue(itemCount);
 
-    // Modify the mock to capture the passed embedding function
-    // biome-ignore lint/suspicious/noExplicitAny: Variable to capture mock parameter
     let capturedEmbeddingFn: any;
     mockGetRagCollection.mockImplementation(async (embeddingFn: IEmbeddingFunction) => {
-      // Add type
       capturedEmbeddingFn = embeddingFn;
-      // biome-ignore lint/suspicious/noExplicitAny: Casting mock object for return value typing
-      return { count: mockCount, name: mockCollectionName } as any; // Cast to any
+      return { count: mockCount, name: mockCollectionName } as any;
     });
 
-    await indexStatusTool.execute(undefined, defaultOptions); // Pass options object
+    await indexStatusTool.execute(undefined, defaultOptions);
 
-    // Call the captured dummy function's generate method
-    await capturedEmbeddingFn.generate(['test']);
+    // Call the captured dummy function's generate method - it should just return empty arrays
+    const dummyResult = await capturedEmbeddingFn.generate(['test']);
+    expect(dummyResult).toEqual([[]]); // Dummy function returns empty arrays
   });
 });

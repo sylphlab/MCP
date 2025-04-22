@@ -9,7 +9,7 @@ import { startMcpServer } from '@sylphlab/mcp-utils';
 
 // Import the tool object from the core library
 import { getTextTool } from '@sylphlab/mcp-pdf-core';
-import { name, version, description } from '../package.json'; // Import metadata
+import { description, name, version } from '../package.json'; // Import metadata
 
 // --- Server Setup ---
 

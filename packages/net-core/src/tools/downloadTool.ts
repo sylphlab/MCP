@@ -1,25 +1,50 @@
-import type * as http from 'node:http'; // Import type only for placeholder
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  BaseMcpToolOutput, // BaseMcpToolOutput might not be needed directly
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  validateAndResolvePath,
-} from '@sylphlab/mcp-core';
-import { downloadToolInputSchema } from './downloadTool.schema.js'; // Added .js
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import { z } from 'zod';
+import { downloadToolInputSchema } from './downloadTool.schema.js';
 import type {
   DownloadInputItem,
-  DownloadResultItem,
+  // DownloadResultItem is defined below
   DownloadToolInput,
-  DownloadToolOutput,
-} from './downloadTool.types'; // Import new types
+  // DownloadToolOutput is inferred from schema
+} from './downloadTool.types';
 
-import * as fs from 'node:fs'; // For createWriteStream
-import * as fsp from 'node:fs/promises'; // For access, mkdir, unlink
-import type { ClientRequest, IncomingMessage, RequestOptions } from 'node:http'; // Import necessary types
+import * as fs from 'node:fs';
+import * as fsp from 'node:fs/promises';
+import type { IncomingMessage } from 'node:http';
 import * as https from 'node:https';
 import * as path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+
+// --- Output Types ---
+export interface DownloadResultItem {
+  /** Optional ID from the input item. */
+  id?: string;
+  /** The destination path provided in the input. */
+  path: string;
+  /** Whether the download operation for this item was successful. */
+  success: boolean;
+  /** Optional message providing more details (e.g., success message). */
+  message?: string;
+  /** Optional error message if the operation failed for this item. */
+  error?: string;
+  /** Optional suggestion for fixing the error. */
+  suggestion?: string;
+}
+
+// Zod Schema for the individual result
+const DownloadResultItemSchema = z.object({
+  id: z.string().optional(),
+  path: z.string(),
+  success: z.boolean(),
+  message: z.string().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant array
+const DownloadToolOutputSchema = z.array(DownloadResultItemSchema);
 
 // --- Helper Function for Single Download ---
 
@@ -27,26 +52,23 @@ async function processSingleDownload(
   item: DownloadInputItem,
   options: McpToolExecuteOptions,
 ): Promise<DownloadResultItem> {
-  // Use options object
   const { id, url, destinationPath, overwrite } = item;
-  const { workspaceRoot, allowOutsideWorkspace } = options; // Extract from options
+  const { workspaceRoot, allowOutsideWorkspace } = options;
 
-  let absoluteDestPath: string | undefined; // Define here for use in catch block
+  let absoluteDestPath: string | undefined;
   try {
-    // 1. Validate and Resolve destinationPath using the core utility
+    // 1. Validate and Resolve destinationPath
     const validationResult = validateAndResolvePath(
       destinationPath,
       workspaceRoot,
       allowOutsideWorkspace,
-    ); // Use extracted values
+    );
     if (typeof validationResult !== 'string') {
-      // Validation failed, result is an error object
       const error = validationResult?.error ?? 'Unknown path validation error';
       const suggestion = validationResult?.suggestion ?? 'Review path and workspace settings.';
-      // Throw error to be caught by the main catch block below
       throw new Error(`Path validation failed: ${error} ${suggestion}`);
     }
-    absoluteDestPath = validationResult; // Path is validated and absolute
+    absoluteDestPath = validationResult;
 
     // Ensure target directory exists
     const destDir = path.dirname(absoluteDestPath);
@@ -54,34 +76,33 @@ async function processSingleDownload(
 
     // 2. Check file existence and overwrite flag
     try {
-      await fsp.access(absoluteDestPath); // Check if file exists (throws if not)
+      await fsp.access(absoluteDestPath);
       if (!overwrite) {
         throw new Error(
           `File already exists at '${destinationPath}'. Use overwrite: true to replace.`,
         );
       }
+      // If overwrite is true, attempt to delete existing file before download
+      await fsp.unlink(absoluteDestPath);
     } catch (error: unknown) {
-      // Check if error is an object with a code property
       const isEnoent =
         error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT';
-      // If the error is NOT ENOENT, re-throw it (this includes the "File already exists" error)
       if (!isEnoent) {
+        // Re-throw if it's not a 'file not found' error (includes the 'File already exists' error if overwrite is false)
         throw error;
       }
-      // Otherwise (if it IS ENOENT), do nothing and proceed, as the file not existing is acceptable here.
+      // If ENOENT, proceed (file doesn't exist or was just deleted)
     }
 
     // 3. Fetch and Stream (with basic redirect handling)
     const response = await new Promise<IncomingMessage>((resolve, reject) => {
-      // Use imported IncomingMessage
       let redirectCount = 0;
-      const maxRedirects = 5; // Limit redirects
+      const maxRedirects = 5;
 
       const makeRequest = (currentUrl: string) => {
         const request = https.get(currentUrl, (res) => {
           const statusCode = res.statusCode ?? 0;
 
-          // Handle redirects
           if (statusCode >= 300 && statusCode < 400 && res.headers.location) {
             redirectCount++;
             if (redirectCount > maxRedirects) {
@@ -89,20 +110,15 @@ async function processSingleDownload(
               res.resume();
               return;
             }
-            res.resume(); // Consume data from redirect response
-            // Make new request to the redirected URL
+            res.resume();
             makeRequest(res.headers.location);
             return;
           }
 
-          // Handle client/server errors
           if (statusCode < 200 || statusCode >= 300) {
             let errorBody = '';
             res.on('data', (chunk) => {
-              if (errorBody.length < 500) {
-                // Limit error body size
-                errorBody += chunk.toString();
-              }
+              if (errorBody.length < 500) errorBody += chunk.toString();
             });
             res.on('end', () => {
               reject(
@@ -114,81 +130,74 @@ async function processSingleDownload(
             res.resume();
             return;
           }
-
-          // Success
           resolve(res);
         });
 
         request.on('error', (err) => {
-          // Reject with an error that includes the prefix
           reject(new Error(`Network request failed: ${err.message}`));
         });
-
-        // Add a timeout (e.g., 30 seconds)
         request.setTimeout(30000, () => {
           request.destroy(new Error('Request timed out after 30 seconds'));
         });
-
         request.end();
       };
-      makeRequest(url); // Initial request
+      makeRequest(url);
     });
 
     // 4. Pipe to file
     const fileStream = fs.createWriteStream(absoluteDestPath);
-    // Wrap pipeline in try/catch to add prefix if it throws
     try {
       await pipeline(response, fileStream);
     } catch (pipeError: unknown) {
       throw new Error(
         `File write failed: ${pipeError instanceof Error ? pipeError.message : String(pipeError)}`,
-      ); // Add prefix for pipeline errors
+      );
     }
 
     // 5. Report success
     const successMsg = `Successfully downloaded '${url}' to '${destinationPath}'.`;
     return { id, path: destinationPath, success: true, message: successMsg };
   } catch (error: unknown) {
-    // Error message already includes prefix from validation, promise rejection, or pipeline catch
-    const errorMsg = `Download failed for item ${id ?? 'N/A'} (${destinationPath}): ${error instanceof Error ? error.message : String(error)}`;
-    // Attempt to clean up partially written file on error
+    const errorMsg = `Download failed for item ${id ?? url}: ${error instanceof Error ? error.message : String(error)}`;
+
+    // Attempt cleanup only if path was resolved
     if (absoluteDestPath) {
-      // Check if path was resolved before error
       try {
         await fsp.unlink(absoluteDestPath);
       } catch (cleanupError: unknown) {
-        // Log cleanup error but don't overwrite original error
-        // Check if cleanupError is an object with a code property before accessing it
         if (
           cleanupError &&
           typeof cleanupError === 'object' &&
           'code' in cleanupError &&
           cleanupError.code !== 'ENOENT'
         ) {
-          // Don't log if file didn't exist anyway
+          // Log or handle cleanup error if needed, but don't obscure original error
         }
       }
     }
-    // Determine suggestion based on error type if possible (optional enhancement)
+
     let suggestion: string | undefined;
-    // Check if error is an Error instance before accessing message
     if (error instanceof Error) {
-      // Use error.message directly as prefixes are added before this catch block now
       if (
         error.message?.includes('ENOTFOUND') ||
         error.message?.includes('ECONNREFUSED') ||
-        error.message?.includes('Network request failed')
+        error.message?.includes('Network request failed') ||
+        error.message?.includes('timed out')
       ) {
         suggestion = 'Check the URL and network connectivity.';
       } else if (error.message?.includes('EACCES')) {
-        suggestion = 'Check file system write permissions.';
+        suggestion = 'Check file system write permissions for the destination directory.';
       } else if (error.message?.includes('File already exists')) {
         suggestion = 'Set overwrite: true if you want to replace the existing file.';
       } else if (error.message?.includes('Path validation failed')) {
-        // Suggestion is already included in the error message from validation
-        suggestion = error.message.split('Path validation failed: ')[1];
+        // Extract suggestion from the validation error message itself
+        suggestion =
+          error.message.split('Path validation failed: ')[1]?.split('Suggestion: ')[1] ??
+          'Check path validity and workspace settings.';
       } else if (error.message?.includes('File write failed')) {
         suggestion = 'Check disk space and file system permissions.';
+      } else {
+        suggestion = 'Review the error message and input parameters.';
       }
     }
 
@@ -197,7 +206,7 @@ async function processSingleDownload(
       path: destinationPath,
       success: false,
       error: errorMsg,
-      message: errorMsg,
+      // message: errorMsg, // Keep message for success only
       suggestion,
     };
   }
@@ -209,59 +218,37 @@ export const downloadTool = defineTool({
   name: 'downloadTool',
   description: 'Downloads one or more files from URLs to specified paths within the workspace.',
   inputSchema: downloadToolInputSchema,
+  outputSchema: DownloadToolOutputSchema, // Use the array schema
 
-  execute: async ( // Core logic passed to defineTool
-    input: DownloadToolInput,
-    options: McpToolExecuteOptions, // Options are received here
-  ): Promise<DownloadToolOutput> => { // Still returns the specific output type
+  execute: async (input: DownloadToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
+    // Return Part[]
 
-    // Input validation is handled by registerTools/SDK
-    // Add upfront check for workspaceRoot within options (still useful)
-    if (!options?.workspaceRoot) {
-      // Return error structure instead of throwing
-      const errorMsg = 'Workspace root is not available in options.';
-      return {
-        success: false,
-        error: errorMsg,
-        results: [], // Ensure results is an empty array on validation failure
-        content: [{ type: 'text', text: errorMsg }],
-      };
+    // Zod validation (throw error on failure)
+    const parsed = downloadToolInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      throw new Error(`Input validation failed: ${errorMessages}`);
     }
 
-    const { items } = input;
+    // Add upfront check for workspaceRoot within options
+    if (!options?.workspaceRoot) {
+      throw new Error('Workspace root is not available in options.');
+    }
+
+    const { items } = parsed.data;
     const results: DownloadResultItem[] = [];
-    let overallSuccess = false; // Track if at least one download succeeds
 
-    // Removed the outermost try/catch block; defineTool handles unexpected errors
-
+    // Process downloads (could be parallelized with Promise.all for performance)
     for (const item of items) {
-      // processSingleDownload handles its own errors for individual downloads
       const result = await processSingleDownload(item, options);
       results.push(result);
-      if (result.success) {
-        overallSuccess = true; // Mark overall success if any item succeeds
-      }
-      // Note: We don't mark overallSuccess = false here if one fails, partial success is allowed
     }
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Processed ${items.length} download requests. Overall success (at least one): ${overallSuccess}`,
-        results: results,
-      },
-      null,
-      2,
-    );
-
-    // Return the specific output structure
-    return {
-      success: overallSuccess, // Success is true if at least one download succeeded
-      results: results,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Return the results wrapped in jsonPart
+    return [jsonPart(results, DownloadToolOutputSchema)];
   },
 });
 
 // Ensure necessary types are still exported
-export type { DownloadToolInput, DownloadToolOutput, DownloadResultItem, DownloadInputItem };

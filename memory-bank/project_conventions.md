@@ -39,3 +39,10 @@
 
 **Language:**
 - English for all code, comments, commit messages, and documentation.
+
+**Tool Implementation (Adapter Architecture v7):**
+- **Output Convention:** Tool `execute` functions MUST return a `Promise<Part[]>`.
+- **`Part` Type:** Define and use a standard `Part` union type (e.g., in `@sylphlab/mcp-core` or a shared utils package) including `text`, `json` (with `value` and `schema`), `image`, `audio`, `fileRef`, `error`.
+- **Zod Schemas:** Define Zod schemas for `Part` types and any structured data within `jsonPart`.
+- **Tool Definition:** Tools are defined with `name`, `description`, `inputSchema` (Zod). A top-level `outputSchema` is NOT used in the tool definition itself but attached to the `jsonPart` if applicable.
+- **Adapters:** Responsibility for converting `Part[]` to specific SDK formats (MCP, Vercel AI SDK) lies with Adapters, typically implemented in server packages or shared utils (e.g., `@sylphlab/mcp-utils`).

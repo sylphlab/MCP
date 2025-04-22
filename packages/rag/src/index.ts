@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 const { name, version, description } = require('../package.json'); // Import metadata directly
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { McpTool } from '@sylphlab/mcp-core'; // Import McpTool type
 // Import specific functions and types directly from rag-core
 import {
   type Chunk,
@@ -28,7 +29,6 @@ import {
   queryIndexTool,
   // No longer need getRagCollection directly
 } from '@sylphlab/mcp-rag-core';
-import type { McpTool } from '@sylphlab/mcp-core'; // Import McpTool type
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file

@@ -5,6 +5,7 @@ export { jsonTool } from './tools/jsonTool.js';
 export { jsonToolInputSchema, JsonOperationEnum } from './tools/jsonTool.schema.js'; // Export schema from schema file
 export type {
   JsonToolInput,
-  JsonToolOutput,
+  JsonResultItem,
+  JsonInputItem,
   JsonOperation, // Still useful to export the operation type
 } from './tools/jsonTool.js';

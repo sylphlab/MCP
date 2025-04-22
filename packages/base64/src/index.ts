@@ -9,7 +9,7 @@ import { startMcpServer } from '@sylphlab/mcp-utils';
 
 // Import tool objects from the core library
 import { decodeBase64Tool, encodeBase64Tool } from '@sylphlab/mcp-base64-core';
-import { name, version, description } from '../package.json'; // Import metadata
+import { description, name, version } from '../package.json'; // Import metadata
 
 // --- Server Setup ---
 
@@ -23,7 +23,7 @@ const tools: McpTool<any, any>[] = [encodeBase64Tool, decodeBase64Tool];
     await startMcpServer({
       name, // Use name from package.json
       version, // Use version from package.json
-  description, // Use description from package.json
+      description, // Use description from package.json
       tools,
     });
   } catch (_error) {

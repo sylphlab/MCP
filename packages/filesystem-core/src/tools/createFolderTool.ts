@@ -1,15 +1,17 @@
 import { mkdir } from 'node:fs/promises';
-import path from 'node:path';
 import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
 import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-  PathValidationError, // PathValidationError might not be needed directly
+  // Import values normally
+  jsonPart, // Import helper value
   validateAndResolvePath,
-} from '@sylphlab/mcp-core'; // Import options type
-import type { z } from 'zod';
+} from '@sylphlab/mcp-core';
+import type {
+  // Import types separately
+  McpToolExecuteOptions,
+  Part,
+} from '@sylphlab/mcp-core'; // Import base types and validation util
+import { z } from 'zod'; // Import z directly
+// import type { z } from 'zod'; // z imported above
 import { createFolderToolInputSchema } from './createFolderTool.schema.js'; // Import schema (added .js)
 
 // Infer the TypeScript type from the Zod schema
@@ -24,22 +26,34 @@ export interface CreateFolderResult {
   suggestion?: string;
 }
 
+// Zod Schema for the individual folder creation result (used in outputSchema)
+const CreateFolderResultSchema = z.object({
+  path: z.string(),
+  success: z.boolean(),
+  message: z.string().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
 // Extend the base output type
-export interface CreateFolderToolOutput extends BaseMcpToolOutput {
-  error?: string;
-  results: CreateFolderResult[];
-}
+// Removed CreateFolderToolOutput - execute now returns InternalToolExecutionResult
+
+// Define the output schema instance as a constant
+const CreateFolderOutputSchema = z.array(CreateFolderResultSchema);
 
 // --- Tool Definition using defineTool ---
 export const createFolderTool = defineTool({
   name: 'createFolderTool',
   description: 'Creates one or more new folders at the specified paths within the workspace.',
   inputSchema: createFolderToolInputSchema,
+  outputSchema: CreateFolderOutputSchema, // Use the constant schema instance
 
-  execute: async ( // Core logic passed to defineTool
+  execute: async (
+    // Core logic passed to defineTool
     input: CreateFolderToolInput,
     options: McpToolExecuteOptions,
-  ): Promise<CreateFolderToolOutput> => { // Still returns the specific output type
+  ): Promise<Part[]> => {
+    // Return Part[] directly
 
     // Zod validation (throw error on failure)
     const parsed = createFolderToolInputSchema.safeParse(input);
@@ -47,18 +61,12 @@ export const createFolderTool = defineTool({
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
-      // Return error structure instead of throwing
-      return {
-        success: false,
-        error: `Input validation failed: ${errorMessages}`,
-        results: [], // Ensure results is an empty array on validation failure
-        content: [{ type: 'text', text: `Input validation failed: ${errorMessages}` }],
-      };
+      throw new Error(`Input validation failed: ${errorMessages}`);
     }
     const { folderPaths } = parsed.data;
 
     const results: CreateFolderResult[] = [];
-    let anySuccess = false;
+    // let anySuccess = false; // Removed unused variable
 
     for (const folderPath of folderPaths) {
       let itemSuccess = false;
@@ -86,7 +94,7 @@ export const createFolderTool = defineTool({
       try {
         await mkdir(fullPath, { recursive: true });
         itemSuccess = true;
-        anySuccess = true; // Mark overall success if at least one folder is created
+        // anySuccess = true; // Removed unused variable
         message = `Folder created successfully at '${folderPath}'.`;
       } catch (e: unknown) {
         itemSuccess = false;
@@ -106,24 +114,6 @@ export const createFolderTool = defineTool({
       });
     } // End for loop
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Create folder operation completed. Overall success (at least one): ${anySuccess}`,
-        results: results,
-      },
-      null,
-      2,
-    );
-
-    // Return the specific output structure
-    return {
-      success: anySuccess, // Success is true if at least one folder was created
-      results: results,
-      content: [{ type: 'text', text: contentText }],
-    };
+    return [jsonPart(results, CreateFolderOutputSchema)]; // Return the parts array directly
   },
 });
-
-// Ensure necessary types are still exported
-// export type { CreateFolderToolInput, CreateFolderToolOutput, CreateFolderResult }; // Removed duplicate export

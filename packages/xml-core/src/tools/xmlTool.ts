@@ -1,36 +1,44 @@
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-} from '@sylphlab/mcp-core';
-import type { z } from 'zod';
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import { z } from 'zod';
 import {
   type XmlInputItemSchema,
   type XmlOperationEnum,
   xmlToolInputSchema,
-} from './xmlTool.schema'; // Import schema
+} from './xmlTool.schema';
 
 // --- TypeScript Types ---
 export type XmlOperation = z.infer<typeof XmlOperationEnum>;
 export type XmlInputItem = z.infer<typeof XmlInputItemSchema>;
 export type XmlToolInput = z.infer<typeof xmlToolInputSchema>;
 
+// --- Output Types ---
 // Interface for a single XML result item
 export interface XmlResultItem {
-  id?: string; // Corresponds to input id if provided
+  /** Optional ID from the input item. */
+  id?: string;
+  /** Whether the XML operation for this item was successful. */
   success: boolean;
-  result?: unknown; // Parsed object (placeholder for now)
+  /** The result of the operation (e.g., parsed object - currently placeholder), if successful. */
+  result?: unknown;
+  /** Error message, if the operation failed for this item. */
   error?: string;
+  /** Suggestion for fixing the error. */
   suggestion?: string;
 }
 
-// Output interface for the tool (includes multiple results)
-export interface XmlToolOutput extends BaseMcpToolOutput {
-  results: XmlResultItem[];
-  error?: string; // Optional overall error if the tool itself fails unexpectedly
-}
+// Zod Schema for the individual result
+const XmlResultItemSchema = z.object({
+  id: z.string().optional(),
+  success: z.boolean(),
+  result: z.unknown().optional(), // Placeholder uses object, keep unknown
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant array
+const XmlToolOutputSchema = z.array(XmlResultItemSchema);
 
 // --- Helper Function ---
 
@@ -45,12 +53,11 @@ async function processSingleXml(item: XmlInputItem): Promise<XmlResultItem> {
 
     switch (operation) {
       case 'parse':
-        // Simple placeholder logic - check for opening error tag start
+        // Simple placeholder logic
         if (data.includes('<error')) {
-          // Changed to catch <error> or <error/>
           throw new Error('Simulated XML parse error (contains <error tag)');
         }
-        // Placeholder: Replace with actual XML parsing library (e.g., fast-xml-parser)
+        // Placeholder: Replace with actual XML parsing library
         operationResult = { simulated: `parsed_data_for_${id ?? data.substring(0, 10)}` };
         suggestion =
           'Parsing simulated successfully. Replace with actual XML parser for real results.';
@@ -65,7 +72,6 @@ async function processSingleXml(item: XmlInputItem): Promise<XmlResultItem> {
     const errorMsg = e instanceof Error ? e.message : 'Unknown error';
     resultItem.error = `XML operation '${operation}' failed: ${errorMsg}`;
     resultItem.suggestion = 'Ensure input is valid XML. Check for syntax errors.'; // Generic suggestion
-    // Ensure success is false if an error occurred
     resultItem.success = false;
   }
   return resultItem;
@@ -76,49 +82,33 @@ export const xmlTool = defineTool({
   name: 'xml',
   description:
     'Performs XML operations (currently parse with placeholder logic) on one or more inputs.',
-  inputSchema: xmlToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: xmlToolInputSchema,
+  outputSchema: XmlToolOutputSchema, // Use the array schema
 
-  execute: async ( // Core logic passed to defineTool
-    input: XmlToolInput,
-    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
-  ): Promise<XmlToolOutput> => { // Still returns the specific output type
+  execute: async (input: XmlToolInput, _options: McpToolExecuteOptions): Promise<Part[]> => {
+    // Return Part[]
 
-    // Input validation is handled by registerTools/SDK
-    const { items } = input;
+    // Zod validation (throw error on failure)
+    const parsed = xmlToolInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      throw new Error(`Input validation failed: ${errorMessages}`);
+    }
+    const { items } = parsed.data;
 
     const results: XmlResultItem[] = [];
-    let overallSuccess = true;
-
-    // Removed the outermost try/catch block; defineTool handles unexpected errors
 
     // Process requests sequentially
     for (const item of items) {
-      // processSingleXml handles its own errors for XML operations
       const result = await processSingleXml(item);
       results.push(result);
-      if (!result.success) {
-        overallSuccess = false; // Mark overall as failed if any item fails
-      }
     }
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Processed ${items.length} XML operations. Overall success: ${overallSuccess}`,
-        results: results,
-      },
-      null,
-      2,
-    );
-
-    // Return the specific output structure
-    return {
-      success: overallSuccess,
-      results: results,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Return the results wrapped in jsonPart
+    return [jsonPart(results, XmlToolOutputSchema)];
   },
 });
 
-// Ensure necessary types are still exported
-// export type { XmlToolInput, XmlToolOutput, XmlResultItem, XmlInputItem, XmlOperation }; // Removed duplicate export
+// Export necessary types

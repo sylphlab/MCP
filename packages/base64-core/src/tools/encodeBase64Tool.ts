@@ -1,54 +1,93 @@
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-} from '@sylphlab/mcp-core';
-import type { z } from 'zod';
-import { EncodeBase64ToolInputSchema } from './encodeBase64Tool.schema.js'; // Import schema (added .js)
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import { z } from 'zod';
+import { EncodeBase64ToolInputSchema } from './encodeBase64Tool.schema.js';
 
 // --- TypeScript Type from Schema ---
 export type EncodeBase64ToolInput = z.infer<typeof EncodeBase64ToolInputSchema>;
 
-// --- Output Interface ---
-export interface EncodeBase64ToolOutput extends BaseMcpToolOutput {
-  encoded?: string; // The Base64 encoded string
+// --- Output Types ---
+export interface EncodeBase64Result {
+  /** The original input string. */
+  input: string;
+  /** Whether the encoding was successful. */
+  success: boolean;
+  /** The Base64 encoded string, if successful. */
+  encoded?: string;
+  /** Error message, if encoding failed. */
   error?: string;
+  /** Suggestion for fixing the error. */
+  suggestion?: string;
 }
+
+// Zod Schema for the individual result
+const EncodeBase64ResultSchema = z.object({
+  input: z.string(),
+  success: z.boolean(),
+  encoded: z.string().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant array
+const EncodeBase64OutputSchema = z.array(EncodeBase64ResultSchema);
 
 // --- Tool Definition using defineTool ---
 export const encodeBase64Tool = defineTool({
   name: 'encodeBase64',
   description: 'Encodes a UTF-8 string into Base64.',
   inputSchema: EncodeBase64ToolInputSchema,
+  outputSchema: EncodeBase64OutputSchema, // Use the array schema
 
-  execute: async ( // Core logic passed to defineTool
+  execute: async (
     input: EncodeBase64ToolInput,
-    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
-  ): Promise<EncodeBase64ToolOutput> => { // Still returns the specific output type
+    _options: McpToolExecuteOptions,
+  ): Promise<Part[]> => {
+    // Return Part[]
 
-    const { input: textToEncode } = input;
+    // Zod validation (throw error on failure)
+    const parsed = EncodeBase64ToolInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      throw new Error(`Input validation failed: ${errorMessages}`);
+    }
+    const { input: textToEncode } = parsed.data;
 
-    // Removed try/catch, defineTool wrapper handles errors
+    const results: EncodeBase64Result[] = [];
+    let encoded: string | undefined;
+    let error: string | undefined;
+    let suggestion: string | undefined;
+    let success = false;
 
-    // Test-specific error trigger (can be kept if needed for testing wrapper)
-    if (textToEncode === 'trigger error') {
-      throw new Error('Simulated encoding error');
+    try {
+      // Test-specific error trigger (can be kept if needed for testing wrapper)
+      if (textToEncode === 'trigger error') {
+        throw new Error('Simulated encoding error');
+      }
+
+      // In Node.js environment
+      encoded = Buffer.from(textToEncode, 'utf-8').toString('base64');
+      success = true;
+    } catch (e: unknown) {
+      success = false;
+      error = e instanceof Error ? e.message : 'Unknown encoding error';
+      suggestion = 'Verify the input string or check for unexpected errors.';
+      encoded = undefined; // Ensure encoded is undefined on error
     }
 
-    // In Node.js environment
-    const encoded = Buffer.from(textToEncode, 'utf-8').toString('base64');
+    // Push the single result
+    results.push({
+      input: textToEncode,
+      success,
+      encoded,
+      error,
+      suggestion,
+    });
 
-    // Construct the success output
-    const contentText = JSON.stringify({ success: true, encoded: encoded }, null, 2);
-    return {
-      success: true,
-      encoded: encoded, // Keep original field for potential direct use
-      content: [{ type: 'text', text: contentText }], // Put JSON in content
-    };
+    // Return the result wrapped in jsonPart
+    return [jsonPart(results, EncodeBase64OutputSchema)];
   },
 });
-
-// Ensure necessary types are still exported
-// export type { EncodeBase64ToolInput, EncodeBase64ToolOutput }; // Removed duplicate export

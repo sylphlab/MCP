@@ -1,56 +1,69 @@
 import { createHash } from 'node:crypto';
-import { defineTool } from '@sylphlab/mcp-core'; // Import the helper
-import {
-  type BaseMcpToolOutput,
-  type McpTool, // McpTool might not be needed directly
-  type McpToolExecuteOptions,
-  McpToolInput, // McpToolInput might not be needed directly
-} from '@sylphlab/mcp-core';
-import type { z } from 'zod';
+import { defineTool } from '@sylphlab/mcp-core';
+import { jsonPart } from '@sylphlab/mcp-core';
+import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import { z } from 'zod';
 import {
   type HashAlgorithmEnum,
   type HashItemSchema,
   hashToolInputSchema,
-} from './hashTool.schema.js'; // Import schema (added .js)
+} from './hashTool.schema.js';
 
 // --- TypeScript Types ---
 export type HashAlgorithm = z.infer<typeof HashAlgorithmEnum>;
-export type HashInputItem = z.infer<typeof HashItemSchema>; // Fixed schema name
+export type HashInputItem = z.infer<typeof HashItemSchema>;
 export type HashToolInput = z.infer<typeof hashToolInputSchema>;
 
+// --- Output Types ---
 // Interface for a single hash result item
 export interface HashResultItem {
+  /** Optional ID from the input item. */
   id?: string;
+  /** Whether the hash operation for this item was successful. */
   success: boolean;
-  result?: string; // The computed hash
+  /** The computed hash string (hex encoded), if successful. */
+  result?: string;
+  /** Error message, if hashing failed for this item. */
   error?: string;
+  /** Suggestion for fixing the error. */
   suggestion?: string;
 }
 
-// Output interface for the tool (includes multiple results)
-export interface HashToolOutput extends BaseMcpToolOutput {
-  results: HashResultItem[];
-  error?: string; // Optional overall error if the tool itself fails unexpectedly
-}
+// Zod Schema for the individual result
+const HashResultItemSchema = z.object({
+  id: z.string().optional(),
+  success: z.boolean(),
+  result: z.string().optional(),
+  error: z.string().optional(),
+  suggestion: z.string().optional(),
+});
+
+// Define the output schema instance as a constant array
+const HashToolOutputSchema = z.array(HashResultItemSchema);
 
 // --- Helper Function ---
 
 // Helper function to process a single hash item
 async function processSingleHash(item: HashInputItem): Promise<HashResultItem> {
   const { id, algorithm, data } = item;
-  const resultItem: HashResultItem = { id, success: false }; // Initialize success to false
+  const resultItem: HashResultItem = { id, success: false };
 
   try {
     const hashResult = createHash(algorithm).update(data).digest('hex');
-
     resultItem.success = true;
     resultItem.result = hashResult;
   } catch (e: unknown) {
-    // Catch errors during the actual hash operation
     const errorMsg = e instanceof Error ? e.message : 'Unknown hashing error';
     resultItem.error = `Hash operation failed: ${errorMsg}`;
-    resultItem.suggestion = 'Check algorithm name and input data type.';
-    // Ensure success is false if an error occurred
+    // Check if the error is likely due to an invalid algorithm
+    if (
+      errorMsg.includes('Digest method not supported') ||
+      errorMsg.includes('Unknown algorithm')
+    ) {
+      resultItem.suggestion = `The algorithm '${algorithm}' is not supported by the underlying crypto library. Check available algorithms.`;
+    } else {
+      resultItem.suggestion = 'Check algorithm name and input data type.';
+    }
     resultItem.success = false;
   }
   return resultItem;
@@ -60,49 +73,32 @@ async function processSingleHash(item: HashInputItem): Promise<HashResultItem> {
 export const hashTool = defineTool({
   name: 'hash',
   description: 'Computes cryptographic hashes for one or more input strings.',
-  inputSchema: hashToolInputSchema, // Schema expects { items: [...] }
+  inputSchema: hashToolInputSchema,
+  outputSchema: HashToolOutputSchema, // Use the array schema
 
-  execute: async ( // Core logic passed to defineTool
-    input: HashToolInput,
-    _options: McpToolExecuteOptions, // Options might be used by defineTool wrapper
-  ): Promise<HashToolOutput> => { // Still returns the specific output type
+  execute: async (input: HashToolInput, _options: McpToolExecuteOptions): Promise<Part[]> => {
+    // Return Part[]
 
-    // Input validation is handled by registerTools/SDK before execute is called
-    const { items } = input;
+    // Zod validation (throw error on failure)
+    const parsed = hashToolInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
+        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+        .join('; ');
+      throw new Error(`Input validation failed: ${errorMessages}`);
+    }
+    const { items } = parsed.data;
 
     const results: HashResultItem[] = [];
-    let overallSuccess = true;
 
-    // Removed the outermost try/catch block; defineTool handles unexpected errors
-
-    // Process requests sequentially
+    // Process requests sequentially (or could be parallelized with Promise.all)
     for (const item of items) {
-      // processSingleHash already includes its own try/catch for hashing errors
       const result = await processSingleHash(item);
       results.push(result);
-      if (!result.success) {
-        overallSuccess = false; // Mark overall as failed if any item fails
-      }
+      // No need to track overallSuccess, the structure implies partial success is ok
     }
 
-    // Serialize the detailed results into the content field
-    const contentText = JSON.stringify(
-      {
-        summary: `Processed ${items.length} hash requests. Overall success: ${overallSuccess}`,
-        results: results,
-      },
-      null,
-      2,
-    );
-
-    // Return the specific output structure
-    return {
-      success: overallSuccess,
-      results: results,
-      content: [{ type: 'text', text: contentText }],
-    };
+    // Return the results wrapped in jsonPart
+    return [jsonPart(results, HashToolOutputSchema)];
   },
 });
-
-// Ensure necessary types are still exported
-// export type { HashToolInput, HashToolOutput, HashResultItem, HashInputItem, HashAlgorithm }; // Removed duplicate export

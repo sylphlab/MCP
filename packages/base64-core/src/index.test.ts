@@ -1,123 +1,162 @@
+import type { Part } from '@sylphlab/mcp-core'; // Import Part type
 import { describe, expect, it, vi } from 'vitest';
 // Import the actual tools and their types
 import {
   type DecodeBase64ToolInput,
-  DecodeBase64ToolOutput,
   type EncodeBase64ToolInput,
-  EncodeBase64ToolOutput,
   decodeBase64Tool,
   encodeBase64Tool,
 } from './index.js';
+import type { DecodeBase64Result } from './tools/decodeBase64Tool.js'; // Import correct result type
+import type { EncodeBase64Result } from './tools/encodeBase64Tool.js'; // Import correct result type
 
 // Mock workspace root - not used by these tools' logic but required by execute signature
 const mockWorkspaceRoot = '';
 
+// Helper to extract JSON result from parts
+// Use generics to handle different result types
+function getJsonResult<T>(parts: Part[]): T[] | undefined {
+  const jsonPart = parts.find((part) => part.type === 'json');
+  // Check if jsonPart exists and has a 'value' property (which holds the actual data)
+  if (jsonPart && jsonPart.value !== undefined) {
+    try {
+      // Assuming the value is already the correct array type based on defineTool's outputSchema
+      return jsonPart.value as T[];
+    } catch (_e) {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 describe('encodeBase64Tool.execute', () => {
   it('should encode string to Base64', async () => {
     const input: EncodeBase64ToolInput = { input: 'hello world' };
-    const result = await encodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
-    expect(result.success).toBe(true);
-    expect(result.encoded).toBe('aGVsbG8gd29ybGQ=');
-    expect(result.error).toBeUndefined();
+    const parts = await encodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot });
+    const results = getJsonResult<EncodeBase64Result>(parts);
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.encoded).toBe('aGVsbG8gd29ybGQ=');
+    expect(itemResult.error).toBeUndefined();
   });
 
   it('should handle empty string', async () => {
     const input: EncodeBase64ToolInput = { input: '' };
-    const result = await encodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
-    expect(result.success).toBe(true);
-    expect(result.encoded).toBe('');
-    expect(result.error).toBeUndefined();
-  });
+    const parts = await encodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot });
+    const results = getJsonResult<EncodeBase64Result>(parts);
 
-  // Note: The simple Buffer.from().toString('base64') is unlikely to throw easily.
-  // Testing the catch block might require more complex mocking if deemed necessary.
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.encoded).toBe('');
+    expect(itemResult.error).toBeUndefined();
+  });
 
   it('should handle encoding errors', async () => {
     // Use the specific input that triggers the error in the source code
     const input: EncodeBase64ToolInput = { input: 'trigger error' };
-    const expectedErrorMessage = 'Simulated encoding error'; // Matches the error thrown in the tool
+    const expectedErrorMessage = 'Simulated encoding error';
     const consoleSpy = vi.spyOn(console, 'error');
 
-    const result = await encodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
+    const parts = await encodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot });
+    const results = getJsonResult<EncodeBase64Result>(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.encoded).toBeUndefined();
-    expect(result.error).toBe(`Tool 'encodeBase64' execution failed: ${expectedErrorMessage}`); // Added prefix
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.encoded).toBeUndefined();
+    // The error is now within the item result, not wrapped by defineTool prefix
+    expect(itemResult.error).toBe(expectedErrorMessage);
 
     consoleSpy.mockRestore();
   });
-
-  // For now, we assume Zod catches non-string inputs.
 });
 
 describe('decodeBase64Tool.execute', () => {
   it('should decode Base64 string correctly', async () => {
     const input: DecodeBase64ToolInput = { encoded: 'aGVsbG8gd29ybGQ=' };
-    const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
-    expect(result.success).toBe(true);
-    expect(result.decoded).toBe('hello world');
-    expect(result.error).toBeUndefined();
+    const parts = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot });
+    const results = getJsonResult<DecodeBase64Result>(parts);
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.decoded).toBe('hello world');
+    expect(itemResult.error).toBeUndefined();
   });
 
   it('should handle empty string', async () => {
     const input: DecodeBase64ToolInput = { encoded: '' };
-    const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
-    expect(result.success).toBe(true);
-    expect(result.decoded).toBe('');
-    expect(result.error).toBeUndefined();
+    const parts = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot });
+    const results = getJsonResult<DecodeBase64Result>(parts);
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.decoded).toBe('');
+    expect(itemResult.error).toBeUndefined();
   });
 
-  it('should handle decoding errors (invalid base64)', async () => {
+  it('should handle decoding errors (simulated)', async () => {
     const input: DecodeBase64ToolInput = { encoded: 'invalid-base64!' };
     const consoleSpy = vi.spyOn(console, 'error');
-    const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
+    const parts = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot });
+    const results = getJsonResult<DecodeBase64Result>(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.decoded).toBeUndefined(); // Corrected assertion property
-    expect(result.error).toBe('Tool \'decodeBase64\' execution failed: Simulated decoding error'); // Added prefix
-    // expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.'); // Removed assertion for suggestion
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.decoded).toBeUndefined();
+    expect(itemResult.error).toBe('Simulated decoding error');
 
     consoleSpy.mockRestore();
   });
 
   it('should handle invalid base64 characters that Buffer might ignore', async () => {
-    // Input that might decode partially but fail re-encoding check
     const input: DecodeBase64ToolInput = { encoded: 'aGVsbG8#gd29ybGQ=' };
     const consoleSpy = vi.spyOn(console, 'error');
-    const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
+    const parts = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot });
+    const results = getJsonResult<DecodeBase64Result>(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.decoded).toBeUndefined();
-    expect(result.error).toBe('Tool \'decodeBase64\' execution failed: Invalid Base64 input string'); // Added prefix
-    // expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.'); // Removed assertion for suggestion
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.decoded).toBeUndefined();
+    expect(itemResult.error).toBe('Invalid Base64 input string');
 
     consoleSpy.mockRestore();
   });
 
-  it('should handle errors during decoding', async () => {
+  it('should handle errors during decoding (mocked Buffer.from)', async () => {
     const input: DecodeBase64ToolInput = { encoded: 'valid' };
     const mockError = new Error('Buffer.from failed');
-    // Store original before mocking
     const originalBufferFrom = Buffer.from;
-    // Mock Buffer.from to throw during decode
     vi.spyOn(Buffer, 'from').mockImplementation((value, encoding) => {
       if (encoding === 'base64') {
         throw mockError;
       }
-      // Call original for other encodings to avoid recursion
       return originalBufferFrom(value as string, encoding);
     });
-    const _consoleSpy = vi.spyOn(console, 'error');
 
-    const result = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot }); // Pass options object
+    const parts = await decodeBase64Tool.execute(input, { workspaceRoot: mockWorkspaceRoot });
+    const results = getJsonResult<DecodeBase64Result>(parts);
 
-    expect(result.success).toBe(false);
-    expect(result.decoded).toBeUndefined();
-    expect(result.error).toBe(`Tool 'decodeBase64' execution failed: ${mockError.message}`); // Added prefix
-    // expect(result.suggestion).toBe('Ensure the input is a valid Base64 encoded string.'); // Removed assertion for suggestion
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.decoded).toBeUndefined();
+    expect(itemResult.error).toBe(mockError.message); // Error comes directly from the catch block
 
     vi.restoreAllMocks();
   });
-
-  // Assume Zod catches non-string inputs before execute.
 });

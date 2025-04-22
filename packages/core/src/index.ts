@@ -1,79 +1,63 @@
 import path from 'node:path';
 // src/index.ts for @sylphlab/mcp-core
-import type { z } from 'zod';
+import { type ZodTypeAny, z } from 'zod'; // Import z and ZodTypeAny
 
-// --- Content Part Types ---
+export const TextPartInternalSchema = z.object({ type: z.literal('text'), value: z.string() });
+export type TextPartInternal = z.infer<typeof TextPartInternalSchema>;
 
-/** Represents a text content part. */
-export type TextPart = { type: 'text'; text: string };
-
-/** Represents an image content part (base64 encoded). */
-export type ImagePart = {
-  type: 'image';
-  /** Base64 encoded image data. */
-  data: string;
-  /** The IANA media type (e.g., 'image/jpeg', 'image/png'). */
-  mimeType: string; // Renamed from media_type for SDK compatibility
+// For JsonPart schema: value is any, schema is any (as Zod schema objects aren't easily serializable/representable in Zod itself)
+// Type safety relies on the tool implementation using the correct schema provided during definition.
+export const JsonPartInternalSchema = z.object({
+  type: z.literal('json'),
+  value: z.any(),
+  schema: z
+    .any()
+    .refine((val) => val instanceof z.ZodType, { message: 'Schema must be a Zod schema instance' }),
+}); // Use z.ZodType
+// Generic type for implementation, using z.any() for the schema's schema part
+export type JsonPartInternal<T extends ZodTypeAny = ZodTypeAny> = {
+  type: 'json';
+  value: z.infer<T>;
+  schema: T;
 };
 
-/** Represents an audio content part (base64 encoded). */
-export type AudioPart = {
-  type: 'audio';
-  /** Base64 encoded audio data. */
-  data: string;
-  /** The IANA media type (e.g., 'audio/mpeg', 'audio/wav'). */
-  mimeType: string; // Renamed from media_type for SDK compatibility
-};
+export const ImagePartInternalSchema = z.object({
+  type: z.literal('image'),
+  data: z.string(),
+  mimeType: z.string(),
+});
+export type ImagePartInternal = z.infer<typeof ImagePartInternalSchema>;
 
-/** Represents a reference to an MCP resource via its URI. */
-export type ResourcePart = {
-  type: 'resource';
-  /** Nested resource object containing details. */
-  /** Nested resource object containing details - Union Type */
-  /** Nested resource object containing details - Union Type */
-  resource:
-    | {
-        /** The unique URI identifying the MCP resource. */
-        uri: string;
-        /** The IANA media type of the resource, if known. */
-        mimeType?: string;
-        /** Text content of the resource. */
-        text: string;
-        blob?: never; // Ensure blob is not present when text is
-      }
-    | {
-        /** The unique URI identifying the MCP resource. */
-        uri: string;
-        /** The IANA media type of the resource, if known. */
-        mimeType?: string;
-        /** Base64 encoded content of the resource. */
-        blob: string;
-        text?: never; // Ensure text is not present when blob is
-      };
-};
+export const AudioPartInternalSchema = z.object({
+  type: z.literal('audio'),
+  data: z.string(),
+  mimeType: z.string(),
+});
+export type AudioPartInternal = z.infer<typeof AudioPartInternalSchema>;
 
-/**
- * Represents a distinct part of the content returned by an MCP tool.
- * This is a discriminated union based on the 'type' property.
- */
-export type McpContentPart = TextPart | ImagePart | AudioPart | ResourcePart;
+export const FileRefPartInternalSchema = z.object({
+  type: z.literal('fileRef'),
+  path: z.string(),
+  mimeType: z.string().optional(),
+});
+export type FileRefPartInternal = z.infer<typeof FileRefPartInternalSchema>;
 
-// --- Tool Output ---
+// Union schema for internal parts
+export const PartSchema = z.union([
+  TextPartInternalSchema,
+  JsonPartInternalSchema,
+  ImagePartInternalSchema,
+  AudioPartInternalSchema,
+  FileRefPartInternalSchema,
+]);
+export type Part = z.infer<typeof PartSchema>;
 
-/**
- * Base interface for the output of all MCP tools.
- * Ensures consistency and includes the 'content' field required by the SDK.
- */
-export interface BaseMcpToolOutput {
-  success: boolean;
-  error?: string;
-  /** Content parts (e.g., text) for the MCP response. Required by SDK. */
-  content: McpContentPart[];
-  /** Allow other tool-specific properties like 'results' */
-  [key: string]: unknown;
-}
-
-// --- Tool Definition ---
+// Schema for the dedicated error object
+export const InternalErrorSchema = z.object({
+  message: z.string(),
+  suggestion: z.string().optional(),
+});
+export type InternalError = z.infer<typeof InternalErrorSchema>;
 
 /** Options passed internally to the tool's execute function by the server */
 export interface McpToolExecuteOptions {
@@ -87,23 +71,28 @@ export interface McpToolExecuteOptions {
 }
 
 /**
- * Generic interface representing the structure of MCP tools.
+ * Generic interface representing the structure of Tools (independent of protocol).
  * @template TInputSchema Zod schema for input validation.
- * @template TOutput The specific output type for the tool, extending BaseMcpToolOutput.
+ * @template TOutputSchema Zod schema describing the core structured output (optional).
  */
-export interface McpTool<TInputSchema extends z.ZodTypeAny, TOutput extends BaseMcpToolOutput> {
+export interface McpTool<
+  // Consider renaming to just 'Tool' or 'SylphTool' later
+  TInputSchema extends ZodTypeAny = z.ZodUndefined,
+  TOutputSchema extends ZodTypeAny = z.ZodUndefined,
+> {
   /** Unique name of the tool. */
   name: string;
   /** Description of what the tool does. */
   description: string;
   /** Zod schema used by the MCP server to validate input arguments. */
   inputSchema: TInputSchema;
+  /** Zod schema describing the core structured output (optional, used for description). */
+  outputSchema?: TOutputSchema; // Added optional outputSchema for description
   /** The core execution logic for the tool. Receives validated input, workspace root, and optional internal options. */
   execute: (
     input: z.infer<TInputSchema>,
-    // workspaceRoot: string, // Removed separate workspaceRoot argument
     options: McpToolExecuteOptions, // Options object now required and contains workspaceRoot
-  ) => Promise<TOutput>;
+  ) => Promise<Part[]>; // Returns array of Parts directly
 }
 
 // Base input type placeholder (can be extended by specific tools if needed)
@@ -170,7 +159,34 @@ export function validateAndResolvePath(
 }
 
 // PathValidationError is already exported via `export interface`
-// Server logic removed - should reside in server implementations
 // McpToolExecuteOptions is already exported via `export interface`
+
+// --- Part Helper Functions ---
+
+export function textPart(value: string): TextPartInternal {
+  return { type: 'text', value };
+}
+
+export function jsonPart<T extends ZodTypeAny>(value: z.infer<T>, schema: T): JsonPartInternal<T> {
+  // Basic check, full validation might happen in defineTool or adapter
+  // const validation = schema.safeParse(value);
+  // if (!validation.success) {
+  //   console.warn("JSON part value does not match provided schema during creation:", validation.error);
+  //   // Decide how to handle - throw? return error part? For now, allow potentially invalid value.
+  // }
+  return { type: 'json', value, schema };
+}
+
+export function imagePart(data: string, mimeType: string): ImagePartInternal {
+  return { type: 'image', data, mimeType };
+}
+
+export function audioPart(data: string, mimeType: string): AudioPartInternal {
+  return { type: 'audio', data, mimeType };
+}
+
+export function fileRefPart(path: string, mimeType?: string): FileRefPartInternal {
+  return { type: 'fileRef', path, mimeType };
+}
 
 export * from './defineTool.js'; // Export the defineTool helper

@@ -13,19 +13,13 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "build": "tsup"
   },
-  "keywords": [
-    "mcp",
-    "filesystem",
-    "tools"
-  ],
+  "keywords": ["mcp", "filesystem", "tools"],
   "author": "Sylph Lab <hi@sylphlab.com>",
   "license": "MIT",
   "packageManager": "pnpm@10.8.0",
@@ -38,6 +32,8 @@
   },
   "dependencies": {
     "@sylphlab/mcp-core": "workspace:*",
+    "@types/diff-match-patch": "^1.0.36",
+    "diff-match-patch": "^1.0.5",
     "fast-glob": "^3.3.3",
     "trash": "^9.0.0",
     "zod": "^3.24.3"
