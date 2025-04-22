@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-rag-core",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Core RAG (Retrieval-Augmented Generation) logic for MCP",
   "keywords": ["mcp", "rag", "core", "ai", "typescript", "lezer"],
   "homepage": "https://github.com/sylphlab/mcp-plugins/tree/main/packages/rag-core#readme",

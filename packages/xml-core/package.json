@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/mcp-xml-core",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Core logic for MCP XML tools",
   "type": "module",
   "main": "./dist/index.cjs",
