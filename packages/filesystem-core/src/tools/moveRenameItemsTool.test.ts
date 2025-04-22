@@ -16,6 +16,8 @@ vi.mock('node:fs/promises', () => ({
 
 const WORKSPACE_ROOT = '/test/workspace';
 const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const allowOutsideOptions: McpToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
+
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
 function getJsonResult<T>(parts: Part[]): T[] | undefined {
@@ -70,17 +72,17 @@ describe('moveRenameItemsTool', () => {
     // stat rejects with ENOENT by default
 
     const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.sourcePath).toBe('old.txt');
-    expect(itemResult.destinationPath).toBe('new.txt');
-    expect(itemResult.message).toContain('Moved/Renamed');
-    expect(itemResult.error).toBeUndefined();
-    expect(itemResult.dryRun).toBe(false); // Default dryRun
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.sourcePath).toBe('old.txt'); // Added optional chaining
+    expect(itemResult?.destinationPath).toBe('new.txt'); // Added optional chaining
+    expect(itemResult?.message).toContain('Moved/Renamed'); // Added optional chaining
+    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining // Default dryRun
 
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockStat).toHaveBeenCalledTimes(1);
@@ -100,18 +102,18 @@ describe('moveRenameItemsTool', () => {
     mockStat.mockResolvedValue(createMockStats(false, true)); // Destination exists
 
     const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.message).toContain('Moved/Renamed');
-    expect(itemResult.message).toContain('(overwriting existing)');
-    expect(itemResult.error).toBeUndefined();
-    expect(itemResult.dryRun).toBe(true); // dryRun defaults to true when overwrite is true
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.message).toContain('Would move/rename'); // Corrected dry run message check
+    expect(itemResult?.message).toContain('(overwriting existing)'); // Added optional chaining
+    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(true); // Added optional chaining // dryRun defaults to true when overwrite is true
 
-    expect(mockMkdir).toHaveBeenCalledTimes(1);
+    expect(mockMkdir).not.toHaveBeenCalled(); // Corrected: mkdir not called in dry run
     expect(mockStat).toHaveBeenCalledTimes(1);
     expect(mockRm).not.toHaveBeenCalled(); // rm is not called in dry run
     expect(mockRename).not.toHaveBeenCalled(); // rename is not called in dry run
@@ -126,16 +128,16 @@ describe('moveRenameItemsTool', () => {
     mockStat.mockResolvedValue(createMockStats(false, true)); // Destination exists
 
     const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.message).toContain('Moved/Renamed');
-    expect(itemResult.message).toContain('(overwrote existing)');
-    expect(itemResult.error).toBeUndefined();
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.message).toContain('Moved/Renamed'); // Added optional chaining
+    expect(itemResult?.message).toContain('(overwrote existing)'); // Added optional chaining
+    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockStat).toHaveBeenCalledTimes(1);
@@ -145,6 +147,9 @@ describe('moveRenameItemsTool', () => {
     expect(mockRename).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, 'old.txt'),
       path.resolve(WORKSPACE_ROOT, 'existing.txt'),
+    );
+  }); // Added missing closing brace for it block
+
   it('should fail move/rename when destination exists and overwrite: false', async () => {
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'old.txt', destinationPath: 'existing.txt' }],
@@ -152,18 +157,21 @@ describe('moveRenameItemsTool', () => {
     };
     mockStat.mockResolvedValue(createMockStats(false, true)); // Destination exists
 
-    const _parts = await moveRenameItemsTool.execute(input, defaultOptions);
-        .rejects.toThrow('Input validation failed: items: Array must contain at least 1 element(s)');
+    const parts = await moveRenameItemsTool.execute(input, defaultOptions); // Corrected variable name
+    const results = getJsonResult<MoveRenameItemResult>(parts); // Corrected definition
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(false);
-    expect(itemResult.error).toContain('already exists and overwrite is false');
-    expect(itemResult.suggestion).toEqual(expect.any(String));
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    expect(itemResult?.error).toContain('already exists and overwrite is false'); // Added optional chaining
+    expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
-    expect(mockMkdir).toHaveBeenCalledTimes(1);
+    expect(mockMkdir).not.toHaveBeenCalled(); // Corrected: mkdir not called before failure
+    expect(mockStat).toHaveBeenCalledTimes(1);
+    expect(mockRm).not.toHaveBeenCalled();
+    // expect(mockMkdir).toHaveBeenCalledTimes(1); // Removed incorrect assertion
     expect(mockStat).toHaveBeenCalledTimes(1);
     expect(mockRm).not.toHaveBeenCalled();
     expect(mockRename).not.toHaveBeenCalled();
@@ -172,31 +180,35 @@ describe('moveRenameItemsTool', () => {
   it('should throw validation error for empty items array', async () => {
     const input = { items: [] };
     await expect(moveRenameItemsTool.execute(input as any, defaultOptions))
-        .rejects.toThrow('Input validation failed: items: Array must contain at least 1 element(s)');
+        .rejects.toThrow('Input validation failed: items: At least one move/rename item is required.'); // Corrected Zod message
     expect(mockRename).not.toHaveBeenCalled();
   });
 
   it('should handle path validation failure (outside workspace)', async () => {
+    // Added missing overwrite property
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'valid.txt', destinationPath: '../outside.txt' }],
+      overwrite: false,
     };
     const parts = await moveRenameItemsTool.execute(input, defaultOptions); // allowOutsideWorkspace defaults false
-    const results = getJsonResult(parts);
+    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(false);
-    expect(itemResult.error).toContain('Path validation failed');
-    expect(itemResult.suggestion).toEqual(expect.any(String));
-    expect(itemResult.dryRun).toBe(false); // Default dryRun
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    expect(itemResult?.error).toContain('Path validation failed'); // Added optional chaining
+    expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining // Default dryRun
 
     expect(mockRename).not.toHaveBeenCalled();
   });
 
   it('should handle source does not exist error (from rename)', async () => {
+    // Added missing overwrite property
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'nonexistent.txt', destinationPath: 'new.txt' }],
+      overwrite: false,
       dryRun: false, // Ensure not dry run to trigger rename
     };
     const renameError = new Error('ENOENT');
@@ -205,15 +217,15 @@ describe('moveRenameItemsTool', () => {
     // stat rejects with ENOENT (default mock) for destination
 
     const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(false);
-    expect(itemResult.error).toContain('ENOENT');
-    expect(itemResult.suggestion).toContain('Verify the source path');
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    expect(itemResult?.error).toContain('ENOENT'); // Added optional chaining
+    expect(itemResult?.suggestion).toContain('Verify the source path'); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockRename).toHaveBeenCalledTimes(1);
   });
@@ -221,6 +233,7 @@ describe('moveRenameItemsTool', () => {
   it('should handle mkdir error', async () => {
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'old.txt', destinationPath: 'new_dir/new.txt' }],
+      overwrite: false, // Added missing property
       dryRun: false,
     };
     const mkdirError = new Error('EACCES');
@@ -228,15 +241,15 @@ describe('moveRenameItemsTool', () => {
     // stat rejects with ENOENT (default mock) for destination
 
     const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(false);
-    expect(itemResult.error).toContain('EACCES');
-    expect(itemResult.suggestion).toEqual(expect.any(String));
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    expect(itemResult?.error).toContain('EACCES'); // Added optional chaining
+    expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockRename).not.toHaveBeenCalled();
@@ -253,37 +266,39 @@ describe('moveRenameItemsTool', () => {
     mockRm.mockRejectedValue(rmError); // Mock rm failure
 
     const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(false);
-    expect(itemResult.error).toContain('EPERM');
-    expect(itemResult.suggestion).toEqual(expect.any(String));
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    expect(itemResult?.error).toContain('EPERM'); // Added optional chaining
+    expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockRm).toHaveBeenCalledTimes(1);
     expect(mockRename).not.toHaveBeenCalled();
   });
 
   it('should succeed moving outside workspace when allowed', async () => {
+    // Added missing overwrite property
     const input: MoveRenameItemsToolInput = {
       items: [{ sourcePath: 'valid.txt', destinationPath: '../outside.txt' }],
+      overwrite: false,
       dryRun: false,
     };
     // stat rejects with ENOENT (default mock) for destination
     mockRename.mockResolvedValue(undefined);
 
     const parts = await moveRenameItemsTool.execute(input, allowOutsideOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.error).toBeUndefined();
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockStat).toHaveBeenCalledTimes(1);

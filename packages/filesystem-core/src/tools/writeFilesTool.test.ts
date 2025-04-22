@@ -79,16 +79,16 @@ describe('writeFilesTool', () => {
     const expectedOptions = { encoding: 'utf-8' };
 
     const parts = await writeFilesTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.path).toBe('file.txt');
-    expect(itemResult.message).toContain('File written successfully');
-    expect(itemResult.dryRun).toBe(false);
-    expect(itemResult.error).toBeUndefined();
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.path).toBe('file.txt'); // Added optional chaining
+    expect(itemResult?.message).toContain('File written successfully'); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
+    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
 
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockWriteFile).toHaveBeenCalledTimes(1);
@@ -108,13 +108,13 @@ describe('writeFilesTool', () => {
     const expectedOptions = { encoding: 'base64' };
 
     const parts = await writeFilesTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockWriteFile).toHaveBeenCalledWith(expectedPath, expectedBuffer, expectedOptions);
     expect(mockAppendFile).not.toHaveBeenCalled();
@@ -127,14 +127,14 @@ describe('writeFilesTool', () => {
     const expectedOptions = { encoding: 'utf-8' };
 
     const parts = await writeFilesTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.message).toContain('Content appended successfully');
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.message).toContain('Content appended successfully'); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockAppendFile).toHaveBeenCalledTimes(1);
     expect(mockAppendFile).toHaveBeenCalledWith(expectedPath, expectedBuffer, expectedOptions);
@@ -148,7 +148,7 @@ describe('writeFilesTool', () => {
     ], { dryRun: false });
 
     const parts = await writeFilesTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(2);
@@ -174,27 +174,35 @@ describe('writeFilesTool', () => {
     const input = createInput([{ path: 'file.txt', content: 'Hello' }], { dryRun: true });
 
     const parts = await writeFilesTool.execute(input, defaultOptions);
-    const _results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument and corrected variable name
 
-    expect(itemResult.error).toBeUndefined();
+    expect(results).toBeDefined(); // Added check for results
+    expect(results).toHaveLength(1); // Added check for results length
+    const itemResult = results?.[0]; // Defined itemResult
+
+    expect(itemResult?.success).toBe(true); // Added optional chaining and uncommented
+    expect(itemResult?.message).toContain('[Dry Run] Would write file'); // Corrected dry run message check
+    expect(itemResult?.dryRun).toBe(true); // Added optional chaining and uncommented
+    expect(itemResult?.error).toBeUndefined(); // Added optional chaining and uncommented
 
     expect(mockMkdir).not.toHaveBeenCalled();
     expect(mockWriteFile).not.toHaveBeenCalled();
     expect(mockAppendFile).not.toHaveBeenCalled();
+  }); // Added missing closing brace
 
    it('should perform a dry run for append', async () => {
     const input = createInput([{ path: 'log.txt', content: 'More data' }], { append: true, dryRun: true });
 
     const parts = await writeFilesTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
      expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.message).toContain('[Dry Run] Would append to file'); // Corrected message check
-    expect(itemResult.dryRun).toBe(true);
-    expect(itemResult.error).toBeUndefined();
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.message).toContain('[Dry Run] Would append to file'); // Added optional chaining // Corrected message check
+    expect(itemResult?.dryRun).toBe(true); // Added optional chaining
+    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
 
     expect(mockMkdir).not.toHaveBeenCalled();
     expect(mockWriteFile).not.toHaveBeenCalled();
@@ -205,7 +213,7 @@ describe('writeFilesTool', () => {
   it('should throw validation error for empty items array', async () => {
     const input = { items: [] };
     await expect(writeFilesTool.execute(input as any, defaultOptions))
-        .rejects.toThrow('Input validation failed: items: Array must contain at least 1 element(s)');
+        .rejects.toThrow('Input validation failed: items: At least one file item is required.'); // Corrected Zod message
     expect(mockWriteFile).not.toHaveBeenCalled();
     expect(mockAppendFile).not.toHaveBeenCalled();
   });
@@ -213,15 +221,15 @@ describe('writeFilesTool', () => {
   it('should handle path validation failure (outside workspace)', async () => {
     const input = createInput([{ path: '../secret.txt', content: 'hacked' }]);
     const parts = await writeFilesTool.execute(input, defaultOptions); // allowOutsideWorkspace: false
-    const results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(false);
-    expect(itemResult.error).toContain('Path validation failed');
-    expect(itemResult.suggestion).toEqual(expect.any(String));
-    expect(itemResult.dryRun).toBe(true); // Default dryRun for write
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    expect(itemResult?.error).toContain('Path validation failed'); // Added optional chaining
+    expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(true); // Added optional chaining // Default dryRun for write
 
     expect(mockWriteFile).not.toHaveBeenCalled();
     expect(mockAppendFile).not.toHaveBeenCalled();
@@ -233,15 +241,15 @@ describe('writeFilesTool', () => {
     mockMkdir.mockRejectedValue(mkdirError);
 
     const parts = await writeFilesTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(false);
-    expect(itemResult.error).toContain('EACCES');
-    expect(itemResult.suggestion).toEqual(expect.any(String));
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    expect(itemResult?.error).toContain('EACCES'); // Added optional chaining
+    expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockWriteFile).not.toHaveBeenCalled();
@@ -254,15 +262,15 @@ describe('writeFilesTool', () => {
     mockWriteFile.mockRejectedValue(writeError);
 
     const parts = await writeFilesTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(false);
-    expect(itemResult.error).toContain('EROFS');
-    expect(itemResult.suggestion).toEqual(expect.any(String));
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    expect(itemResult?.error).toContain('EROFS'); // Added optional chaining
+    expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockWriteFile).toHaveBeenCalledTimes(1);
     expect(mockAppendFile).not.toHaveBeenCalled();
@@ -274,15 +282,15 @@ describe('writeFilesTool', () => {
     mockAppendFile.mockRejectedValue(appendError);
 
     const parts = await writeFilesTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(false);
-    expect(itemResult.error).toContain('EROFS');
-    expect(itemResult.suggestion).toEqual(expect.any(String));
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    expect(itemResult?.error).toContain('EROFS'); // Added optional chaining
+    expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockAppendFile).toHaveBeenCalledTimes(1);
     expect(mockWriteFile).not.toHaveBeenCalled();
@@ -300,17 +308,17 @@ describe('writeFilesTool', () => {
       const input = createInput([{ path: filePath, content: newContent, expectedHash: wrongHash }], { append: false, dryRun: false });
 
       const parts = await writeFilesTool.execute(input, defaultOptions);
-      const results = getJsonResult(parts);
+      const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
       expect(results).toBeDefined();
       expect(results).toHaveLength(1);
       const itemResult = results?.[0];
-      expect(itemResult.success).toBe(false);
-      expect(itemResult.error).toContain('File hash mismatch');
-      expect(itemResult.suggestion).toContain('File content has changed');
-      expect(itemResult.oldHash).toBe(originalHash);
-      expect(itemResult.newHash).toBeUndefined();
-      expect(itemResult.dryRun).toBe(false);
+      expect(itemResult?.success).toBe(false); // Added optional chaining
+      expect(itemResult?.error).toContain('File hash mismatch'); // Added optional chaining
+      expect(itemResult?.suggestion).toContain('File content has changed'); // Added optional chaining
+      expect(itemResult?.oldHash).toBe(originalHash); // Added optional chaining
+      expect(itemResult?.newHash).toBeUndefined(); // Added optional chaining
+      expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
       expect(mockReadFile).toHaveBeenCalledTimes(1);
       expect(mockWriteFile).not.toHaveBeenCalled();
@@ -329,17 +337,17 @@ describe('writeFilesTool', () => {
       const input = createInput([{ path: filePath, content: newContent, expectedHash: originalHash }], { append: false, dryRun: false });
 
       const parts = await writeFilesTool.execute(input, defaultOptions);
-      const results = getJsonResult(parts);
+      const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
       expect(results).toBeDefined();
       expect(results).toHaveLength(1);
       const itemResult = results?.[0];
-      expect(itemResult.success).toBe(true);
-      expect(itemResult.message).toContain('File written successfully');
-      expect(itemResult.oldHash).toBe(originalHash);
-      expect(itemResult.newHash).toBe(newHash);
-      expect(itemResult.error).toBeUndefined();
-      expect(itemResult.dryRun).toBe(false);
+      expect(itemResult?.success).toBe(true); // Added optional chaining
+      expect(itemResult?.message).toContain('File written successfully'); // Added optional chaining
+      expect(itemResult?.oldHash).toBe(originalHash); // Added optional chaining
+      expect(itemResult?.newHash).toBe(newHash); // Added optional chaining
+      expect(itemResult?.error).toBeUndefined(); // Added optional chaining
+      expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
       expect(mockReadFile).toHaveBeenCalledTimes(1);
       expect(mockWriteFile).toHaveBeenCalledTimes(1);
@@ -354,14 +362,14 @@ describe('writeFilesTool', () => {
     const expectedOptions = { encoding: 'utf-8' };
 
     const parts = await writeFilesTool.execute(input, allowOutsideOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<WriteFileResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.error).toBeUndefined();
-    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
+    expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockMkdir).toHaveBeenCalledTimes(1);
     expect(mockMkdir).toHaveBeenCalledWith(path.dirname(expectedPath), { recursive: true });

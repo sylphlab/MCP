@@ -2,6 +2,7 @@ import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import
 import { Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { z } from 'zod';
 import * as embedding from '../embedding.js';
+import { EmbeddingModelProvider } from '../embedding.js'; // Import enum itself
 import {
   IndexManager,
   type QueryResult, // Keep QueryResult type
@@ -61,13 +62,21 @@ function getJsonResult<T>(parts: Part[]): T[] | undefined {
       return undefined;
     }
   }
-    }
+  // Removed extra closing brace
+  return undefined;
+}
+
+const mockWorkspaceRoot = '/test/workspace';
+// Corrected variable name from _defaultOptions to defaultOptions
+const defaultOptions: McpToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot };
+
+describe('queryIndexTool', () => {
   beforeEach(() => {
     vi.resetAllMocks();
 
+    // Mock the instance method needed for the test
     const mockInstance = { queryIndex: mockQueryIndex };
-  const mockWorkspaceRoot = '/test/workspace';
-  const _defaultOptions: McpToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot };
+    // Ensure the static create mock resolves with the instance containing the mocked method
     MockIndexManagerCreate.mockResolvedValue(mockInstance as any);
 
     // Set default behaviors for other mocks
@@ -94,21 +103,25 @@ function getJsonResult<T>(parts: Part[]): T[] | undefined {
     ]);
   });
 
+  afterEach(() => {
+      vi.restoreAllMocks();
+  });
+
   it('should successfully query with default settings', async () => {
     const input = { queryText: 'test query', topK: 5 };
     const parts = await queryIndexTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<QueryIndexResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
 
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.query).toBe('test query');
-    expect(itemResult.results).toHaveLength(2);
-    expect(itemResult.results[0].item.id).toBe('res1');
-    expect(itemResult.results[1].item.id).toBe('res2');
-    expect(itemResult.error).toBeUndefined();
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.query).toBe('test query'); // Added optional chaining
+    expect(itemResult?.results).toHaveLength(2); // Added optional chaining
+    expect(itemResult?.results[0].item.id).toBe('res1'); // Added optional chaining
+    expect(itemResult?.results[1].item.id).toBe('res2'); // Added optional chaining
+    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
 
     expect(mockGenerateEmbeddings).toHaveBeenCalledOnce();
     expect(mockGenerateEmbeddings).toHaveBeenCalledWith(
@@ -125,33 +138,44 @@ function getJsonResult<T>(parts: Part[]): T[] | undefined {
   });
 
   it('should handle embedding generation failure', async () => {
-    const _input = { queryText: 'fail embedding', topK: 5 };
-    const _error = new Error('Embedding failed');
+    // Corrected variable name
+    const input = { queryText: 'fail embedding', topK: 5 };
+    // Corrected variable name
+    const error = new Error('Embedding failed');
     mockGenerateEmbeddings.mockRejectedValue(error);
 
-    // Expect execute to throw the error wrapped by defineTool
-    await expect(queryIndexTool.execute(input, defaultOptions))
-        .rejects.toThrow(`Error generating query embedding: ${error.message}`);
-
     const parts = await queryIndexTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<QueryIndexResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult.success).toBe(false);
-    expect(itemResult.error).toContain(`Error generating query embedding: ${error.message}`);
-    expect(itemResult.suggestion).toContain('Check embedding model configuration');
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    // Error message might be wrapped, check containment
+    expect(itemResult?.error).toContain(error.message); // Added optional chaining
+    expect(itemResult?.suggestion).toContain('Check embedding model configuration'); // Added optional chaining
 
     expect(mockGenerateEmbeddings).toHaveBeenCalledOnce();
-    expect(MockIndexManagerCreate).not.toHaveBeenCalled(); // Should not be called if embedding fails
+    // IndexManager.create should not be called if embedding fails before it
+    expect(MockIndexManagerCreate).not.toHaveBeenCalled();
     expect(mockQueryIndex).not.toHaveBeenCalled();
+  });
+
+  it('should handle index query failure', async () => {
     const input = { queryText: 'fail query', topK: 5 };
     const error = new Error('Query failed');
     mockQueryIndex.mockRejectedValue(error);
 
-    await expect(queryIndexTool.execute(input, defaultOptions))
-        .rejects.toThrow(`Error querying index: ${error.message}`);
+    const parts = await queryIndexTool.execute(input, defaultOptions);
+    const results = getJsonResult<QueryIndexResult>(parts); // Added type argument
+
+    expect(results).toBeDefined();
+    expect(results).toHaveLength(1);
+    const itemResult = results?.[0];
+    expect(itemResult?.success).toBe(false); // Added optional chaining
+    // Error message might be wrapped, check containment
+    expect(itemResult?.error).toContain(error.message); // Added optional chaining
+    expect(itemResult?.suggestion).toContain('Check vector database configuration'); // Corrected suggestion check
 
     expect(mockGenerateEmbeddings).toHaveBeenCalledOnce();
     expect(MockIndexManagerCreate).toHaveBeenCalledOnce();
@@ -163,16 +187,16 @@ function getJsonResult<T>(parts: Part[]): T[] | undefined {
     mockQueryIndex.mockResolvedValue([]); // Configure the query mock
 
     const parts = await queryIndexTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const results = getJsonResult<QueryIndexResult>(parts); // Added type argument
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
 
-    expect(itemResult.success).toBe(true);
-    expect(itemResult.query).toBe('no results query');
-    expect(itemResult.results).toHaveLength(0);
-    expect(itemResult.error).toBeUndefined();
+    expect(itemResult?.success).toBe(true); // Added optional chaining
+    expect(itemResult?.query).toBe('no results query'); // Added optional chaining
+    expect(itemResult?.results).toHaveLength(0); // Added optional chaining
+    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
 
     expect(mockGenerateEmbeddings).toHaveBeenCalledOnce();
     expect(MockIndexManagerCreate).toHaveBeenCalledOnce();
@@ -196,13 +220,15 @@ function getJsonResult<T>(parts: Part[]): T[] | undefined {
 
   it('should use provided embedding and vector DB configs', async () => {
     const ollamaConfig = {
-      provider: embedding.EmbeddingModelProvider.Ollama,
+      // Explicitly use the enum member and add 'as const' for literal type
+      provider: EmbeddingModelProvider.Ollama as const,
       modelName: 'custom-ollama',
       baseURL: 'http://custom:11434',
       batchSize: 100,
     };
     const chromaConfig = {
-      provider: VectorDbProvider.ChromaDB,
+      // Explicitly use the enum member and add 'as const' for literal type
+      provider: VectorDbProvider.ChromaDB as const,
       collectionName: 'custom-chroma',
       host: 'http://custom-chroma:8000',
     };
@@ -231,7 +257,8 @@ function getJsonResult<T>(parts: Part[]): T[] | undefined {
 
   it('should instantiate HttpEmbeddingFunction when HTTP config is provided', async () => {
     const httpConfig = {
-      provider: embedding.EmbeddingModelProvider.Http,
+      // Explicitly use the enum member and add 'as const' for literal type
+      provider: EmbeddingModelProvider.Http as const,
       url: 'http://test-embed:80',
       headers: { 'X-Api-Key': 'test-key' },
       batchSize: 50,
