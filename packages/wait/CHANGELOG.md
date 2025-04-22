@@ -1,5 +1,12 @@
 # @sylphlab/mcp-wait
 
+## 0.3.7
+
+### Patch Changes
+
+- Updated dependencies [3218bd4]
+  - @sylphlab/mcp-wait-core@0.5.4
+
 ## 0.3.6
 
 ### Patch Changes
