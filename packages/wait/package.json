@@ -34,6 +34,6 @@
     "@sylphlab/mcp-core": "workspace:*",
     "@sylphlab/mcp-wait-core": "workspace:*",
     "zod": "^3.23.8",
-    "@sylphlab/mcp-utils": "workspace:*"
+    "@sylphlab/tool-adaptor-mcp": "workspace:*"
   }
 }

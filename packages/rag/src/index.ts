@@ -3,12 +3,12 @@ import { createRequire } from 'node:module';
 // Remove direct SDK imports
 // import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 // import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'; // Stdio handled by factory
-import { startMcpServer } from '@sylphlab/mcp-utils'; // Import start function
+import { startMcpServer } from '@sylphlab/tool-adaptor-mcp'; // Import start function
 const require = createRequire(import.meta.url);
 const { name, version, description } = require('../package.json'); // Import metadata directly
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { McpTool } from '@sylphlab/mcp-core'; // Import McpTool type
+import type { Tool } from '@sylphlab/mcp-core'; // Import McpTool type
 // Import specific functions and types directly from rag-core
 import {
   type Chunk,
@@ -52,7 +52,7 @@ const embeddingConfig = {
 // --- Server Setup ---
 
 // biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
-const tools: McpTool<any, any>[] = [indexContentTool, queryIndexTool, indexStatusTool];
+const tools: Tool<any>[] = [indexContentTool, queryIndexTool, indexStatusTool];
 
 // --- Startup Indexing ---
 async function startIndexing() {

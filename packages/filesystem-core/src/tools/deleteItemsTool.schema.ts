@@ -6,5 +6,5 @@ export const deleteItemsToolInputSchema = z.object({
   recursive: z.boolean().optional().default(true), // Default to recursive for safety with rm
   useTrash: z.boolean().optional().default(true), // Default to using trash
   dryRun: z.boolean().optional(), // Added: Optional dry run flag
-  // allowOutsideWorkspace is handled by McpToolExecuteOptions
+  // allowOutsideWorkspace is handled by ToolExecuteOptions
 });

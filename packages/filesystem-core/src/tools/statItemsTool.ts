@@ -3,7 +3,7 @@ import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { statItemsToolInputSchema } from './statItemsTool.schema.js';
 
@@ -33,9 +33,9 @@ export const statItemsTool = defineTool({
   name: 'statItemsTool',
   description: 'Gets file system stats for one or more specified paths within the workspace.',
   inputSchema: statItemsToolInputSchema,
-  outputSchema: StatItemsOutputSchema,
+  ,
 
-  execute: async (input: StatItemsToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: StatItemsToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = statItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {

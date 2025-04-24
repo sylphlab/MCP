@@ -3,9 +3,9 @@
 // Remove direct SDK imports
 // import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 // import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { McpTool } from '@sylphlab/mcp-core';
+import type { Tool } from '@sylphlab/mcp-core';
 // Import the server start function
-import { startMcpServer } from '@sylphlab/mcp-utils';
+import { startMcpServer } from '@sylphlab/tool-adaptor-mcp';
 
 // Import the tool object from the core library
 import { xmlTool } from '@sylphlab/mcp-xml-core';
@@ -15,7 +15,7 @@ import { description, name, version } from '../package.json'; // Import metadata
 
 // Array of imported tool objects
 // biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
-const tools: McpTool<any, any>[] = [xmlTool];
+const tools: Tool<any>[] = [xmlTool];
 
 // --- Server Start ---
 // Directly call startMcpServer at the top level

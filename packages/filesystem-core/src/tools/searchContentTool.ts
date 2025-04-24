@@ -6,7 +6,7 @@ import {
   textPart, // Keep textPart for summary
   validateAndResolvePath,
 } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import glob from 'fast-glob';
 import { z } from 'zod';
 import { searchContentToolInputSchema } from './searchContentTool.schema.js';
@@ -68,11 +68,11 @@ export const searchContentTool = defineTool({
   name: 'searchContentTool',
   description: 'Searches for content within multiple files (supports globs).',
   inputSchema: searchContentToolInputSchema,
-  outputSchema: SearchContentOutputSchema,
+  ,
 
   execute: async (
     input: SearchContentToolInput,
-    options: McpToolExecuteOptions,
+    options: ToolExecuteOptions,
   ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = searchContentToolInputSchema.safeParse(input);

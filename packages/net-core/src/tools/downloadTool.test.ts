@@ -4,7 +4,7 @@ import * as https from 'node:https';
 import * as path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { pipeline } from 'node:stream/promises'; // Keep the import
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 // Use import type for Mock
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { downloadTool } from './downloadTool.js';
@@ -20,7 +20,7 @@ vi.mock('node:stream/promises', () => ({
 
 // Mock workspace root
 const mockWorkspaceRoot = '/mock/workspace'; // Using POSIX style for consistency in mock setup
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot };
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot };
 
 // Helper to extract JSON result from parts
 // Use generics to handle different result types

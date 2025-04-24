@@ -1,12 +1,7 @@
 import type { ZodTypeAny, z } from 'zod'; // Use import type
 import type {
-  // InternalToolExecutionResult, // Removed - execute returns Part[]
-  InternalError, // Import internal error type
-  // BaseMcpToolOutput, // Removed - No longer used here
-  McpTool,
-  McpToolExecuteOptions,
-  Part, // Import Part type
-  // errorPart, // Moved to value import
+  ToolExecuteOptions,
+  Part, 
 } from './index';
 // Assuming checkOutputSizeLimit is correctly exported from utils
 // Adjust the import path if utils is structured differently or not directly accessible
@@ -19,9 +14,8 @@ import type {
  * @template TInputSchema Zod schema for input validation.
  * @template TOutputSchema Zod schema describing the core structured output (optional).
  */
-interface ToolDefinition<
+export interface Tool<
   TInputSchema extends ZodTypeAny = z.ZodUndefined,
-  TOutputSchema extends ZodTypeAny = z.ZodUndefined, // Use TOutputSchema
 > {
   /** Unique name of the tool. */
   name: string;
@@ -29,8 +23,6 @@ interface ToolDefinition<
   description: string;
   /** Zod schema used by the MCP server to validate input arguments. */
   inputSchema: TInputSchema;
-  /** Zod schema describing the core structured output (optional, used for description). */
-  outputSchema?: TOutputSchema; // Added optional outputSchema
   /**
    * The core execution logic for the tool.
    * Receives validated input and execution options.
@@ -38,7 +30,7 @@ interface ToolDefinition<
    */
   execute: (
     input: z.infer<TInputSchema>, // Use z.infer for input type
-    options: McpToolExecuteOptions,
+    options: ToolExecuteOptions,
   ) => Promise<Part[]>; // Return Part array directly or throw error
 }
 
@@ -53,8 +45,7 @@ interface ToolDefinition<
  */
 export function defineTool<
   TInputSchema extends ZodTypeAny = z.ZodUndefined,
-  TOutputSchema extends ZodTypeAny = z.ZodUndefined, // Use TOutputSchema
->(definition: ToolDefinition<TInputSchema, TOutputSchema>): McpTool<TInputSchema, TOutputSchema> {
+>(definition: Tool<TInputSchema>): Tool<TInputSchema> {
   // Return type matches McpTool interface
 
   /**
@@ -62,7 +53,7 @@ export function defineTool<
    */
   const wrappedExecute = async (
     input: z.infer<TInputSchema>, // Use z.infer
-    options: McpToolExecuteOptions, // Options are received here
+    options: ToolExecuteOptions, // Options are received here
   ): Promise<Part[]> => {
     // Return Part array directly
     // Removed the try...catch block as it only re-threw the error.
@@ -78,7 +69,6 @@ export function defineTool<
     name: definition.name,
     description: definition.description,
     inputSchema: definition.inputSchema,
-    outputSchema: definition.outputSchema, // Pass outputSchema through
     execute: wrappedExecute, // Use the wrapped function
   };
 }

@@ -2,7 +2,7 @@ import { rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import trash from 'trash';
 import { z } from 'zod';
 import { deleteItemsToolInputSchema } from './deleteItemsTool.schema.js';
@@ -40,9 +40,9 @@ export const deleteItemsTool = defineTool({
   description:
     'Deletes specified files or directories (supports globs - TODO: implement glob support). Uses trash by default.',
   inputSchema: deleteItemsToolInputSchema,
-  outputSchema: DeleteItemsOutputSchema,
+  ,
 
-  execute: async (input: DeleteItemsToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: DeleteItemsToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = deleteItemsToolInputSchema.safeParse(input);
     if (!parsed.success) {

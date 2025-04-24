@@ -7,7 +7,7 @@ import {
 } from '@sylphlab/mcp-core';
 import type {
   // Import types separately
-  McpToolExecuteOptions,
+  ToolExecuteOptions,
   Part,
 } from '@sylphlab/mcp-core'; // Import base types and validation util
 import { z } from 'zod'; // Import z directly
@@ -63,12 +63,12 @@ export const copyItemsTool = defineTool({
   description:
     'Copies one or more files or folders within the workspace. Handles recursion. Use relative paths.',
   inputSchema: copyItemsToolInputSchema,
-  outputSchema: CopyItemsOutputSchema, // Use the constant schema instance
+  , // Use the constant schema instance
 
   execute: async (
     // Core logic passed to defineTool
     input: CopyItemsToolInput,
-    options: McpToolExecuteOptions,
+    options: ToolExecuteOptions,
   ): Promise<Part[]> => {
     // Removed generic
 

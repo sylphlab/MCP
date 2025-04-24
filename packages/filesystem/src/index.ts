@@ -3,9 +3,9 @@
 // McpServer and StdioServerTransport are now handled by the factory
 // import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 // import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { McpTool } from '@sylphlab/mcp-core';
+import type { Tool } from '@sylphlab/mcp-core';
 // Import the server start function
-import { startMcpServer } from '@sylphlab/mcp-utils';
+import { startMcpServer } from '@sylphlab/tool-adaptor-mcp';
 // Zod imports might not be needed here anymore if server factory handles registration details
 // import { ZodObject, ZodRawShape, z } from 'zod';
 
@@ -26,7 +26,7 @@ import {
 import { description, name, version } from '../package.json'; // Import version from package.json
 
 // biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
-const tools: McpTool<any, any>[] = [
+const tools: Tool<any>[] = [
   // Add back type annotation and ignore comment
   copyItemsTool,
   createFolderTool,

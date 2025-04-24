@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
 import DiffMatchPatch from 'diff-match-patch'; // Import DMP
 import { type MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type EditFileToolInput, editFileTool } from './editFileTool.js';
@@ -14,7 +14,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
 function getJsonResult<T>(parts: Part[]): T[] | undefined {

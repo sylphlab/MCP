@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import DiffMatchPatch, { type patch_obj } from 'diff-match-patch';
 import { z } from 'zod';
 import {
@@ -68,9 +68,9 @@ export const editFileTool = defineTool({
   name: 'editFileTool',
   description: 'Applies precise, context-aware edits to a single file using a diff patch.',
   inputSchema: editFileToolInputSchema, // Schema enforces only one apply_diff_patch
-  outputSchema: EditFileOutputSchema,
+  ,
 
-  execute: async (input: EditFileToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: EditFileToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = editFileToolInputSchema.safeParse(input);
     if (!parsed.success) {

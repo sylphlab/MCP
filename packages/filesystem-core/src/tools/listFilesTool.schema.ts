@@ -6,5 +6,5 @@ export const listFilesToolInputSchema = z.object({
   recursive: z.boolean().optional().default(false),
   maxDepth: z.number().int().min(0).optional(), // Optional depth limit
   includeStats: z.boolean().optional().default(false),
-  // allowOutsideWorkspace is handled by McpToolExecuteOptions
+  // allowOutsideWorkspace is handled by ToolExecuteOptions
 });

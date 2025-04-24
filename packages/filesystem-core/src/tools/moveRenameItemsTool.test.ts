@@ -1,7 +1,7 @@
 import type { Stats } from 'node:fs';
 import { mkdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
 import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type MoveRenameItemsToolInput, moveRenameItemsTool } from './moveRenameItemsTool.js';
 import type { MoveRenameItemResult } from './moveRenameItemsTool.js'; // Import correct result type
@@ -15,8 +15,8 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
-const allowOutsideOptions: McpToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const allowOutsideOptions: ToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
 
 // Helper to extract JSON result from parts
 // Use generics to handle different result types

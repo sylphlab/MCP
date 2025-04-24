@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part and McpToolExecuteOptions
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part and ToolExecuteOptions
 import type { IEmbeddingFunction } from 'chromadb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { indexStatusTool } from './indexStatusTool.js'; // Import the tool
@@ -30,7 +30,7 @@ function getJsonResult<T>(parts: Part[]): T[] | undefined {
 }
 
 const WORKSPACE_ROOT = '/test/workspace'; // Defined WORKSPACE_ROOT
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Use WORKSPACE_ROOT
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Use WORKSPACE_ROOT
 const mockCollectionName = 'mock-collection';
 const expectedDbPath = path.join(WORKSPACE_ROOT, '.mcp', 'chroma_db'); // Corrected expected DB path
 

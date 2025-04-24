@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
 import { type MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type CreateFolderToolInput, createFolderTool } from './createFolderTool.js';
 import type { CreateFolderResult } from './createFolderTool.js'; // Import correct result type
@@ -11,7 +11,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
 function getJsonResult<T>(parts: Part[]): T[] | undefined {

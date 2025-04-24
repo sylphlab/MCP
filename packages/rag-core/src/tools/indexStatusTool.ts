@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import type { IEmbeddingFunction } from 'chromadb';
 import { z } from 'zod';
 import { getRagCollection } from '../chroma.js';
@@ -44,11 +44,11 @@ export const indexStatusTool = defineTool({
   name: 'getIndexStatus',
   description: 'Gets the status of the RAG index (e.g., number of items).',
   inputSchema: IndexStatusInputSchema,
-  outputSchema: IndexStatusOutputSchema, // Use the array schema
+  
 
   execute: async (
     _input: IndexStatusInput, // Input is optional/empty
-    options: McpToolExecuteOptions,
+    options: ToolExecuteOptions,
   ): Promise<Part[]> => {
     // Return Part[]
 

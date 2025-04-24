@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import * as mupdfjs from 'mupdf/mupdfjs';
 import { z } from 'zod';
 import { type GetTextItemSchema, getTextToolInputSchema } from './getTextTool.schema.js';
@@ -78,7 +78,7 @@ const GetTextToolOutputSchema = z.array(GetTextResultItemSchema);
 // Helper function to process a single PDF text extraction item
 async function processSinglePdfGetText(
   item: GetTextInputItem,
-  options: McpToolExecuteOptions,
+  options: ToolExecuteOptions,
 ): Promise<GetTextResultItem> {
   const { id, filePath: inputFilePath } = item;
   // Initialize result with path
@@ -141,9 +141,7 @@ export const getTextTool = defineTool({
   name: 'getText',
   description: 'Extracts text content from one or more PDF files.',
   inputSchema: getTextToolInputSchema,
-  outputSchema: GetTextToolOutputSchema, // Use the array schema
-
-  execute: async (input: GetTextToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: GetTextToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)

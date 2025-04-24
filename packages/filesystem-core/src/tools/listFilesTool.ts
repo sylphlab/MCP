@@ -3,7 +3,7 @@ import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { listFilesToolInputSchema } from './listFilesTool.schema.js';
 
@@ -115,9 +115,9 @@ export const listFilesTool = defineTool({
   name: 'listFilesTool',
   description: 'Lists files and directories within one or more specified paths in the workspace.',
   inputSchema: listFilesToolInputSchema,
-  outputSchema: ListFilesOutputSchema,
+  ,
 
-  execute: async (input: ListFilesToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: ListFilesToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = listFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {

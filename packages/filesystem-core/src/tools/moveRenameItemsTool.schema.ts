@@ -11,5 +11,5 @@ export const moveRenameItemsToolInputSchema = z.object({
   items: z.array(MoveRenameItemSchema).min(1, 'At least one move/rename item is required.'),
   overwrite: z.boolean().optional().default(false),
   dryRun: z.boolean().optional(), // Added: Optional dry run flag
-  // allowOutsideWorkspace is handled by McpToolExecuteOptions
+  // allowOutsideWorkspace is handled by ToolExecuteOptions
 });

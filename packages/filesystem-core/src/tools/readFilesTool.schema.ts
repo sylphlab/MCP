@@ -7,5 +7,5 @@ export const readFilesToolInputSchema = z.object({
   includeStats: z.boolean().optional().default(false),
   includeLineNumbers: z.boolean().optional().default(false), // Added
   includeHash: z.boolean().optional().default(true), // Added, default true
-  // allowOutsideWorkspace is handled by McpToolExecuteOptions
+  // allowOutsideWorkspace is handled by ToolExecuteOptions
 });

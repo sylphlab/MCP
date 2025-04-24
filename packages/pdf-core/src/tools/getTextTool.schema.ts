@@ -10,5 +10,5 @@ export const GetTextItemSchema = z.object({
 // Main input schema: an array of PDF items
 export const getTextToolInputSchema = z.object({
   items: z.array(GetTextItemSchema).min(1, 'At least one PDF item is required.'),
-  // allowOutsideWorkspace is handled by McpToolExecuteOptions
+  // allowOutsideWorkspace is handled by ToolExecuteOptions
 });

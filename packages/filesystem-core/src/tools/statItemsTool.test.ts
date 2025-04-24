@@ -1,7 +1,7 @@
 import type { Stats } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
 import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type StatItemsToolInput, statItemsTool } from './statItemsTool.js';
 import type { StatItemResult } from './statItemsTool.js'; // Import correct result type
@@ -12,8 +12,8 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
-const allowOutsideOptions: McpToolExecuteOptions = {
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const allowOutsideOptions: ToolExecuteOptions = {
   ...defaultOptions,
   allowOutsideWorkspace: true,
 };

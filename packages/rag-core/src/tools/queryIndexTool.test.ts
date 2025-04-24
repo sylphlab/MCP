@@ -1,4 +1,4 @@
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part and McpToolExecuteOptions
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part and ToolExecuteOptions
 import { Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { z } from 'zod';
 import * as embedding from '../embedding.js';
@@ -68,7 +68,7 @@ function getJsonResult<T>(parts: Part[]): T[] | undefined {
 
 const mockWorkspaceRoot = '/test/workspace';
 // Corrected variable name from _defaultOptions to defaultOptions
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot };
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot };
 
 describe('queryIndexTool', () => {
   beforeEach(() => {

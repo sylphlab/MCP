@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import {
   type XmlInputItemSchema,
@@ -83,9 +83,9 @@ export const xmlTool = defineTool({
   description:
     'Performs XML operations (currently parse with placeholder logic) on one or more inputs.',
   inputSchema: xmlToolInputSchema,
-  outputSchema: XmlToolOutputSchema, // Use the array schema
+  // Use the array schema
 
-  execute: async (input: XmlToolInput, _options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: XmlToolInput, _options: ToolExecuteOptions): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)

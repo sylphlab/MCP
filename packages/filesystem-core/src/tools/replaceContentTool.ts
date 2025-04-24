@@ -7,7 +7,7 @@ import {
   textPart, // Keep textPart for summary
   validateAndResolvePath,
 } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import glob from 'fast-glob';
 import { z } from 'zod';
 import {
@@ -63,11 +63,11 @@ export const replaceContentTool = defineTool({
   name: 'replaceContentTool',
   description: 'Performs search and replace operations across multiple files (supports globs).',
   inputSchema: replaceContentToolInputSchema,
-  outputSchema: ReplaceContentOutputSchema,
+  ,
 
   execute: async (
     input: ReplaceContentToolInput,
-    options: McpToolExecuteOptions,
+    options: ToolExecuteOptions,
   ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = replaceContentToolInputSchema.safeParse(input);

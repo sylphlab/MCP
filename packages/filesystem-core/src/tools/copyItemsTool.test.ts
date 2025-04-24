@@ -1,7 +1,7 @@
 import type { Stats } from 'node:fs';
 import { cp, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
 import { type MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type CopyItemsToolInput, copyItemsTool } from './copyItemsTool.js';
 import type { CopyItemResult } from './copyItemsTool.js'; // Import correct result type
@@ -14,8 +14,8 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
-const allowOutsideOptions: McpToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const allowOutsideOptions: ToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
 function getJsonResult<T>(parts: Part[]): T[] | undefined {

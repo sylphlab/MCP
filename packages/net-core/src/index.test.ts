@@ -1,5 +1,5 @@
 import os from 'node:os'; // Import os for mocking
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import options type and Part
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import options type and Part
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Import individual tools and types
 import {
@@ -17,7 +17,7 @@ vi.mock('node:os');
 // Mock workspace root - not used by these tools' logic but required by execute signature
 const mockWorkspaceRoot = '';
 // Define options objects including workspaceRoot
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot };
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: mockWorkspaceRoot };
 
 // Helper to extract JSON result from parts
 // Use generics to handle different result types

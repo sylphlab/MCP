@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import hljs from 'highlight.js';
 import { z } from 'zod';
 import { type ChunkingOptions, chunkCodeAst } from '../chunking.js';
@@ -79,11 +79,11 @@ export const indexContentTool = defineTool({
   name: 'indexContent',
   description: 'Chunks, embeds, and indexes provided text content.',
   inputSchema: IndexContentInputSchema,
-  outputSchema: IndexContentOutputSchema, // Use the array schema
+  
 
   execute: async (
     input: IndexContentToolInput,
-    _options: McpToolExecuteOptions,
+    _options: ToolExecuteOptions,
   ): Promise<Part[]> => {
     // Return Part[]
 

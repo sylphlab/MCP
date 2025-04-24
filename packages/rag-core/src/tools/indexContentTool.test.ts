@@ -1,4 +1,4 @@
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part and McpToolExecuteOptions
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part and ToolExecuteOptions
 import hljs from 'highlight.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { z } from 'zod';
@@ -32,7 +32,7 @@ vi.mock('../embedding.js', async (importOriginal) => {
 // Define the mock function for the instance method BEFORE describe block
 const mockUpsertItemsInstance = vi.fn();
 
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: '/test/workspace' };
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: '/test/workspace' };
 
 // Helper to extract JSON result from parts
 function getJsonResult<T>(parts: Part[]): T[] | undefined {

@@ -548,6 +548,59 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@20.17.30)(terser@5.39.0)
 
+  packages/tool-mcp:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.2
+        version: 1.10.2
+      '@sylphlab/mcp-core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
+    devDependencies:
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.17.30
+      tsup:
+        specifier: ^8.4.0
+        version: 8.4.0(@swc/core@1.11.21)(postcss@8.5.3)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.6.2
+        version: 5.8.3
+      vitest:
+        specifier: ^3.1.1
+        version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
+
+  packages/tool-vercel:
+    dependencies:
+      '@sylphlab/mcp-core':
+        specifier: workspace:*
+        version: link:../core
+      ai:
+        specifier: latest
+        version: 4.3.9(react@19.1.0)(zod@3.24.3)
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
+      zod-to-json-schema:
+        specifier: ^3.23.2
+        version: 3.24.5(zod@3.24.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.17.30
+      tsup:
+        specifier: ^8.4.0
+        version: 8.4.0(@swc/core@1.11.21)(postcss@8.5.3)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.6.2
+        version: 5.8.3
+      vitest:
+        specifier: ^3.1.1
+        version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
+
   packages/utils:
     dependencies:
       '@modelcontextprotocol/sdk':
@@ -556,6 +609,9 @@ importers:
       '@sylphlab/mcp-core':
         specifier: workspace:*
         version: link:../core
+      '@sylphlab/mcp-tool-mcp':
+        specifier: workspace:*
+        version: link:../tool-mcp
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -1351,6 +1407,10 @@ packages:
 
   '@modelcontextprotocol/sdk@1.10.1':
     resolution: {integrity: sha512-xNYdFdkJqEfIaTVP1gPKoEvluACHZsHZegIoICX8DM1o6Qf3G5u2BQJHmgd0n4YgRPqqK/u1ujQvrgAxxSJT9w==}
+    engines: {node: '>=18'}
+
+  '@modelcontextprotocol/sdk@1.10.2':
+    resolution: {integrity: sha512-rb6AMp2DR4SN+kc6L1ta2NCpApyA9WYNx3CrTSZvGxq9wH71bRur+zRqPfg0vQ9mjywR7qZdX2RGHOPq3ss+tA==}
     engines: {node: '>=18'}
 
   '@nodelib/fs.scandir@2.1.5':
@@ -4809,6 +4869,21 @@ snapshots:
       read-yaml-file: 1.1.0
 
   '@modelcontextprotocol/sdk@1.10.1':
+    dependencies:
+      content-type: 1.0.5
+      cors: 2.8.5
+      cross-spawn: 7.0.6
+      eventsource: 3.0.6
+      express: 5.1.0
+      express-rate-limit: 7.5.0(express@5.1.0)
+      pkce-challenge: 5.0.0
+      raw-body: 3.0.0
+      zod: 3.24.3
+      zod-to-json-schema: 3.24.5(zod@3.24.3)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@modelcontextprotocol/sdk@1.10.2':
     dependencies:
       content-type: 1.0.5
       cors: 2.8.5

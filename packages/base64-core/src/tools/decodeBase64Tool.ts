@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { DecodeBase64ToolInputSchema } from './decodeBase64Tool.schema.js';
 
@@ -38,11 +38,9 @@ export const decodeBase64Tool = defineTool({
   name: 'decodeBase64',
   description: 'Decodes a Base64 string into UTF-8.',
   inputSchema: DecodeBase64ToolInputSchema,
-  outputSchema: DecodeBase64OutputSchema, // Use the array schema
-
   execute: async (
     input: DecodeBase64ToolInput,
-    _options: McpToolExecuteOptions,
+    _options: ToolExecuteOptions,
   ): Promise<Part[]> => {
     // Return Part[]
 

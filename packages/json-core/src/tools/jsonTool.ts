@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import {
   type JsonInputItemSchema,
@@ -88,9 +88,9 @@ export const jsonTool = defineTool({
   name: 'json',
   description: 'Performs JSON operations (parse or stringify) on one or more inputs.',
   inputSchema: jsonToolInputSchema,
-  outputSchema: JsonToolOutputSchema, // Use the array schema
+  // Use the array schema
 
-  execute: async (input: JsonToolInput, _options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: JsonToolInput, _options: ToolExecuteOptions): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)

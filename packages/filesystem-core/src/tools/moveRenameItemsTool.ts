@@ -2,7 +2,7 @@ import { mkdir, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { moveRenameItemsToolInputSchema } from './moveRenameItemsTool.schema.js';
 
@@ -48,11 +48,11 @@ export const moveRenameItemsTool = defineTool({
   description:
     'Moves or renames one or more files or folders within the workspace. Use relative paths.',
   inputSchema: moveRenameItemsToolInputSchema,
-  outputSchema: MoveRenameItemsOutputSchema,
+  ,
 
   execute: async (
     input: MoveRenameItemsToolInput,
-    options: McpToolExecuteOptions,
+    options: ToolExecuteOptions,
   ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = moveRenameItemsToolInputSchema.safeParse(input);

@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { type FetchItemSchema, fetchToolInputSchema } from './fetchTool.schema.js';
 
@@ -154,9 +154,9 @@ export const fetchTool = defineTool({
   name: 'fetch', // Keep tool name simple
   description: 'Performs one or more HTTP fetch requests sequentially.',
   inputSchema: fetchToolInputSchema,
-  outputSchema: FetchToolOutputSchema, // Use the array schema
+  // Use the array schema
 
-  execute: async (input: FetchToolInput, _options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: FetchToolInput, _options: ToolExecuteOptions): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)

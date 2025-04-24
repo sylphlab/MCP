@@ -1,7 +1,7 @@
 import os from 'node:os';
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { GetInterfacesToolInputSchema } from './getInterfacesTool.schema.js';
 
@@ -43,11 +43,10 @@ export const getInterfacesTool = defineTool({
   name: 'getInterfaces',
   description: 'Retrieves details about the network interfaces on the machine.',
   inputSchema: GetInterfacesToolInputSchema,
-  outputSchema: GetInterfacesOutputSchema, // Use the array schema
 
   execute: async (
     input: GetInterfacesToolInput,
-    _options: McpToolExecuteOptions,
+    _options: ToolExecuteOptions,
   ): Promise<Part[]> => {
     // Return Part[]
 

@@ -3,7 +3,7 @@ import { appendFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { type WriteFileItemSchema, writeFilesToolInputSchema } from './writeFilesTool.schema.js';
 
@@ -51,9 +51,9 @@ export const writeFilesTool = defineTool({
   name: 'writeFilesTool',
   description: 'Writes or appends content to one or more files within the workspace.',
   inputSchema: writeFilesToolInputSchema,
-  outputSchema: WriteFilesOutputSchema,
+  ,
 
-  execute: async (input: WriteFilesToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: WriteFilesToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = writeFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {

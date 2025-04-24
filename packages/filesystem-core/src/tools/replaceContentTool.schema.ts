@@ -15,5 +15,5 @@ export const replaceContentToolInputSchema = z.object({
     .min(1, 'paths array cannot be empty.'),
   operations: z.array(ReplaceOperationSchema).min(1, 'operations array cannot be empty.'),
   dryRun: z.boolean().optional(), // Added: Optional dry run flag
-  // allowOutsideWorkspace is handled by McpToolExecuteOptions
+  // allowOutsideWorkspace is handled by ToolExecuteOptions
 });

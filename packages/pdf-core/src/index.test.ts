@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part type
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part type
 import { type Mocked, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type GetTextToolInput, getTextTool } from './index.js';
 import type { GetTextResultItem } from './tools/getTextTool.js'; // Import correct result type
@@ -64,11 +64,11 @@ describe('getTextTool.execute', () => {
   const resolvedValidPath = path.join(WORKSPACE_ROOT, 'test.pdf');
   const resolvedErrorPath = path.join(WORKSPACE_ROOT, 'error.pdf'); // Used in batch test
   const resolvedOutsidePath = path.resolve('/test', 'outside.pdf');
-  const defaultOptions: McpToolExecuteOptions = {
+  const defaultOptions: ToolExecuteOptions = {
     workspaceRoot: WORKSPACE_ROOT,
     allowOutsideWorkspace: false,
   };
-  const allowOutsideOptions: McpToolExecuteOptions = {
+  const allowOutsideOptions: ToolExecuteOptions = {
     workspaceRoot: WORKSPACE_ROOT,
     allowOutsideWorkspace: true,
   };

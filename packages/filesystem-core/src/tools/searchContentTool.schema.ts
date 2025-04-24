@@ -12,5 +12,5 @@ export const searchContentToolInputSchema = z.object({
   contextLinesAfter: z.number().int().min(0).optional().default(0),
   maxResultsPerFile: z.number().int().min(1).optional(),
   // lineRange: z.object({ start: z.number().int().min(1), end: z.number().int().min(1) }).optional(), // TODO: Add line range support
-  // allowOutsideWorkspace is handled by McpToolExecuteOptions
+  // allowOutsideWorkspace is handled by ToolExecuteOptions
 });

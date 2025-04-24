@@ -1,7 +1,7 @@
 import type { Dirent, Stats } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core'; // Import Part
 import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type ListEntry, type ListFilesToolInput, listFilesTool } from './listFilesTool.js';
 import type { PathListResult } from './listFilesTool.js'; // Import correct result type
@@ -13,8 +13,8 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: McpToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
-const allowOutsideOptions: McpToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
+const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const allowOutsideOptions: ToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
 
 // Helper to extract JSON result from parts (returns Record, not Array for this tool)
 function getJsonResult(parts: Part[]): Record<string, PathListResult> | undefined {

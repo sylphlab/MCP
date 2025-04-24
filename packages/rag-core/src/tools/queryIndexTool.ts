@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import {
   EmbeddingModelConfigSchema,
@@ -72,9 +72,9 @@ export const queryIndexTool = defineTool({
   name: 'queryIndex',
   description: 'Embeds a query text and searches the index for similar content.',
   inputSchema: QueryIndexInputSchema,
-  outputSchema: QueryIndexOutputSchema, // Use the array schema
+  
 
-  execute: async (input: QueryIndexInput, _options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: QueryIndexInput, _options: ToolExecuteOptions): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)

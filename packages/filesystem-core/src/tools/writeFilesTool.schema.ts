@@ -13,5 +13,5 @@ export const writeFilesToolInputSchema = z.object({
   encoding: z.enum(['utf-8', 'base64']).optional().default('utf-8'),
   append: z.boolean().optional().default(false),
   dryRun: z.boolean().optional(), // Added: Optional dry run flag
-  // allowOutsideWorkspace is handled by McpToolExecuteOptions
+  // allowOutsideWorkspace is handled by ToolExecuteOptions
 });

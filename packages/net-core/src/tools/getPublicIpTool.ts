@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { GetPublicIpToolInputSchema } from './getPublicIpTool.schema.js';
 
@@ -67,11 +67,11 @@ export const getPublicIpTool = defineTool({
   name: 'getPublicIp',
   description: 'Retrieves the public IP address of the machine running the MCP server.',
   inputSchema: GetPublicIpToolInputSchema,
-  outputSchema: GetPublicIpOutputSchema, // Use the array schema
+  
 
   execute: async (
     input: GetPublicIpToolInput,
-    _options: McpToolExecuteOptions,
+    _options: ToolExecuteOptions,
   ): Promise<Part[]> => {
     // Return Part[]
 

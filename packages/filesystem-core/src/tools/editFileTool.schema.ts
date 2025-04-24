@@ -27,5 +27,5 @@ export const editFileToolInputSchema = z.object({
   // Enforce exactly one change
   changes: z.array(FileChangeSchema).length(1, 'Exactly one file change is required.'),
   dryRun: z.boolean().optional(), // Optional dry run flag
-  // allowOutsideWorkspace is handled by McpToolExecuteOptions
+  // allowOutsideWorkspace is handled by ToolExecuteOptions
 });

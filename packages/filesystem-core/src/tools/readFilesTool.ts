@@ -4,7 +4,7 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { readFilesToolInputSchema } from './readFilesTool.schema.js';
 
@@ -55,9 +55,9 @@ export const readFilesTool = defineTool({
   name: 'readFilesTool',
   description: 'Reads the content of one or more files within the workspace.',
   inputSchema: readFilesToolInputSchema,
-  outputSchema: ReadFilesOutputSchema,
+  ,
 
-  execute: async (input: ReadFilesToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: ReadFilesToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)
     const parsed = readFilesToolInputSchema.safeParse(input);
     if (!parsed.success) {

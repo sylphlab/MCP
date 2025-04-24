@@ -7,7 +7,7 @@ import {
 } from '@sylphlab/mcp-core';
 import type {
   // Import types separately
-  McpToolExecuteOptions,
+  ToolExecuteOptions,
   Part,
 } from '@sylphlab/mcp-core'; // Import base types and validation util
 import { z } from 'zod'; // Import z directly
@@ -46,12 +46,12 @@ export const createFolderTool = defineTool({
   name: 'createFolderTool',
   description: 'Creates one or more new folders at the specified paths within the workspace.',
   inputSchema: createFolderToolInputSchema,
-  outputSchema: CreateFolderOutputSchema, // Use the constant schema instance
+  , // Use the constant schema instance
 
   execute: async (
     // Core logic passed to defineTool
     input: CreateFolderToolInput,
-    options: McpToolExecuteOptions,
+    options: ToolExecuteOptions,
   ): Promise<Part[]> => {
     // Return Part[] directly
 

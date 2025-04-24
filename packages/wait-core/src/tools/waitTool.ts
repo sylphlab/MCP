@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { type WaitItemSchema, waitToolInputSchema } from './waitTool.schema';
 
@@ -56,9 +56,9 @@ export const waitTool = defineTool({
   name: 'wait',
   description: 'Waits sequentially for one or more specified durations in milliseconds.',
   inputSchema: waitToolInputSchema,
-  outputSchema: WaitToolOutputSchema, // Use the array schema
+  // Use the array schema
 
-  execute: async (input: WaitToolInput, _options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: WaitToolInput, _options: ToolExecuteOptions): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)

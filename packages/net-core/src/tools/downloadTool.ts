@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/mcp-core';
 import { jsonPart, validateAndResolvePath } from '@sylphlab/mcp-core';
-import type { McpToolExecuteOptions, Part } from '@sylphlab/mcp-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/mcp-core';
 import { z } from 'zod';
 import { downloadToolInputSchema } from './downloadTool.schema.js';
 import type {
@@ -50,7 +50,7 @@ const DownloadToolOutputSchema = z.array(DownloadResultItemSchema);
 
 async function processSingleDownload(
   item: DownloadInputItem,
-  options: McpToolExecuteOptions,
+  options: ToolExecuteOptions,
 ): Promise<DownloadResultItem> {
   const { id, url, destinationPath, overwrite } = item;
   const { workspaceRoot, allowOutsideWorkspace } = options;
@@ -218,9 +218,9 @@ export const downloadTool = defineTool({
   name: 'downloadTool',
   description: 'Downloads one or more files from URLs to specified paths within the workspace.',
   inputSchema: downloadToolInputSchema,
-  outputSchema: DownloadToolOutputSchema, // Use the array schema
+  // Use the array schema
 
-  execute: async (input: DownloadToolInput, options: McpToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: DownloadToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)
