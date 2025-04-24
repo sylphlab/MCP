@@ -1,0 +1,39 @@
+{
+  "name": "@sylphlab/tools-json-mcp",
+  "version": "0.3.6",
+  "description": "MCP server providing JSON tools",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist"],
+  "bin": {
+    "mcp-json": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
+  },
+  "keywords": ["mcp", "tool", "json"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.1",
+    "@sylphlab/tools-core": "workspace:*",
+    "@sylphlab/tools-json": "workspace:*",
+    "zod": "^3.23.8",
+    "@sylphlab/tools-adaptor-mcp": "workspace:*"
+  }
+}

@@ -46,14 +46,14 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@22.14.1)(terser@5.39.0)
 
-  packages/adaptor-mcp:
+  packages/tools-adaptor-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.2
         version: 1.10.2
-      '@sylphlab/mcp-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -71,11 +71,11 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/adaptor-vercel:
+  packages/tools-adaptor-vercel:
     dependencies:
-      '@sylphlab/mcp-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       ai:
         specifier: latest
         version: 4.3.9(react@19.1.0)(zod@3.24.3)
@@ -99,39 +99,11 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/base64:
+  packages/tools-base64:
     dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.10.1
-        version: 1.10.1
-      '@sylphlab/mcp-base64-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../base64-core
-      '@sylphlab/mcp-core':
-        specifier: workspace:*
-        version: link:../core
-      '@sylphlab/tool-adaptor-mcp':
-        specifier: workspace:*
-        version: link:../adaptor-mcp
-      zod:
-        specifier: ^3.23.8
-        version: 3.24.3
-    devDependencies:
-      '@types/node':
-        specifier: ^20.12.12
-        version: 20.17.30
-      tsup:
-        specifier: ^8.0.2
-        version: 8.4.0(@swc/core@1.11.21)(postcss@8.5.3)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.4.5
-        version: 5.8.3
-
-  packages/base64-core:
-    dependencies:
-      '@sylphlab/mcp-core':
-        specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -152,7 +124,35 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/core:
+  packages/tools-base64-mcp:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.1
+        version: 1.10.2
+      '@sylphlab/tools-adaptor-mcp':
+        specifier: workspace:*
+        version: link:../tools-adaptor-mcp
+      '@sylphlab/tools-base64':
+        specifier: workspace:*
+        version: link:../tools-base64
+      '@sylphlab/tools-core':
+        specifier: workspace:*
+        version: link:../tools-core
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
+    devDependencies:
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.17.30
+      tsup:
+        specifier: ^8.0.2
+        version: 8.4.0(@swc/core@1.11.21)(postcss@8.5.3)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.4.5
+        version: 5.8.3
+
+  packages/tools-core:
     dependencies:
       zod:
         specifier: ^3.24.3
@@ -174,20 +174,20 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@22.14.1)(terser@5.39.0)
 
-  packages/fetch:
+  packages/tools-fetch-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.1
-        version: 1.10.1
-      '@sylphlab/mcp-core':
+        version: 1.10.2
+      '@sylphlab/tools-adaptor-mcp':
         specifier: workspace:*
-        version: link:../core
-      '@sylphlab/mcp-net-core':
+        version: link:../tools-adaptor-mcp
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../net-core
-      '@sylphlab/tool-adaptor-mcp':
+        version: link:../tools-core
+      '@sylphlab/tools-net':
         specifier: workspace:*
-        version: link:../adaptor-mcp
+        version: link:../tools-net
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -202,42 +202,11 @@ importers:
         specifier: ^5.4.5
         version: 5.8.3
 
-  packages/filesystem:
+  packages/tools-filesystem:
     dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.10.1
-        version: 1.10.1
-      '@sylphlab/mcp-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../core
-      '@sylphlab/mcp-filesystem-core':
-        specifier: workspace:*
-        version: link:../filesystem-core
-      '@sylphlab/tool-adaptor-mcp':
-        specifier: workspace:*
-        version: link:../adaptor-mcp
-      zod:
-        specifier: ^3.24.3
-        version: 3.24.3
-      zod-to-json-schema:
-        specifier: ^3.24.5
-        version: 3.24.5(zod@3.24.3)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.14.1
-        version: 22.14.1
-      tsup:
-        specifier: ^8.4.0
-        version: 8.4.0(@swc/core@1.11.21)(postcss@8.5.3)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.8.3
-        version: 5.8.3
-
-  packages/filesystem-core:
-    dependencies:
-      '@sylphlab/mcp-core':
-        specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -270,39 +239,42 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@22.14.1)(terser@5.39.0)
 
-  packages/hasher:
+  packages/tools-filesystem-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.1
-        version: 1.10.1
-      '@sylphlab/mcp-core':
+        version: 1.10.2
+      '@sylphlab/tools-adaptor-mcp':
         specifier: workspace:*
-        version: link:../core
-      '@sylphlab/mcp-hasher-core':
+        version: link:../tools-adaptor-mcp
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../hasher-core
-      '@sylphlab/tool-adaptor-mcp':
+        version: link:../tools-core
+      '@sylphlab/tools-filesystem':
         specifier: workspace:*
-        version: link:../adaptor-mcp
+        version: link:../tools-filesystem
       zod:
-        specifier: ^3.23.8
+        specifier: ^3.24.3
         version: 3.24.3
+      zod-to-json-schema:
+        specifier: ^3.24.5
+        version: 3.24.5(zod@3.24.3)
     devDependencies:
       '@types/node':
-        specifier: ^20.12.12
-        version: 20.17.30
+        specifier: ^22.14.1
+        version: 22.14.1
       tsup:
-        specifier: ^8.0.2
+        specifier: ^8.4.0
         version: 8.4.0(@swc/core@1.11.21)(postcss@8.5.3)(typescript@5.8.3)
       typescript:
-        specifier: ^5.4.5
+        specifier: ^5.8.3
         version: 5.8.3
 
-  packages/hasher-core:
+  packages/tools-hasher:
     dependencies:
-      '@sylphlab/mcp-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -323,20 +295,20 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/json:
+  packages/tools-hasher-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.1
-        version: 1.10.1
-      '@sylphlab/mcp-core':
+        version: 1.10.2
+      '@sylphlab/tools-adaptor-mcp':
         specifier: workspace:*
-        version: link:../core
-      '@sylphlab/mcp-json-core':
+        version: link:../tools-adaptor-mcp
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../json-core
-      '@sylphlab/tool-adaptor-mcp':
+        version: link:../tools-core
+      '@sylphlab/tools-hasher':
         specifier: workspace:*
-        version: link:../adaptor-mcp
+        version: link:../tools-hasher
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -351,11 +323,11 @@ importers:
         specifier: ^5.4.5
         version: 5.8.3
 
-  packages/json-core:
+  packages/tools-json:
     dependencies:
-      '@sylphlab/mcp-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -376,20 +348,20 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/net:
+  packages/tools-json-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.1
-        version: 1.10.1
-      '@sylphlab/mcp-core':
+        version: 1.10.2
+      '@sylphlab/tools-adaptor-mcp':
         specifier: workspace:*
-        version: link:../core
-      '@sylphlab/mcp-net-core':
+        version: link:../tools-adaptor-mcp
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../net-core
-      '@sylphlab/tool-adaptor-mcp':
+        version: link:../tools-core
+      '@sylphlab/tools-json':
         specifier: workspace:*
-        version: link:../adaptor-mcp
+        version: link:../tools-json
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -404,11 +376,11 @@ importers:
         specifier: ^5.4.5
         version: 5.8.3
 
-  packages/net-core:
+  packages/tools-net:
     dependencies:
-      '@sylphlab/mcp-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -429,20 +401,20 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/pdf:
+  packages/tools-net-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.1
-        version: 1.10.1
-      '@sylphlab/mcp-core':
+        version: 1.10.2
+      '@sylphlab/tools-adaptor-mcp':
         specifier: workspace:*
-        version: link:../core
-      '@sylphlab/mcp-pdf-core':
+        version: link:../tools-adaptor-mcp
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../pdf-core
-      '@sylphlab/tool-adaptor-mcp':
+        version: link:../tools-core
+      '@sylphlab/tools-net':
         specifier: workspace:*
-        version: link:../adaptor-mcp
+        version: link:../tools-net
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -457,11 +429,11 @@ importers:
         specifier: ^5.4.5
         version: 5.8.3
 
-  packages/pdf-core:
+  packages/tools-pdf:
     dependencies:
-      '@sylphlab/mcp-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       mupdf:
         specifier: latest
         version: 1.3.6
@@ -485,38 +457,35 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/rag:
+  packages/tools-pdf-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.1
-        version: 1.10.1
-      '@sylphlab/mcp-core':
+        version: 1.10.2
+      '@sylphlab/tools-adaptor-mcp':
         specifier: workspace:*
-        version: link:../core
-      '@sylphlab/mcp-rag-core':
+        version: link:../tools-adaptor-mcp
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../rag-core
-      '@sylphlab/tool-adaptor-mcp':
+        version: link:../tools-core
+      '@sylphlab/tools-pdf':
         specifier: workspace:*
-        version: link:../adaptor-mcp
-      dotenv:
-        specifier: ^16.4.5
-        version: 16.5.0
+        version: link:../tools-pdf
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
     devDependencies:
       '@types/node':
-        specifier: ^20.17.30
+        specifier: ^20.12.12
         version: 20.17.30
       tsup:
-        specifier: ^8.4.0
+        specifier: ^8.0.2
         version: 8.4.0(@swc/core@1.11.21)(postcss@8.5.3)(typescript@5.8.3)
       typescript:
-        specifier: ^5.8.3
+        specifier: ^5.4.5
         version: 5.8.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/rag-core:
+  packages/tools-rag:
     dependencies:
       '@lezer/common':
         specifier: ^1.0.0
@@ -548,9 +517,9 @@ importers:
       '@pinecone-database/pinecone':
         specifier: ^5.1.1
         version: 5.1.1
-      '@sylphlab/mcp-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       ai:
         specifier: ^4.3.9
         version: 4.3.9(react@19.1.0)(zod@3.24.3)
@@ -601,39 +570,42 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/wait:
+  packages/tools-rag-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.1
-        version: 1.10.1
-      '@sylphlab/mcp-core':
+        version: 1.10.2
+      '@sylphlab/tools-adaptor-mcp':
         specifier: workspace:*
-        version: link:../core
-      '@sylphlab/mcp-wait-core':
+        version: link:../tools-adaptor-mcp
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../wait-core
-      '@sylphlab/tool-adaptor-mcp':
+        version: link:../tools-core
+      '@sylphlab/tools-rag':
         specifier: workspace:*
-        version: link:../adaptor-mcp
-      zod:
-        specifier: ^3.23.8
-        version: 3.24.3
+        version: link:../tools-rag
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.5.0
     devDependencies:
       '@types/node':
-        specifier: ^20.12.12
+        specifier: ^20.17.30
         version: 20.17.30
       tsup:
-        specifier: ^8.0.2
+        specifier: ^8.4.0
         version: 8.4.0(@swc/core@1.11.21)(postcss@8.5.3)(typescript@5.8.3)
       typescript:
-        specifier: ^5.4.5
+        specifier: ^5.8.3
         version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/wait-core:
+  packages/tools-wait:
     dependencies:
-      '@sylphlab/mcp-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -654,20 +626,20 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
 
-  packages/xml:
+  packages/tools-wait-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.10.1
-        version: 1.10.1
-      '@sylphlab/mcp-core':
+        version: 1.10.2
+      '@sylphlab/tools-adaptor-mcp':
         specifier: workspace:*
-        version: link:../core
-      '@sylphlab/mcp-xml-core':
+        version: link:../tools-adaptor-mcp
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../xml-core
-      '@sylphlab/tool-adaptor-mcp':
+        version: link:../tools-core
+      '@sylphlab/tools-wait':
         specifier: workspace:*
-        version: link:../adaptor-mcp
+        version: link:../tools-wait
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -682,11 +654,11 @@ importers:
         specifier: ^5.4.5
         version: 5.8.3
 
-  packages/xml-core:
+  packages/tools-xml:
     dependencies:
-      '@sylphlab/mcp-core':
+      '@sylphlab/tools-core':
         specifier: workspace:*
-        version: link:../core
+        version: link:../tools-core
       zod:
         specifier: ^3.23.8
         version: 3.24.3
@@ -706,6 +678,34 @@ importers:
       vitest:
         specifier: ^3.1.1
         version: 3.1.1(@types/node@20.17.30)(terser@5.39.0)
+
+  packages/tools-xml-mcp:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.10.1
+        version: 1.10.2
+      '@sylphlab/tools-adaptor-mcp':
+        specifier: workspace:*
+        version: link:../tools-adaptor-mcp
+      '@sylphlab/tools-core':
+        specifier: workspace:*
+        version: link:../tools-core
+      '@sylphlab/tools-xml':
+        specifier: workspace:*
+        version: link:../tools-xml
+      zod:
+        specifier: ^3.23.8
+        version: 3.24.3
+    devDependencies:
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.17.30
+      tsup:
+        specifier: ^8.0.2
+        version: 8.4.0(@swc/core@1.11.21)(postcss@8.5.3)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.4.5
+        version: 5.8.3
 
 packages:
 
@@ -1379,10 +1379,6 @@ packages:
 
   '@manypkg/get-packages@1.1.3':
     resolution: {integrity: sha512-fo+QhuU3qE/2TQMQmbVMqaQ6EWbMhi4ABWP+O4AM1NqPBuy0OrApV5LO6BrrgnhtAHS2NH6RrVk9OL181tTi8A==}
-
-  '@modelcontextprotocol/sdk@1.10.1':
-    resolution: {integrity: sha512-xNYdFdkJqEfIaTVP1gPKoEvluACHZsHZegIoICX8DM1o6Qf3G5u2BQJHmgd0n4YgRPqqK/u1ujQvrgAxxSJT9w==}
-    engines: {node: '>=18'}
 
   '@modelcontextprotocol/sdk@1.10.2':
     resolution: {integrity: sha512-rb6AMp2DR4SN+kc6L1ta2NCpApyA9WYNx3CrTSZvGxq9wH71bRur+zRqPfg0vQ9mjywR7qZdX2RGHOPq3ss+tA==}
@@ -4842,21 +4838,6 @@ snapshots:
       fs-extra: 8.1.0
       globby: 11.1.0
       read-yaml-file: 1.1.0
-
-  '@modelcontextprotocol/sdk@1.10.1':
-    dependencies:
-      content-type: 1.0.5
-      cors: 2.8.5
-      cross-spawn: 7.0.6
-      eventsource: 3.0.6
-      express: 5.1.0
-      express-rate-limit: 7.5.0(express@5.1.0)
-      pkce-challenge: 5.0.0
-      raw-body: 3.0.0
-      zod: 3.24.3
-      zod-to-json-schema: 3.24.5(zod@3.24.3)
-    transitivePeerDependencies:
-      - supports-color
 
   '@modelcontextprotocol/sdk@1.10.2':
     dependencies:
