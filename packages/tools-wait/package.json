@@ -17,8 +17,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
+    "build": "tsup"
   },
   "keywords": [
     "mcp",
