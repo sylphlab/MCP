@@ -10,6 +10,7 @@ export type DownloadToolInput = z.infer<typeof downloadToolInputSchema>;
 export interface DownloadResultItem {
   id?: string; // Corresponds to input id if provided
   path: string; // The destination path provided in the input
+  fullPath?: string; // The resolved absolute destination path
   success: boolean;
   message?: string; // e.g., "Successfully downloaded", "File already exists", etc.
   error?: string;

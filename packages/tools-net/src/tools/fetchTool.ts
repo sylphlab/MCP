@@ -1,5 +1,5 @@
 import { defineTool } from '@sylphlab/tools-core';
-import { jsonPart } from '@sylphlab/tools-core';
+import { jsonPart, textPart } from '@sylphlab/tools-core'; // Import textPart
 import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core';
 import { z } from 'zod';
 import { type FetchItemSchema, fetchToolInputSchema } from './fetchTool.schema.js';
@@ -46,12 +46,12 @@ const FetchToolOutputSchema = z.array(FetchResultItemSchema);
 
 // --- Helper Function ---
 
-// Helper function to process a single fetch item
+// Helper function to process a single fetch item, throws on error
 async function processSingleFetch(item: FetchInputItem): Promise<FetchResultItem> {
   const { id, url, method = 'GET', headers = {}, body, responseType = 'text' } = item;
-  const resultItem: FetchResultItem = { id, success: false };
+  const resultItemBase: Omit<FetchResultItem, 'error' | 'suggestion' | 'body'> = { id, success: false }; // Start without body
 
-  try {
+  try { // Add try block specifically for the fetch operation and initial response handling
     const requestOptions: RequestInit = {
       method,
       headers: headers as HeadersInit, // Cast headers
@@ -80,73 +80,57 @@ async function processSingleFetch(item: FetchInputItem): Promise<FetchResultItem
 
     const response = await fetch(url, requestOptions);
 
-    resultItem.status = response.status;
-    resultItem.statusText = response.statusText;
+    // Process headers regardless of status
     const responseHeaders: Record<string, string> = {};
     response.headers.forEach((value, key) => {
       responseHeaders[key] = value;
     });
-    resultItem.headers = responseHeaders;
 
     let responseBody: unknown = null;
-    let bodyForError: string | null = null;
+    let bodyTextForError: string | undefined;
 
-    // Try reading body text first for potential error messages
-    try {
-      bodyForError = await response.clone().text(); // Clone to read text
-    } catch {
-      // Ignore error reading body text for error reporting
-    }
-
+    // If response is not OK, attempt to read body for error and throw
     if (!response.ok) {
-      let errorDetail = '';
-      if (typeof bodyForError === 'string' && bodyForError.length > 0) {
-        errorDetail = ` - Body: ${bodyForError.substring(0, 150)}`; // Limit error body length
-      }
-      throw new Error(`HTTP error! Status: ${response.status}${errorDetail}`);
+      try {
+        bodyTextForError = await response.text();
+      } catch { /* ignore inability to read body */ }
+      const errorDetail = bodyTextForError ? `: ${bodyTextForError.substring(0, 150)}` : '';
+      throw new Error(`Fetch failed with status ${response.status} ${response.statusText}${errorDetail}`);
     }
 
     // If response is OK, parse body based on responseType
     try {
       if (responseType === 'json') {
-        // Use the original response stream for JSON parsing
         responseBody = await response.json();
       } else if (responseType === 'text') {
-        // We already read the text into bodyForError
-        responseBody = bodyForError;
-      } else {
-        // 'ignore' or unknown - body is null
+        responseBody = await response.text();
+      } else { // 'ignore' or unknown
         responseBody = null;
+        await response.text(); // Consume body
       }
     } catch (parseError: unknown) {
-      // Handle JSON parsing error specifically
+      // Handle body parsing errors after confirming response.ok
       throw new Error(
-        `Failed to parse response body as ${responseType}: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+        `Successfully fetched from ${url} (status ${response.status}), but failed to parse response body as ${responseType}: ${parseError instanceof Error ? parseError.message : String(parseError)}`
       );
     }
 
-    resultItem.body = responseBody;
-    resultItem.success = true;
+    // Success case: return full result
+    return {
+      ...resultItemBase,
+      status: response.status,
+      statusText: response.statusText,
+      headers: responseHeaders,
+      body: responseBody,
+      success: true,
+    };
+
   } catch (e: unknown) {
-    const errorMsg = e instanceof Error ? e.message : 'Unknown error';
-    resultItem.error = `Fetch failed for ${url}: ${errorMsg}`;
-    // Provide suggestions based on error type
-    if (errorMsg.includes('Failed to parse response body')) {
-      resultItem.suggestion = `The server responded with status ${resultItem.status}, but the response body was not valid ${responseType}. Check the 'responseType' parameter or the server's response format.`;
-    } else if (errorMsg.includes('HTTP error')) {
-      resultItem.suggestion =
-        'The server returned an error status code. Check the error message body (if available) and the request details (URL, method, headers, body).';
-    } else if (errorMsg.includes('fetch') || errorMsg.includes('Network request failed')) {
-      // More generic network errors
-      resultItem.suggestion =
-        'Check URL, network connection, DNS resolution, and potential CORS issues if running in a browser.';
-    } else {
-      resultItem.suggestion =
-        'Check URL, network connection, method, headers, body, and potential CORS issues.';
-    }
-    resultItem.success = false;
+    // Catch initial fetch errors (network, DNS, etc.) or errors thrown above
+    const errorMsg = e instanceof Error ? e.message : 'Unknown fetch error';
+    // Re-throw error to be caught by the main execute block
+    throw new Error(`Fetch failed for ${url}: ${errorMsg}`);
   }
-  return resultItem;
 }
 
 // --- Tool Definition using defineTool ---
@@ -171,13 +155,26 @@ export const fetchTool = defineTool({
 
     const results: FetchResultItem[] = [];
 
-    // Process requests sequentially
-    for (const item of items) {
-      const result = await processSingleFetch(item);
-      results.push(result);
+    // Process requests sequentially, re-throwing the first error encountered
+    try {
+      for (const item of items) {
+        const result = await processSingleFetch(item);
+        results.push(result);
+      }
+    } catch (e) {
+      // If processSingleFetch throws, re-throw it to fail the tool execution
+      // The adapter layer will catch this and return an error result.
+      if (e instanceof Error) {
+         // Construct a more informative error message if possible
+         const baseMessage = e.message.startsWith('Fetch failed for') ? e.message : `Fetch execution failed: ${e.message}`;
+         throw new Error(baseMessage);
+      }
+      throw new Error(`Fetch execution failed: ${String(e)}`);
     }
 
-    // Return the results wrapped in jsonPart
+
+    // If loop completed without errors, all requests succeeded.
+    // Always return the full results array wrapped in jsonPart.
     return [jsonPart(results, FetchToolOutputSchema)];
   },
 });

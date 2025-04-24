@@ -90,6 +90,14 @@ export function validateAndResolvePath(
   workspaceRoot: string,
   allowOutsideRoot = false,
 ): string | PathValidationError {
+  // Add check for empty input path
+  if (!relativePathInput || relativePathInput.trim() === '') {
+      return {
+          error: `Path validation failed: Input path cannot be empty.`,
+          suggestion: 'Provide a valid relative path.',
+      };
+  }
+
   try {
     // Basic check for absolute paths if not allowed outside
     if (!allowOutsideRoot && path.isAbsolute(relativePathInput)) {
