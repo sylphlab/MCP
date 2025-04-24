@@ -2,6 +2,8 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
+    // Define the workspace using the modern approach
+    workspace: ['packages/*'],
     // Configure coverage for the entire workspace
     coverage: {
       provider: 'v8', // or 'istanbul'
