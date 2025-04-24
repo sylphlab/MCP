@@ -5,10 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "turbo run build",
-    "build:watch": "turbo watch build",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "lint": "biome check --write --unsafe ."
+    "build:watch": "turbo watch build"
   },
   "keywords": [],
   "author": "",
