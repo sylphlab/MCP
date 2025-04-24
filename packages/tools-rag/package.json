@@ -41,7 +41,8 @@
     "build": "tsup",
     "clean": "rd /s /q dist .turbo node_modules",
     "dev": "tsup --watch",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "biome lint"
   },
   "dependencies": {
     "@lezer/common": "^1.0.0",

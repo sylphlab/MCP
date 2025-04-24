@@ -14,7 +14,8 @@
     "clean": "rm -rf dist .turbo node_modules",
     "dev": "tsup --watch",
     "start": "node ./dist/index.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "biome lint"
   },
   "keywords": [
     "mcp",

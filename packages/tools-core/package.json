@@ -18,7 +18,8 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --clean",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "biome lint"
   },
   "keywords": [
     "mcp",

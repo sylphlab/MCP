@@ -21,7 +21,8 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "biome lint"
   },
   "keywords": [
     "mcp",
