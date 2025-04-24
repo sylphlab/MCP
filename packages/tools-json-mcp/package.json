@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-json-mcp",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "description": "MCP server providing JSON tools",
   "type": "module",
   "main": "./dist/index.cjs",
