@@ -16,10 +16,7 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsup",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
   },
   "keywords": ["mcp", "core", "hash", "hasher", "md5", "sha256", "sha512"],
   "author": "",
@@ -30,9 +27,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.12.12",
-    "@vitest/coverage-v8": "^3.1.1",
     "tsup": "^8.0.2",
-    "typescript": "^5.4.5",
-    "vitest": "^3.1.1"
+    "typescript": "^5.4.5"
   }
 }

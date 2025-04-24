@@ -15,9 +15,7 @@
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --clean",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "build": "tsup src/index.ts --format cjs,esm --clean"
   },
   "keywords": ["mcp", "core", "types"],
   "author": "Sylph Lab <hi@sylphlab.com>",
@@ -28,9 +26,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
-    "@vitest/coverage-v8": "^3.1.1",
     "tsup": "^8.4.0",
-    "typescript": "^5.8.3",
-    "vitest": "^3.1.1"
+    "typescript": "^5.8.3"
   }
 }

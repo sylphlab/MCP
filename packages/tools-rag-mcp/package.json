@@ -13,8 +13,7 @@
     "build": "tsup",
     "clean": "rm -rf dist .turbo node_modules",
     "dev": "tsup --watch",
-    "start": "node ./dist/index.js",
-    "test": "vitest run --passWithNoTests"
+    "start": "node ./dist/index.js"
   },
   "keywords": ["mcp", "rag", "ai", "vector", "embedding"],
   "author": "Sylph Lab <hi@sylphlab.com>",
@@ -29,8 +28,7 @@
   "devDependencies": {
     "@types/node": "^20.17.30",
     "tsup": "^8.4.0",
-    "typescript": "^5.8.3",
-    "vitest": "^1.6.1"
+    "typescript": "^5.8.3"
   },
   "publishConfig": {
     "access": "public"

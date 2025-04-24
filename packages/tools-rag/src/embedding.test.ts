@@ -241,7 +241,7 @@ describe('embedding', () => {
 
       expect(embeddings).toEqual([]);
       expect(generateSpy).toHaveBeenCalledWith([]); // Called with empty array
-      expect(generateSpy).toHaveReturnedWith([]); // Returned empty array
+      await expect(generateSpy.mock.results[0].value).resolves.toEqual([]); // Check the promise resolves to empty array
 
       generateSpy.mockRestore();
     });

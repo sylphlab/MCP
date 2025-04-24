@@ -17,8 +17,6 @@
     "dist"
   ],
   "scripts": {
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
     "build": "tsup"
   },
   "keywords": [
@@ -31,10 +29,8 @@
   "packageManager": "pnpm@10.8.0",
   "devDependencies": {
     "@types/node": "^22.14.1",
-    "@vitest/coverage-v8": "^3.1.1",
     "tsup": "^8.4.0",
-    "typescript": "^5.8.3",
-    "vitest": "^3.1.1"
+    "typescript": "^5.8.3"
   },
   "dependencies": {
     "@sylphlab/tools-core": "workspace:*",
