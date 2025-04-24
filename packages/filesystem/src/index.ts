@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-
+import process from 'node:process';
 // McpServer and StdioServerTransport are now handled by the factory
 // import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-// import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { Tool } from '@sylphlab/mcp-core';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { Tool, ToolExecuteOptions } from '@sylphlab/mcp-core';
 // Import the server start function
 import { startMcpServer } from '@sylphlab/tool-adaptor-mcp';
 // Zod imports might not be needed here anymore if server factory handles registration details
@@ -45,14 +45,21 @@ const tools: Tool<any>[] = [
 // Use an async IIFE to handle top-level await for CJS compatibility
 // Error handling (including process.exit) is inside startMcpServer.
 (async () => {
+  const toolOptions: ToolExecuteOptions = {
+    workspaceRoot: process.cwd(),
+    // Add other options if needed, e.g., allowOutsideWorkspace: false
+  };
   try {
-    await startMcpServer({
-      // Pass server metadata
-      name,
-      description,
-      version,
-      tools,
-    });
+    await startMcpServer(
+      {
+        // Pass server metadata
+        name,
+        description,
+        version,
+        tools,
+      },
+      toolOptions, // Pass the created options object
+    );
     // If the script reaches here, the server started successfully and is running.
   } catch (_error) {
     // startMcpServer now handles process.exit on error, so catch block might be empty

@@ -68,7 +68,6 @@ export const editFileTool = defineTool({
   name: 'editFileTool',
   description: 'Applies precise, context-aware edits to a single file using a diff patch.',
   inputSchema: editFileToolInputSchema, // Schema enforces only one apply_diff_patch
-  ,
 
   execute: async (input: EditFileToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)

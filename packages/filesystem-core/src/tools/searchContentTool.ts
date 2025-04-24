@@ -68,7 +68,6 @@ export const searchContentTool = defineTool({
   name: 'searchContentTool',
   description: 'Searches for content within multiple files (supports globs).',
   inputSchema: searchContentToolInputSchema,
-  ,
 
   execute: async (
     input: SearchContentToolInput,
@@ -167,7 +166,11 @@ export const searchContentTool = defineTool({
           let matchResult: RegExpExecArray | null;
           searchRegex.lastIndex = 0; // Reset lastIndex for each line
 
-          while ((matchResult = searchRegex.exec(line)) !== null) {
+          while (true) {
+            matchResult = searchRegex.exec(line);
+            if (matchResult === null) {
+              break; // Exit loop if no more matches
+            }
             if (maxResultsPerFile && fileMatchCount >= maxResultsPerFile) break;
 
             const matchText = matchResult[0];

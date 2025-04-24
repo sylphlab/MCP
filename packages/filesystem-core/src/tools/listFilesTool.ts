@@ -115,7 +115,6 @@ export const listFilesTool = defineTool({
   name: 'listFilesTool',
   description: 'Lists files and directories within one or more specified paths in the workspace.',
   inputSchema: listFilesToolInputSchema,
-  ,
 
   execute: async (input: ListFilesToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)

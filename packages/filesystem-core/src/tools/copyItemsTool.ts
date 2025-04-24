@@ -63,7 +63,7 @@ export const copyItemsTool = defineTool({
   description:
     'Copies one or more files or folders within the workspace. Handles recursion. Use relative paths.',
   inputSchema: copyItemsToolInputSchema,
-  , // Use the constant schema instance
+   // Use the constant schema instance
 
   execute: async (
     // Core logic passed to defineTool

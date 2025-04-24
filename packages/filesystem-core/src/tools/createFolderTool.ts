@@ -46,7 +46,7 @@ export const createFolderTool = defineTool({
   name: 'createFolderTool',
   description: 'Creates one or more new folders at the specified paths within the workspace.',
   inputSchema: createFolderToolInputSchema,
-  , // Use the constant schema instance
+   // Use the constant schema instance
 
   execute: async (
     // Core logic passed to defineTool

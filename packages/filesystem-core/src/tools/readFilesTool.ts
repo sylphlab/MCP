@@ -55,7 +55,6 @@ export const readFilesTool = defineTool({
   name: 'readFilesTool',
   description: 'Reads the content of one or more files within the workspace.',
   inputSchema: readFilesToolInputSchema,
-  ,
 
   execute: async (input: ReadFilesToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)

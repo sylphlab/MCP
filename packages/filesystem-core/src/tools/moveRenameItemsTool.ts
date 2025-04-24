@@ -48,7 +48,6 @@ export const moveRenameItemsTool = defineTool({
   description:
     'Moves or renames one or more files or folders within the workspace. Use relative paths.',
   inputSchema: moveRenameItemsToolInputSchema,
-  ,
 
   execute: async (
     input: MoveRenameItemsToolInput,

@@ -40,7 +40,6 @@ export const deleteItemsTool = defineTool({
   description:
     'Deletes specified files or directories (supports globs - TODO: implement glob support). Uses trash by default.',
   inputSchema: deleteItemsToolInputSchema,
-  ,
 
   execute: async (input: DeleteItemsToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)

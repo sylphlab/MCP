@@ -51,7 +51,6 @@ export const writeFilesTool = defineTool({
   name: 'writeFilesTool',
   description: 'Writes or appends content to one or more files within the workspace.',
   inputSchema: writeFilesToolInputSchema,
-  ,
 
   execute: async (input: WriteFilesToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)

@@ -33,7 +33,6 @@ export const statItemsTool = defineTool({
   name: 'statItemsTool',
   description: 'Gets file system stats for one or more specified paths within the workspace.',
   inputSchema: statItemsToolInputSchema,
-  ,
 
   execute: async (input: StatItemsToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
     // Zod validation (throw error on failure)

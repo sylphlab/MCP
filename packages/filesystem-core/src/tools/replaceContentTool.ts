@@ -63,7 +63,6 @@ export const replaceContentTool = defineTool({
   name: 'replaceContentTool',
   description: 'Performs search and replace operations across multiple files (supports globs).',
   inputSchema: replaceContentToolInputSchema,
-  ,
 
   execute: async (
     input: ReplaceContentToolInput,

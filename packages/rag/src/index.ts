@@ -1,5 +1,6 @@
 // Import version from package.json
 import { createRequire } from 'node:module';
+import process from 'node:process';
 // Remove direct SDK imports
 // import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 // import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'; // Stdio handled by factory
@@ -8,7 +9,7 @@ const require = createRequire(import.meta.url);
 const { name, version, description } = require('../package.json'); // Import metadata directly
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Tool } from '@sylphlab/mcp-core'; // Import McpTool type
+import type { Tool, ToolExecuteOptions } from '@sylphlab/mcp-core'; // Import McpTool type
 // Import specific functions and types directly from rag-core
 import {
   type Chunk,
@@ -125,12 +126,19 @@ async function startServer() {
   }
 
   // Now start the MCP server (startMcpServer handles its own connection errors/exit)
-  await startMcpServer({
-    name, // Use name from package.json
-    version, // Use version from package.json
-    description, // Use description from package.json
-    tools,
-  });
+  const toolOptions: ToolExecuteOptions = {
+    workspaceRoot: process.cwd(),
+    // Add other options if needed, e.g., allowOutsideWorkspace: false
+  };
+  await startMcpServer(
+    {
+      name, // Use name from package.json
+      version, // Use version from package.json
+      description, // Use description from package.json
+      tools,
+    },
+    toolOptions, // Pass the created options object
+  );
 }
 
 // Use an async IIFE to call the combined startServer function
