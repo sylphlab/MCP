@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     pool: 'threads',
     // Define the workspace using the modern approach
-    workspace: ['packages/*'],
+    // workspace: ['packages/*'],
     // Configure coverage for the entire workspace
     coverage: {
       provider: 'v8', // or 'istanbul'

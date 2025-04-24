@@ -17,7 +17,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --clean"
+    "build": "tsup src/index.ts --format cjs,esm --clean",
+    "test": "vitest run"
   },
   "keywords": [
     "mcp",
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@types/node": "^22.14.1",
     "tsup": "^8.4.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
   }
 }

@@ -7,7 +7,7 @@
     "build": "turbo run build",
     "build:watch": "turbo watch build",
     "lint": "biome lint",
-    "test": "pnpm build && vitest run"
+    "test": "turbo run test"
   },
   "keywords": [],
   "author": "",

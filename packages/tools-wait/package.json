@@ -17,7 +17,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "test": "vitest run"
   },
   "keywords": [
     "mcp",
@@ -34,6 +35,7 @@
   "devDependencies": {
     "@types/node": "^22.14.1",
     "tsup": "^8.0.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^3.1.2"
   }
 }
