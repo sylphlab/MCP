@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
+    pool: 'threads',
     // Define the workspace using the modern approach
     workspace: ['packages/*'],
     // Configure coverage for the entire workspace
