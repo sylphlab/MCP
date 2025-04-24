@@ -18,9 +18,7 @@ vi.mock('@modelcontextprotocol/sdk/server/mcp.js', async (importOriginal) => {
         ...actual,
         McpServer: vi.fn().mockImplementation((opts) => ({
             tool: mockMcpToolMethod,
-            server: {
-                connect: mockMcpConnectMethod,
-            },
+            connect: mockMcpConnectMethod,
             options: opts,
         })),
     };
@@ -104,7 +102,9 @@ describe('tools-adaptor-mcp', () => {
 
             expect(mockMcpToolMethod).toHaveBeenCalledTimes(allMockTools.length);
             allMockTools.forEach((tool, index) => {
-                const expectedSchemaShape = tool.inputSchema instanceof z.ZodObject ? tool.inputSchema.shape : tool.inputSchema;
+                // Match the implementation: wrap primitive schemas
+                const isObjectSchema = 'shape' in tool.inputSchema;
+                const expectedSchemaShape = isObjectSchema ? (tool.inputSchema as z.ZodObject<z.ZodRawShape>).shape : { value: tool.inputSchema };
                 expect(mockMcpToolMethod).toHaveBeenNthCalledWith(
                     index + 1,
                     tool.name,
@@ -120,7 +120,7 @@ describe('tools-adaptor-mcp', () => {
             expect(mockMcpToolMethod).toHaveBeenCalledWith(
                 mockPrimitiveSchemaTool.name,
                 mockPrimitiveSchemaTool.description,
-                mockPrimitiveSchemaTool.inputSchema,
+                { value: mockPrimitiveSchemaTool.inputSchema }, // Expect wrapped primitive schema
                 expect.any(Function)
             );
         });
@@ -196,8 +196,8 @@ describe('tools-adaptor-mcp', () => {
         };
 
         // Import the constructor here for checks within this suite
-        let MockedMcpServerConstructor: ReturnType<typeof vi.fn>;
-        let MockedStdioTransport: ReturnType<typeof vi.fn>;
+        let MockedMcpServerConstructor: any; // Use 'any' to simplify mock type issues
+        let MockedStdioTransport: any; // Use 'any' to simplify mock type issues
 
         beforeAll(async () => { // Use beforeAll to import mocks once for the suite
             // Import mocks once for the suite
@@ -225,7 +225,7 @@ describe('tools-adaptor-mcp', () => {
             expect(mockMcpToolMethod).toHaveBeenCalledWith(
                 mockTextTool.name,
                 mockTextTool.description,
-                mockTextTool.inputSchema.shape,
+                (mockTextTool.inputSchema as z.ZodObject<any>).shape, // Cast to access shape
                 expect.any(Function)
             );
         });
@@ -250,7 +250,7 @@ describe('tools-adaptor-mcp', () => {
             expect(serverInstance).toBeDefined();
             // Check if the returned object has the expected mocked methods
             expect(serverInstance.tool).toBe(mockMcpToolMethod);
-            expect(serverInstance.server.connect).toBe(mockMcpConnectMethod);
+            expect(serverInstance.connect).toBe(mockMcpConnectMethod);
         });
     });
 });

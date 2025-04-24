@@ -15,14 +15,19 @@ export type McpServerOptions = {
 export function registerTools(server: McpServer, tools: SylphTool<z.ZodTypeAny>[], options: ToolExecuteOptions) {
     for (const tool of tools) {
         const { execute } = tool;
-        const shape = (tool.inputSchema as z.ZodObject<z.ZodRawShape>).shape;
+        const schema = tool.inputSchema;
+        const isObjectSchema = 'shape' in schema; // Check if it has a .shape property, safer than instanceof z.ZodObject
+        // Wrap primitive schema in { value: schema } to conform to ZodRawShape
+        const schemaDefinition = isObjectSchema ? (schema as z.ZodObject<z.ZodRawShape>).shape : { value: schema };
         server.tool(
             tool.name,
             tool.description,
-            shape,
+            schemaDefinition,
             async (args: Record<string, unknown>) => {
                 try {
-                    const content = await execute(args, options);
+                    // If the original schema was primitive, extract the value from args.value, otherwise pass the whole args object
+                    const executionArgs = isObjectSchema ? args : args.value;
+                    const content = await execute(executionArgs, options);
                     const newContent = mapWhen(content, {
                         text: (part) => ({
                             type: 'text' as const,
