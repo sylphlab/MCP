@@ -1,5 +1,18 @@
 # @sylphlab/mcp-wait
 
+## 0.4.0
+
+### Minor Changes
+
+- 852feae: refactor all tools
+
+### Patch Changes
+
+- Updated dependencies [852feae]
+  - @sylphlab/tools-adaptor-mcp@0.2.0
+  - @sylphlab/tools-core@0.3.0
+  - @sylphlab/tools-wait@0.6.0
+
 ## 0.3.7
 
 ### Patch Changes
