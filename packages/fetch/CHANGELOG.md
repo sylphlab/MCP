@@ -1,5 +1,12 @@
 # @sylphlab/mcp-fetch
 
+## 0.3.7
+
+### Patch Changes
+
+- Updated dependencies [3218bd4]
+  - @sylphlab/mcp-net-core@0.6.1
+
 ## 0.3.6
 
 ### Patch Changes
