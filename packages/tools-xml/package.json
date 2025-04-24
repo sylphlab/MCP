@@ -13,11 +13,19 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup"
   },
-  "keywords": ["mcp", "core", "xml", "parse", "build"],
+  "keywords": [
+    "mcp",
+    "core",
+    "xml",
+    "parse",
+    "build"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -25,7 +33,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/node": "^20.12.12",
+    "@types/node": "^20.17.30",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5"
   }

@@ -13,7 +13,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "bin": {
     "mcp-base64": "./dist/index.js"
   },
@@ -21,19 +23,23 @@
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
   },
-  "keywords": ["mcp", "tool", "base64"],
+  "keywords": [
+    "mcp",
+    "tool",
+    "base64"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "^20.12.12",
+    "@types/node": "^20.17.30",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.1",
-    "@sylphlab/tools-core": "workspace:*",
+    "@sylphlab/tools-adaptor-mcp": "workspace:*",
     "@sylphlab/tools-base64": "workspace:*",
-    "zod": "^3.23.8",
-    "@sylphlab/tools-adaptor-mcp": "workspace:*"
+    "@sylphlab/tools-core": "workspace:*",
+    "zod": "^3.23.8"
   }
 }

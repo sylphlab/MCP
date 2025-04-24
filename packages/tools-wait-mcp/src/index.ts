@@ -1,20 +1,11 @@
-#!/usr/bin/env node
 import process from 'node:process';
-// Remove direct SDK imports
-// import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { Tool, ToolExecuteOptions } from '@sylphlab/tools-core';
-// Import the server start function
 import { startMcpServer } from '@sylphlab/tools-adaptor-mcp';
-
-// Import the tool object from the core library
 import { waitTool } from '@sylphlab/tools-wait';
 import { description, name, version } from '../package.json'; // Import metadata
 
 // --- Server Setup ---
 
-// Array of imported tool objects
-// biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
 const tools: Tool<any>[] = [waitTool];
 
 // --- Server Start ---

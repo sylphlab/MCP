@@ -13,12 +13,23 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
   },
-  "keywords": ["mcp", "core", "reader", "converter", "pdf", "text", "markdown", "md"],
+  "keywords": [
+    "mcp",
+    "core",
+    "reader",
+    "converter",
+    "pdf",
+    "text",
+    "markdown",
+    "md"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -27,7 +38,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/node": "^20.12.12",
+    "@types/node": "^20.17.30",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5"
   }

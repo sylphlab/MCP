@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import type { z } from 'zod';
 import { mapWhen, type Tool as SylphTool, type ToolExecuteOptions } from '@sylphlab/tools-core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -15,10 +15,11 @@ export type McpServerOptions = {
 export function registerTools(server: McpServer, tools: SylphTool<z.ZodTypeAny>[], options: ToolExecuteOptions) {
     for (const tool of tools) {
         const { execute } = tool;
+        const shape = (tool.inputSchema as z.ZodObject<z.ZodRawShape>).shape;
         server.tool(
             tool.name,
             tool.description,
-            tool.inputSchema instanceof z.ZodObject ? tool.inputSchema.shape : tool.inputSchema, // Cast to ZodRawShape
+            shape,
             async (args: Record<string, unknown>) => {
                 try {
                     const content = await execute(args, options);
@@ -71,6 +72,6 @@ export async function startMcpServer(options: McpServerOptions, toolOptions: Too
     registerTools(server, options.tools, toolOptions); // Register tools with the server
         
     const transport = new StdioServerTransport();
-    await server.server.connect(transport);
+    await server.connect(transport);
     return server;
 }

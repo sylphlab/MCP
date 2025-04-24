@@ -32,15 +32,15 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "^20.12.12",
+    "@types/node": "^20.17.30",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.1",
+    "@sylphlab/tools-adaptor-mcp": "workspace:*",
     "@sylphlab/tools-core": "workspace:*",
     "@sylphlab/tools-net": "workspace:*",
-    "zod": "^3.23.8",
-    "@sylphlab/tools-adaptor-mcp": "workspace:*"
+    "zod": "^3.23.8"
   }
 }
