@@ -1,5 +1,11 @@
 # @sylphlab/mcp-core
 
+## 0.3.0
+
+### Minor Changes
+
+- 852feae: refactor all tools
+
 ## 0.2.3
 
 ### Patch Changes
