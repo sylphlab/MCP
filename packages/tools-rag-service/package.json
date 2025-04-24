@@ -1,0 +1,49 @@
+{
+  "name": "@sylphlab/tools-rag-service",
+  "version": "0.1.0",
+  "description": "Optional background service for automatic RAG index maintenance (file watching, updates).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "rag",
+    "service",
+    "indexing",
+    "vector",
+    "chromadb",
+    "ollama",
+    "mcp",
+    "sylphlab"
+  ],
+  "author": "Sylph Lab",
+  "license": "MIT",
+  "dependencies": {
+    "@sylphlab/tools-core": "workspace:*",
+    "@sylphlab/tools-rag": "workspace:*",
+    "chokidar": "^3.6.0",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8",
+    "ignore": "^5.3.1",
+    "lodash-es": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0",
+    "@types/lodash-es": "^4.17.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/tools-core';
 import { jsonPart } from '@sylphlab/tools-core';
-import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core'; // Add ToolExecuteOptions import
 import { z } from 'zod';
 import {
   EmbeddingModelConfigSchema,
@@ -17,14 +17,14 @@ import {
   VectorDbConfigSchema,
   VectorDbProvider,
 } from '../indexManager.js';
+import type { RagCoreToolExecuteOptions } from '../types.js'; // Import extended options type
 
 // --- Input Schema ---
 export const QueryIndexInputSchema = z.object({
   queryText: z.string(),
   topK: z.number().int().positive().default(5),
   filter: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
-  embeddingConfig: EmbeddingModelConfigSchema.optional(),
-  vectorDbConfig: VectorDbConfigSchema.optional(),
+  // embeddingConfig and vectorDbConfig removed - will come from options
 });
 
 // --- TypeScript Types ---
@@ -74,7 +74,7 @@ export const queryIndexTool = defineTool({
   inputSchema: QueryIndexInputSchema,
   
 
-  execute: async (input: QueryIndexInput, _options: ToolExecuteOptions): Promise<Part[]> => {
+  execute: async (input: QueryIndexInput, options: ToolExecuteOptions): Promise<Part[]> => { // Keep base type for compatibility
     // Return Part[]
 
     // Zod validation (throw error on failure)
@@ -85,7 +85,7 @@ export const queryIndexTool = defineTool({
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { queryText, topK, filter, embeddingConfig, vectorDbConfig } = parsed.data;
+    const { queryText, topK, filter } = parsed.data; // Remove config from input destructuring
 
     const resultsContainer: QueryIndexResult[] = []; // Array to hold the single result object
     let queryResults: QueryResult[] = [];
@@ -94,9 +94,17 @@ export const queryIndexTool = defineTool({
     let success = false;
 
     try {
+      // Assert options type to access ragConfig
+      const ragOptions = options as RagCoreToolExecuteOptions;
+      if (!ragOptions.ragConfig) {
+        throw new Error('RAG configuration (ragConfig) is missing in ToolExecuteOptions.');
+      }
+      const { vectorDb: vectorDbConfig, embedding: embeddingConfig } = ragOptions.ragConfig;
+
       // 1. Generate embedding for the query text
       let queryVector: number[];
-      const currentEmbeddingConfig = embeddingConfig ?? defaultEmbeddingConfig;
+      // Use embeddingConfig directly from options.ragConfig
+      const currentEmbeddingConfig = embeddingConfig; // No need for ?? default
       try {
         const queryEmbeddings = await generateEmbeddings([queryText], currentEmbeddingConfig);
         if (!queryEmbeddings || queryEmbeddings.length === 0 || !queryEmbeddings[0]) {
@@ -110,7 +118,8 @@ export const queryIndexTool = defineTool({
       }
 
       // 2. Initialize IndexManager and query the index
-      const currentIndexConfig = vectorDbConfig ?? { provider: VectorDbProvider.InMemory };
+      // Use vectorDbConfig directly from options.ragConfig
+      const currentIndexConfig = vectorDbConfig; // No need for ?? default
       try {
         const embeddingFnInstance =
           currentEmbeddingConfig.provider === EmbeddingModelProvider.Ollama

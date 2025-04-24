@@ -22,3 +22,25 @@ export interface Chunk extends Document {
   endPosition?: number;
   // Metadata will be augmented during chunking (e.g., nodeType, codeLanguage)
 }
+
+import type { ToolExecuteOptions } from '@sylphlab/tools-core';
+import type { EmbeddingModelConfig } from './embedding.js';
+import type { VectorDbConfig } from './indexManager.js';
+import type { ChunkingOptions } from './chunking.js'; // Import ChunkingOptions
+
+/**
+ * Configuration for the core RAG operations (DB and Embedding).
+ * This is passed to core tools via RagCoreToolExecuteOptions.
+ */
+export interface RagConfig {
+  vectorDb: VectorDbConfig;
+  embedding: EmbeddingModelConfig;
+}
+
+/**
+ * Extended ToolExecuteOptions specifically for core RAG tools.
+ * It includes the essential configuration needed for their execution.
+ */
+export interface RagCoreToolExecuteOptions extends ToolExecuteOptions {
+  ragConfig: RagConfig;
+}

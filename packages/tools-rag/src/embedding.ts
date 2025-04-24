@@ -157,6 +157,8 @@ export class HttpEmbeddingFunction implements IEmbeddingFunction {
   }
 }
 
+// HttpEmbeddingFunction is already exported via 'export class'
+
 /**
  * Generates embeddings for an array of text chunks using configured provider.
  * DEPRECATED in favor of using specific class instances.

@@ -1,13 +1,13 @@
-import path from 'node:path';
 import { defineTool } from '@sylphlab/tools-core';
 import { jsonPart } from '@sylphlab/tools-core';
 import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core';
-import type { IEmbeddingFunction } from 'chromadb';
 import { z } from 'zod';
-import { getRagCollection } from '../chroma.js';
+import { VectorDbProvider } from '../indexManager.js'; // Import Provider only
+import type { RagCoreToolExecuteOptions } from '../types.js'; // Import extended options type
+import { getRagCollection } from '../chroma.js'; // Import lower-level function
+import type { IEmbeddingFunction } from 'chromadb'; // Needed for dummy function
 
 // --- Input Schema ---
-// Define Input Schema using Zod (optional, could be empty)
 const IndexStatusInputSchema = z.object({}).optional(); // No input needed
 
 // --- TypeScript Type ---
@@ -48,10 +48,8 @@ export const indexStatusTool = defineTool({
 
   execute: async (
     _input: IndexStatusInput, // Input is optional/empty
-    options: ToolExecuteOptions,
+    options: ToolExecuteOptions, // Keep base type for compatibility
   ): Promise<Part[]> => {
-    // Return Part[]
-
     // Zod validation (though input is empty/optional)
     const parsed = IndexStatusInputSchema.safeParse(_input);
     if (!parsed.success) {
@@ -63,10 +61,12 @@ export const indexStatusTool = defineTool({
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
 
-    // Add upfront check for workspaceRoot within options
-    if (!options?.workspaceRoot) {
-      throw new Error('Workspace root is not available in options.');
+    // Assert options type to access ragConfig
+    const ragOptions = options as RagCoreToolExecuteOptions;
+    if (!ragOptions.ragConfig) {
+      throw new Error('RAG configuration (ragConfig) is missing in ToolExecuteOptions.');
     }
+    const { vectorDb: vectorDbConfig } = ragOptions.ragConfig;
 
     const results: IndexStatusResult[] = [];
     let count: number | undefined;
@@ -76,28 +76,64 @@ export const indexStatusTool = defineTool({
     let success = false;
 
     try {
-      const chromaDbPath = path.join(options.workspaceRoot, '.mcp', 'chroma_db');
+      // Use getRagCollection directly for status, as IndexManager interface is unclear
+      if (vectorDbConfig.provider !== VectorDbProvider.ChromaDB) {
+        // Currently, getRagCollection is Chroma specific. Need alternative for others.
+        // For now, return an error or a specific status for non-Chroma providers
+        success = false; // Indicate failure for non-Chroma
+        error = `getIndexStatus currently only supports ChromaDB. Provider: ${vectorDbConfig.provider}`;
+        suggestion = 'Use a ChromaDB configuration or implement status retrieval for other providers.';
+        // Attempt to get name if possible (e.g., Pinecone indexName)
+        if (vectorDbConfig.provider === VectorDbProvider.Pinecone) {
+            collectionName = vectorDbConfig.indexName;
+        } else {
+            collectionName = 'N/A (Non-ChromaDB)';
+        }
+        count = undefined; // Count is unknown
 
-      // Create a minimal dummy embedding function locally
-      // TODO: Refactor getRagCollection to not require embeddingFn for count()
-      const dummyEmbeddingFn: IEmbeddingFunction = {
-        generate: async (texts: string[]) => texts.map(() => []),
-      };
+      } else {
+        // Proceed with ChromaDB logic using getRagCollection
 
-      const collection = await getRagCollection(
-        dummyEmbeddingFn,
-        options.workspaceRoot,
-        chromaDbPath,
-      );
-      count = await collection.count();
-      collectionName = collection.name;
-      success = true;
+        // Create a dummy embedding function as getRagCollection requires one
+        const dummyEmbeddingFn: IEmbeddingFunction = {
+          generate: async (texts: string[]) => texts.map(() => []),
+        };
+
+        // Ensure path or host is defined for ChromaDB
+        const pathOrHost = vectorDbConfig.path ?? vectorDbConfig.host;
+        if (!pathOrHost) {
+          throw new Error('ChromaDB configuration requires either a "path" or a "host".');
+        }
+
+        // Ensure collectionName is defined for ChromaDB
+        if (!vectorDbConfig.collectionName) {
+            throw new Error('ChromaDB configuration requires a "collectionName".');
+        }
+
+        // Call getRagCollection with details from vectorDbConfig
+        const collection = await getRagCollection(
+            dummyEmbeddingFn,
+            pathOrHost, // Pass path or host
+            vectorDbConfig.collectionName // Pass collectionName from config
+        );
+
+        count = await collection.count();
+        collectionName = collection.name; // Get name directly from collection object
+        success = true;
+      }
     } catch (e: unknown) {
       success = false;
       error = e instanceof Error ? e.message : 'Unknown error getting index status';
-      suggestion = 'Check ChromaDB setup, path, and connectivity.';
+      suggestion = 'Check vector database configuration and connectivity.';
       count = undefined;
-      collectionName = undefined;
+      // Try to get collection name from config even on error, if possible
+      if (vectorDbConfig.provider === VectorDbProvider.ChromaDB && vectorDbConfig.collectionName) {
+          collectionName = vectorDbConfig.collectionName;
+      } else if (vectorDbConfig.provider === VectorDbProvider.Pinecone && vectorDbConfig.indexName) {
+          collectionName = vectorDbConfig.indexName;
+      } else {
+          collectionName = undefined;
+      }
     }
 
     // Push the single result

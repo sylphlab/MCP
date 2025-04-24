@@ -31,13 +31,16 @@
     "@sylphlab/tools-adaptor-mcp": "workspace:*",
     "@sylphlab/tools-core": "workspace:*",
     "@sylphlab/tools-rag": "workspace:*",
-    "dotenv": "^16.4.5"
+    "@sylphlab/tools-rag-service": "workspace:*",
+    "zod": "^3.23.8",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
     "tsup": "^8.4.0",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.2"
+    "vitest": "^3.1.2",
+    "@types/yargs": "^17.0.32"
   },
   "publishConfig": {
     "access": "public"

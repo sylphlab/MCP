@@ -1,6 +1,6 @@
 import { defineTool } from '@sylphlab/tools-core';
 import { jsonPart } from '@sylphlab/tools-core';
-import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core';
+import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core'; // Add ToolExecuteOptions import
 import hljs from 'highlight.js';
 import { z } from 'zod';
 import { type ChunkingOptions, chunkCodeAst } from '../chunking.js';
@@ -17,7 +17,7 @@ import {
   VectorDbProvider,
 } from '../indexManager.js';
 import { SupportedLanguage } from '../parsing.js';
-import type { Chunk } from '../types.js';
+import type { Chunk, RagCoreToolExecuteOptions } from '../types.js'; // Import extended options type
 
 // --- Input Schemas (Copied from original for clarity) ---
 export const IndexContentInputItemSchema = z.object({
@@ -37,8 +37,7 @@ const ChunkingOptionsSchema = z
 export const IndexContentInputSchema = z.object({
   items: z.array(IndexContentInputItemSchema),
   chunkingOptions: ChunkingOptionsSchema,
-  embeddingConfig: EmbeddingModelConfigSchema.optional(),
-  vectorDbConfig: VectorDbConfigSchema.optional(),
+  // embeddingConfig and vectorDbConfig removed - will come from options
 });
 
 // --- TypeScript Types ---
@@ -83,7 +82,7 @@ export const indexContentTool = defineTool({
 
   execute: async (
     input: IndexContentToolInput,
-    _options: ToolExecuteOptions,
+    options: ToolExecuteOptions, // Keep base type for compatibility
   ): Promise<Part[]> => {
     // Return Part[]
 
@@ -95,10 +94,18 @@ export const indexContentTool = defineTool({
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { items, chunkingOptions, embeddingConfig, vectorDbConfig } = parsed.data;
+    const { items, chunkingOptions } = parsed.data; // Remove config from input destructuring
+
+    // Assert options type to access ragConfig
+    const ragOptions = options as RagCoreToolExecuteOptions;
+    if (!ragOptions.ragConfig) {
+      throw new Error('RAG configuration (ragConfig) is missing in ToolExecuteOptions.');
+    }
+    const { vectorDb: vectorDbConfig, embedding: embeddingConfig } = ragOptions.ragConfig;
 
     // Initialize IndexManager (outside loop for efficiency)
-    const currentIndexConfig = vectorDbConfig ?? { provider: VectorDbProvider.InMemory };
+    // Use vectorDbConfig directly from options.ragConfig
+    const currentIndexConfig = vectorDbConfig; // No need for ?? default, config should be provided
     let indexManager: IndexManager;
     try {
       indexManager = await IndexManager.create(currentIndexConfig);
@@ -166,7 +173,8 @@ export const indexContentTool = defineTool({
         }));
 
         // Generate embeddings
-        const currentEmbeddingConfig = embeddingConfig ?? defaultEmbeddingConfig;
+        // Use embeddingConfig directly from options.ragConfig
+        const currentEmbeddingConfig = embeddingConfig; // No need for ?? default
         const embeddings = await generateEmbeddings(chunkObjects, currentEmbeddingConfig);
         if (embeddings.length !== chunkObjects.length) {
           throw new Error('Mismatch between number of chunks and generated embeddings.');

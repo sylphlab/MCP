@@ -273,6 +273,77 @@ export class IndexManager {
     }
   }
 
+  /**
+   * Deletes items from the index based on a metadata filter.
+   * @param filter - A filter object (e.g., { filePath: 'path/to/file.ts' })
+   */
+  async deleteWhere(filter: Record<string, string | number | boolean>): Promise<void> {
+    if (!filter || Object.keys(filter).length === 0) {
+      console.warn('deleteWhere called with empty or invalid filter. Aborting deletion.');
+      return;
+    }
+    try {
+      switch (this.config.provider) {
+        case VectorDbProvider.InMemory: {
+          const idsToDelete: string[] = [];
+          for (const [id, item] of inMemoryStore.entries()) {
+            if (this.matchesFilter(item, filter)) {
+              idsToDelete.push(id);
+            }
+          }
+          if (idsToDelete.length > 0) {
+            this.deleteItems(idsToDelete); // Reuse existing deleteItems logic
+            console.log(`[InMemory] Deleted ${idsToDelete.length} items matching filter.`);
+          } else {
+            console.log('[InMemory] No items found matching filter for deletion.');
+          }
+          break;
+        }
+        case VectorDbProvider.Pinecone: {
+          if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
+          // const ns = this.pineconeIndex.namespace(this.config.namespace || ''); // ns is unused currently
+          const ns = this.pineconeIndex.namespace(this.config.namespace || '');
+          // Convert simple filter to Pinecone filter syntax
+          let pineconeFilter: Record<string, unknown> | undefined = undefined;
+          if (filter) {
+            pineconeFilter = {};
+            for (const key in filter) {
+              pineconeFilter[key] = { $eq: filter[key] };
+            }
+          }
+          // Attempt deleteMany with filter - NOTE: Check Pinecone client docs if this is supported/correct syntax
+          try {
+              // Assuming deleteMany might accept a filter object similar to query.
+              // Pinecone client v3+ delete method takes an object: { filter: {...} } or ids: [...] or deleteAll: true
+              if (pineconeFilter) {
+                 await ns.deleteMany({ filter: pineconeFilter });
+                 console.log('[Pinecone] Attempted deletion for items matching filter:', filter);
+              } else {
+                 console.warn('[Pinecone] deleteWhere called without a filter, cannot delete.');
+              }
+          } catch (pineconeDeleteError) {
+              console.warn(`[Pinecone] deleteMany with filter failed (may not be supported or filter syntax incorrect). Filter: ${JSON.stringify(filter)}, Error: ${pineconeDeleteError}`);
+          }
+          break;
+        }
+        case VectorDbProvider.ChromaDB: {
+          if (!this.chromaCollection) throw new Error('ChromaDB collection not initialized.');
+          const whereFilter = convertFilterToChromaWhere(filter);
+          await this.chromaCollection.delete({ where: whereFilter });
+          console.log('[ChromaDB] Attempted deletion for items matching filter:', filter);
+          break;
+        }
+        default: {
+          const exhaustiveCheck: never = this.config;
+          throw new Error(`Unsupported vector DB provider for deleteWhere: ${exhaustiveCheck}`);
+        }
+      }
+    } catch (error) {
+      throw new Error(`deleteWhere failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+
   async queryIndex(
     queryVector: EmbeddingVector,
     topK = 5,

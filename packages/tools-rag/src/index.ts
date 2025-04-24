@@ -1,7 +1,7 @@
 // Main export for @sylphlab/mcp-rag-core
 
 // Types
-export type { Document, Chunk } from './types.js';
+export type { Document, Chunk, RagConfig, RagCoreToolExecuteOptions } from './types.js'; // Export RagConfig and RagCoreToolExecuteOptions
 export type { ChunkingOptions } from './chunking.js';
 export type { EmbeddingModelConfig, EmbeddingVector, IEmbeddingFunction } from './embedding.js'; // Ensure IEmbeddingFunction is exported
 export {
@@ -10,6 +10,7 @@ export {
   defaultEmbeddingConfig,
   OllamaEmbeddingFunction,
   MockEmbeddingFunction,
+  HttpEmbeddingFunction, // Add HttpEmbeddingFunction export
 } from './embedding.js'; // Ensure classes are exported
 export type { IndexedItem, VectorDbConfig, QueryResult } from './indexManager.js';
 export { VectorDbConfigSchema, IndexManager, VectorDbProvider } from './indexManager.js';
@@ -25,3 +26,4 @@ export { getRagCollection, convertFilterToChromaWhere } from './chroma.js';
 export { indexContentTool } from './tools/indexContentTool.js';
 export { queryIndexTool } from './tools/queryIndexTool.js';
 export { indexStatusTool } from './tools/indexStatusTool.js';
+
