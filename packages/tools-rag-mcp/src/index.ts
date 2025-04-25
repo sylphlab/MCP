@@ -41,6 +41,7 @@ const workspaceRoot = path.resolve(__dirname, '../../../');
 
 // --- Configuration Loading ---
 
+// Extend RagConfig with service-specific options
 const ServiceOnlyConfigSchema = z.object({
     autoWatchEnabled: z.boolean().default(true),
     respectGitignore: z.boolean().default(true),
@@ -81,17 +82,8 @@ async function loadRagServiceConfig(): Promise<RagServiceConfig> {
         .option('auto-watch', { type: 'boolean', default: true, description: 'Enable automatic file watching' })
         .option('respect-gitignore', { type: 'boolean', default: true, description: 'Respect .gitignore rules' })
         .option('debounce-delay', { type: 'number', default: 2000, description: 'Debounce delay (ms)' })
-        .option('max-chunk-size', { type: 'number', description: 'Max chunk size for chunking' })
-        .option('chunk-overlap', { type: 'number', description: 'Chunk overlap for chunking' })
-        .option('max-chunk-size', {
-            type: 'number',
-            description: 'Maximum size of code chunks (default depends on chunking function)',
-        })
-        .option('chunk-overlap', {
-            type: 'number',
-            description: 'Number of lines/tokens to overlap between chunks (default depends on chunking function)',
-        })
-        // TODO: Add include/exclude patterns parsing if needed
+        .option('max-chunk-size', { type: 'number', description: 'Maximum size of code chunks' })
+        .option('chunk-overlap', { type: 'number', description: 'Chunk overlap' })
         .help().alias('h', 'help')
         .parseAsync();
 
@@ -116,20 +108,14 @@ async function loadRagServiceConfig(): Promise<RagServiceConfig> {
         embeddingConfig = { provider: EmbeddingModelProvider.Mock };
     }
 
-    // Construct chunkingOptions only including defined values
     const chunkingOptions: { maxChunkSize?: number; chunkOverlap?: number } = {};
-    if (argv.maxChunkSize !== undefined && argv.maxChunkSize > 0) {
-        chunkingOptions.maxChunkSize = argv.maxChunkSize;
-    }
-    if (argv.chunkOverlap !== undefined && argv.chunkOverlap >= 0) {
-        chunkingOptions.chunkOverlap = argv.chunkOverlap;
-    }
+    if (argv.maxChunkSize !== undefined && argv.maxChunkSize > 0) { chunkingOptions.maxChunkSize = argv.maxChunkSize; }
+    if (argv.chunkOverlap !== undefined && argv.chunkOverlap >= 0) { chunkingOptions.chunkOverlap = argv.chunkOverlap; }
 
     const serviceConfig = {
         autoWatchEnabled: argv.autoWatch,
         respectGitignore: argv.respectGitignore,
         debounceDelay: argv.debounceDelay,
-        // Only include chunkingOptions if it has properties
         ...(Object.keys(chunkingOptions).length > 0 ? { chunkingOptions } : {}),
     };
 
@@ -145,7 +131,7 @@ async function loadRagServiceConfig(): Promise<RagServiceConfig> {
         console.warn("Using default configuration due to validation errors.");
         return RagServiceConfigSchema.parse({
              vectorDb: { provider: VectorDbProvider.InMemory },
-             embedding: { provider: EmbeddingModelProvider.Mock },
+             embedding: { provider: EmbeddingModelProvider.Mock }, // Zod will add defaults
              autoWatchEnabled: false, respectGitignore: true, debounceDelay: 2000,
         });
     }

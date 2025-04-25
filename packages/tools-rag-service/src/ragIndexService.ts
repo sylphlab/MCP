@@ -153,9 +153,9 @@ export class RagIndexService {
       }
 
       console.log('Workspace index synchronization completed.');
-    } catch (error) {
-      console.error('Error during workspace index synchronization:', error);
-      // Decide if error should be re-thrown
+    } catch (error: unknown) { // Add type unknown
+      console.error('Error during workspace index synchronization:', error instanceof Error ? error.message : error);
+      // Optionally add more specific error handling based on error type
     } finally {
       this.isSyncing = false;
     }
@@ -380,13 +380,15 @@ export class RagIndexService {
         await this.indexManager.upsertItems(indexedItems);
         console.log(`Upserted ${indexedItems.length} chunks for ${relativePath}`);
 
-    } catch (error) {
+    } catch (error: unknown) { // Add type unknown
         // Handle file read errors (e.g., file deleted between event and read)
         if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
             console.log(`File ${relativePath} not found during indexing (likely deleted). Attempting cleanup.`);
-            await this.deleteFileIndex(filePath); // Clean up index if file is gone
+            // No need to await deleteFileIndex if it's just logging a warning now
+            this.deleteFileIndex(filePath); // Clean up index if file is gone
         } else {
-            console.error(`Error indexing file ${relativePath}:`, error);
+            console.error(`Error indexing file ${relativePath}:`, error instanceof Error ? error.message : error);
+            // Consider adding specific handling for DB errors vs other errors
         }
     }
   }
@@ -409,14 +411,23 @@ export class RagIndexService {
         await this.indexManager.deleteWhere({ filePath: relativePath });
         console.log(`Attempted deletion of chunks for file: ${relativePath}`);
 
-    } catch (error) {
-         console.error(`Error deleting index entries for ${relativePath}:`, error);
+    } catch (error: unknown) { // Add type unknown
+         console.error(`Error deleting index entries for ${relativePath}:`, error instanceof Error ? error.message : error);
     }
   }
 
-  // --- Public Accessors ---
+  // --- Public Accessors and Status ---
   public get indexManagerInstance(): IndexManager | null {
     return this.indexManager;
+  }
+
+  /** Returns the current operational status of the service. */
+  public getServiceStatus(): { initialized: boolean; syncing: boolean; watching: boolean } {
+      return {
+          initialized: this.isInitialized,
+          syncing: this.isSyncing,
+          watching: !!this.watcher, // Check if watcher instance exists
+      };
   }
 
   // --- Public methods to potentially proxy core RAG operations ---
