@@ -31,8 +31,8 @@ const PineconeConfigSchema = z.object({
 
 const ChromaDBConfigSchema = z.object({
   provider: z.literal(VectorDbProvider.ChromaDB),
-  path: z.string().optional(),
-  host: z.string().optional(),
+  path: z.string().optional(), // Keep path optional for potential future use/clarity
+  host: z.string().optional(), // Keep host optional
   collectionName: z.string().default('mcp_rag_collection'),
 });
 
@@ -108,14 +108,26 @@ export class IndexManager {
               'ChromaDB provider requires an embedding function to be provided during IndexManager creation.',
             );
           }
-          const chromaConfig: { path?: string; host?: string } = {};
-          if (this.config.path) chromaConfig.path = this.config.path;
-          if (this.config.host) chromaConfig.host = this.config.host;
-          this.chromaClient = new ChromaClient(chromaConfig);
-          this.chromaCollection = await this.chromaClient.getOrCreateCollection({
-            name: this.config.collectionName,
-            embeddingFunction: this.embeddingFn, // Use the stored function
-          });
+          // ChromaClient constructor expects an object with a 'path' property.
+          // Use host URL if provided, otherwise assume local path (which might still fail based on previous errors)
+          const clientPath = this.config.host || this.config.path;
+          if (!clientPath) {
+            throw new Error('ChromaDB config requires either a "path" or a "host".');
+          }
+          console.log(`[IndexManager] Initializing ChromaClient with path/host: ${clientPath}`); // Log path/host being used
+          try {
+            // Pass the URL or local path via the 'path' property
+            this.chromaClient = new ChromaClient({ path: clientPath });
+            console.log(`[IndexManager] ChromaClient created. Getting/Creating collection: ${this.config.collectionName}`); // Added Log
+            this.chromaCollection = await this.chromaClient.getOrCreateCollection({
+              name: this.config.collectionName,
+              embeddingFunction: this.embeddingFn,
+            });
+            console.log(`[IndexManager] Chroma collection '${this.config.collectionName}' obtained.`); // Added Log
+          } catch (chromaError) {
+            console.error('[IndexManager] Error during ChromaClient/Collection initialization:', chromaError); // Added Log
+            throw chromaError; // Re-throw the error after logging
+          }
           break;
         }
         default: {
@@ -130,8 +142,61 @@ export class IndexManager {
     }
   }
 
+  /** Checks if the manager has been successfully initialized. */
+  public isInitialized(): boolean {
+      switch (this.config.provider) {
+          case VectorDbProvider.InMemory: return true; // Always considered initialized
+          case VectorDbProvider.ChromaDB: return !!this.chromaCollection;
+          case VectorDbProvider.Pinecone: return !!this.pineconeIndex;
+          default: return false;
+      }
+  }
+
+  /**
+   * Instance method to get status (count and name) of the managed collection/index.
+   */
+  public async getStatus(): Promise<{ count: number; name: string }> {
+    if (!this.isInitialized()) { // Add a check if manager is initialized
+        throw new Error('IndexManager not initialized. Call initialize() first.');
+    }
+    try {
+      switch (this.config.provider) {
+        case VectorDbProvider.InMemory:
+          // For InMemory, count is size of map, name is fixed
+          return { count: inMemoryStore.size, name: 'in-memory-store' };
+
+        case VectorDbProvider.ChromaDB: {
+          if (!this.chromaCollection) {
+            // This case should ideally be caught by isInitialized check, but double-check
+            throw new Error('ChromaDB collection not available.');
+          }
+          const count = await this.chromaCollection.count();
+          return { count, name: this.chromaCollection.name };
+        }
+
+        case VectorDbProvider.Pinecone: {
+          if (!this.pineconeIndex) {
+             throw new Error('Pinecone index not available.');
+          }
+          const stats = await this.pineconeIndex.describeIndexStats();
+          const namespace = this.config.namespace || ''; // Use instance config
+          const count = stats.namespaces?.[namespace]?.recordCount || 0; // Corrected property name
+          return { count, name: `${this.config.indexName}${namespace ? `[${namespace}]` : ''}` }; // Use instance config
+        }
+
+        default: {
+          const exhaustiveCheck: never = this.config; // Use instance config
+          throw new Error(`Unsupported vector DB provider for getStatus: ${exhaustiveCheck}`); // Use instance config
+        }
+      }
+    } catch (error) {
+       throw new Error(`getStatus failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   async upsertItems(items: IndexedItem[]): Promise<void> {
     if (items.length === 0) return;
+    if (!this.isInitialized()) throw new Error('IndexManager not initialized.');
     try {
       switch (this.config.provider) {
         case VectorDbProvider.InMemory:
@@ -140,26 +205,22 @@ export class IndexManager {
           }
           break;
         case VectorDbProvider.Pinecone: {
-          // Add block scope
           if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
-          const ns = this.pineconeIndex.namespace(this.config.namespace || ''); // Use validated config
-          // Batch upsert requests for Pinecone (max 100 vectors or 2MB per request)
-          const batchSize = 100; // Pinecone recommended batch size
+          const ns = this.pineconeIndex.namespace(this.config.namespace || '');
+          const batchSize = 100;
           for (let i = 0; i < items.length; i += batchSize) {
             const batchItems = items.slice(i, i + batchSize);
             const vectorsToUpsert = batchItems.map((item) => ({
               id: item.id,
               values: item.vector,
-              metadata: item.metadata as RecordMetadata, // Ensure metadata is compatible
+              metadata: item.metadata as RecordMetadata,
             }));
             await ns.upsert(vectorsToUpsert);
           }
           break;
         }
         case VectorDbProvider.ChromaDB: {
-          if (!this.chromaCollection) {
-            throw new Error('ChromaDB collection not initialized.');
-          }
+          if (!this.chromaCollection) throw new Error('ChromaDB collection not initialized.');
           const ids = items.map((item) => item.id);
           const embeddings = items.map((item) => item.vector);
           const metadatas = items.map((item) => {
@@ -194,6 +255,7 @@ export class IndexManager {
 
   // Get all item IDs from the index
   async getAllIds(): Promise<string[]> {
+    if (!this.isInitialized()) throw new Error('IndexManager not initialized.');
     try {
       switch (this.config.provider) {
         case VectorDbProvider.InMemory:
@@ -201,7 +263,7 @@ export class IndexManager {
 
         case VectorDbProvider.ChromaDB: {
           if (!this.chromaCollection) throw new Error('ChromaDB collection not initialized.');
-          const results = await this.chromaCollection.get({ limit: 1000000 }); // Use a large limit
+          const results = await this.chromaCollection.get({ limit: 1000000 });
           return results.ids;
         }
 
@@ -210,7 +272,7 @@ export class IndexManager {
           const ns = this.pineconeIndex.namespace(this.config.namespace || '');
           let allIds: string[] = [];
           let nextToken: string | undefined = undefined;
-          const limit = 1000; // Max limit per request
+          const limit = 1000;
 
           do {
             const listResponse = await ns.listPaginated({ limit, paginationToken: nextToken });
@@ -233,6 +295,7 @@ export class IndexManager {
 
   async deleteItems(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
+    if (!this.isInitialized()) throw new Error('IndexManager not initialized.');
     try {
       switch (this.config.provider) {
         case VectorDbProvider.InMemory: {
@@ -240,29 +303,25 @@ export class IndexManager {
           for (const id of ids) {
             if (inMemoryStore.delete(id)) {
               _deletedCount++;
-            } else {
             }
           }
           break;
         }
         case VectorDbProvider.Pinecone: {
-          // Add block scope
           if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
-          const ns = this.pineconeIndex.namespace(this.config.namespace || ''); // Use validated config
-          // Batch delete requests (max 1000 IDs per request)
+          const ns = this.pineconeIndex.namespace(this.config.namespace || '');
           const batchSize = 1000;
           for (let i = 0; i < ids.length; i += batchSize) {
             const batch = ids.slice(i, i + batchSize);
             await ns.deleteMany(batch);
           }
           break;
-        } // Add missing closing brace
+        }
         case VectorDbProvider.ChromaDB: {
-          // Add block scope for consistency
           if (!this.chromaCollection) throw new Error('ChromaDB collection not initialized.');
           await this.chromaCollection.delete({ ids });
           break;
-        } // Add closing brace
+        }
         default: {
           const exhaustiveCheck: never = this.config;
           throw new Error(`Unsupported vector DB provider: ${exhaustiveCheck}`);
@@ -282,6 +341,7 @@ export class IndexManager {
       console.warn('deleteWhere called with empty or invalid filter. Aborting deletion.');
       return;
     }
+    if (!this.isInitialized()) throw new Error('IndexManager not initialized.');
     try {
       switch (this.config.provider) {
         case VectorDbProvider.InMemory: {
@@ -301,9 +361,7 @@ export class IndexManager {
         }
         case VectorDbProvider.Pinecone: {
           if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
-          // const ns = this.pineconeIndex.namespace(this.config.namespace || ''); // ns is unused currently
           const ns = this.pineconeIndex.namespace(this.config.namespace || '');
-          // Convert simple filter to Pinecone filter syntax
           let pineconeFilter: Record<string, unknown> | undefined = undefined;
           if (filter) {
             pineconeFilter = {};
@@ -311,10 +369,7 @@ export class IndexManager {
               pineconeFilter[key] = { $eq: filter[key] };
             }
           }
-          // Attempt deleteMany with filter - NOTE: Check Pinecone client docs if this is supported/correct syntax
           try {
-              // Assuming deleteMany might accept a filter object similar to query.
-              // Pinecone client v3+ delete method takes an object: { filter: {...} } or ids: [...] or deleteAll: true
               if (pineconeFilter) {
                  await ns.deleteMany({ filter: pineconeFilter });
                  console.log('[Pinecone] Attempted deletion for items matching filter:', filter);
@@ -349,6 +404,7 @@ export class IndexManager {
     topK = 5,
     filter?: Record<string, string | number | boolean>,
   ): Promise<QueryResult[]> {
+    if (!this.isInitialized()) throw new Error('IndexManager not initialized.');
     try {
       switch (this.config.provider) {
         case VectorDbProvider.InMemory: {
@@ -366,13 +422,10 @@ export class IndexManager {
         case VectorDbProvider.Pinecone: {
           if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
           const ns = this.pineconeIndex.namespace(this.config.namespace || '');
-          // Convert generic filter to Pinecone's metadata filter format
-          // Example: { genre: 'drama', year: 2020 } -> { genre: {'$eq': 'drama'}, year: {'$eq': 2020} }
           let pineconeFilter: Record<string, unknown> | undefined = undefined;
           if (filter) {
             pineconeFilter = {};
             for (const key in filter) {
-              // Simple equality filter for now, extend as needed
               pineconeFilter[key] = { $eq: filter[key] };
             }
           }

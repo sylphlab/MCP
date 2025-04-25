@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import process from 'node:process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto'; // Import crypto for hashing
 import { z } from 'zod';
 import yargs from 'yargs'; // Import yargs
 import { hideBin } from 'yargs/helpers'; // Helper for parsing argv
@@ -63,8 +64,10 @@ const RagServiceConfigSchema = z.intersection(
 
 async function loadRagServiceConfig(): Promise<RagServiceConfig> {
     // --- Defaults ---
-    const defaultCollectionName = `rag_${path.basename(workspaceRoot).replace(/[^a-z0-9]/gi, '_')}`;
-    const defaultDbPath = path.join(workspaceRoot, '.rag_db'); // Use a more generic name
+    // Generate default collection name based on hashed workspace root path for uniqueness per project
+    const workspaceHash = crypto.createHash('sha1').update(workspaceRoot).digest('hex').substring(0, 12);
+    const defaultCollectionName = `rag_${workspaceHash}`;
+    // const defaultDbPath = path.join(workspaceRoot, '.rag_db'); // Removed
 
     // --- Parse Command Line Arguments ---
     const argv = await yargs(hideBin(process.argv))
@@ -73,11 +76,11 @@ async function loadRagServiceConfig(): Promise<RagServiceConfig> {
             default: VectorDbProvider.ChromaDB,
             description: 'Vector DB provider',
         })
-        .option('db-path', {
-            type: 'string',
-            default: defaultDbPath,
-            description: 'Path for local ChromaDB',
-        })
+        // .option('db-path', { // Removed - ChromaJS client primarily uses HTTP
+        //     type: 'string',
+        //     default: defaultDbPath,
+        //     description: 'Path for local ChromaDB (Likely non-functional with JS client)',
+        // })
         .option('db-host', {
             type: 'string',
             description: 'Host URL for remote ChromaDB',
@@ -144,10 +147,13 @@ async function loadRagServiceConfig(): Promise<RagServiceConfig> {
     // --- Construct Config Objects ---
     let vectorDbConfig: any = { provider: argv.dbProvider };
     if (argv.dbProvider === VectorDbProvider.ChromaDB) {
+        // Always require host for ChromaDB with JS client
+        const dbHost = argv.dbHost || 'http://localhost:8000'; // Default to localhost if not provided
+        console.warn(`ChromaDB provider selected. Ensure a ChromaDB server is running and accessible at ${dbHost}`);
         vectorDbConfig = {
             provider: VectorDbProvider.ChromaDB,
-            path: argv.dbHost ? undefined : argv.dbPath, // Path only if no host
-            host: argv.dbHost,
+            host: dbHost, // Use host (URL)
+            path: undefined, // Explicitly set path to undefined
             collectionName: argv.collectionName,
         };
     } else if (argv.dbProvider === VectorDbProvider.Pinecone) {

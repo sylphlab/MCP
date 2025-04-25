@@ -44,7 +44,7 @@ export const indexStatusTool = defineTool({
   name: 'getIndexStatus',
   description: 'Gets the status of the RAG index (e.g., number of items).',
   inputSchema: IndexStatusInputSchema,
-  
+
 
   execute: async (
     _input: IndexStatusInput, // Input is optional/empty
@@ -76,21 +76,18 @@ export const indexStatusTool = defineTool({
     let success = false;
 
     try {
-      // Use getRagCollection directly for status, as IndexManager interface is unclear
+      // Use getRagCollection directly for status as a workaround, using config from options
       if (vectorDbConfig.provider !== VectorDbProvider.ChromaDB) {
-        // Currently, getRagCollection is Chroma specific. Need alternative for others.
-        // For now, return an error or a specific status for non-Chroma providers
-        success = false; // Indicate failure for non-Chroma
-        error = `getIndexStatus currently only supports ChromaDB. Provider: ${vectorDbConfig.provider}`;
+        success = false;
+        error = `getIndexStatus currently only supports ChromaDB via getRagCollection. Provider: ${vectorDbConfig.provider}`;
         suggestion = 'Use a ChromaDB configuration or implement status retrieval for other providers.';
-        // Attempt to get name if possible (e.g., Pinecone indexName)
+        // Try to get name if possible
         if (vectorDbConfig.provider === VectorDbProvider.Pinecone) {
             collectionName = vectorDbConfig.indexName;
         } else {
             collectionName = 'N/A (Non-ChromaDB)';
         }
-        count = undefined; // Count is unknown
-
+        count = undefined;
       } else {
         // Proceed with ChromaDB logic using getRagCollection
 
@@ -99,9 +96,9 @@ export const indexStatusTool = defineTool({
           generate: async (texts: string[]) => texts.map(() => []),
         };
 
-        // Ensure path or host is defined for ChromaDB
-        const pathOrHost = vectorDbConfig.path ?? vectorDbConfig.host;
-        if (!pathOrHost) {
+        // Use host URL if provided, otherwise local path
+        const clientPath = vectorDbConfig.host || vectorDbConfig.path;
+        if (!clientPath) {
           throw new Error('ChromaDB configuration requires either a "path" or a "host".');
         }
 
@@ -111,9 +108,10 @@ export const indexStatusTool = defineTool({
         }
 
         // Call getRagCollection with details from vectorDbConfig
+        // Note: workspaceRoot is no longer passed as path/host should be absolute/resolvable
         const collection = await getRagCollection(
             dummyEmbeddingFn,
-            pathOrHost, // Pass path or host
+            clientPath, // Pass URL or path
             vectorDbConfig.collectionName // Pass collectionName from config
         );
 

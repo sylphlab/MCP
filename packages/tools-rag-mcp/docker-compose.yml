@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # ChromaDB Vector Database
+  chromadb:
+    image: chromadb/chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma # Persist data
+    # Add healthcheck if needed
+
+  # Ollama LLM Server
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama # Persist models
+    # Start Ollama server and pull the default embedding model in the background
+    command: sh -c "ollama serve & (sleep 5 && ollama pull nomic-embed-text &) && wait"
+
+  # RAG MCP Server (builds from local Dockerfile)
+  rag-mcp-server:
+    build:
+      context: ../.. # Point back to monorepo root from package dir
+      dockerfile: packages/tools-rag-mcp/Dockerfile
+    depends_on:
+      - chromadb
+      - ollama
+    # No ports needed if using stdio via docker run -i
+    # Pass arguments to connect to other services within the compose network
+    command: ["node", "./packages/tools-rag-mcp/dist/index.js", "--db-host=http://chromadb:8000", "--ollama-base-url=http://ollama:11434", "--auto-watch=true"]
+    # Mount workspace if needed for file watching (adjust source path as needed)
+    # volumes:
+    #   - ../..:/app/workspace_root # Example: Mount monorepo root
+
+volumes:
+  chroma_data:
+  ollama_data:
