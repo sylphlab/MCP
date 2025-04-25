@@ -34,17 +34,40 @@ async function getIgnorePatterns(projectRoot: string): Promise<string[]> {
 /**
  * Loads all relevant documents from a project directory, respecting ignore patterns via fast-glob.
  * @param projectRoot The root directory of the project to scan.
+ * @param projectRoot The root directory of the project to scan.
+ * @param includePatterns Optional array of glob patterns to explicitly include.
+ * @param excludePatterns Optional array of glob patterns to explicitly exclude (in addition to .gitignore).
+ * @param respectGitignore Whether to read and apply .gitignore rules.
  * @returns An array of Document objects.
  */
-export async function loadDocuments(projectRoot: string): Promise<Document[]> {
+export async function loadDocuments(
+    projectRoot: string,
+    includePatterns?: string[],
+    excludePatterns?: string[],
+    respectGitignore = true,
+): Promise<Document[]> {
   const loadedDocs: Document[] = [];
-  const ignorePatterns = await getIgnorePatterns(projectRoot);
 
-  // Use fast-glob with ignore option derived from .gitignore and defaults
-  const files = await fg('**/*', {
+  // Determine patterns to ignore
+  let combinedIgnorePatterns: string[] = [...(excludePatterns || [])];
+  if (respectGitignore) {
+      const gitignorePatterns = await getIgnorePatterns(projectRoot); // Reads .gitignore + defaults
+      combinedIgnorePatterns = [...combinedIgnorePatterns, ...gitignorePatterns];
+  } else {
+      // Add default ignores even if not respecting .gitignore
+      combinedIgnorePatterns.push('node_modules/**', '.git/**', 'dist/**');
+  }
+  // Remove duplicates
+  combinedIgnorePatterns = [...new Set(combinedIgnorePatterns)];
+
+  // Determine patterns to search for (defaults to all if includePatterns is empty)
+  const searchPatterns = includePatterns && includePatterns.length > 0 ? includePatterns : ['**/*'];
+
+  // Use fast-glob with combined patterns
+  const files = await fg(searchPatterns, {
     cwd: projectRoot,
-    dot: true,
-    ignore: ignorePatterns, // Pass combined patterns directly
+    dot: true, // Match dotfiles/folders
+    ignore: combinedIgnorePatterns,
     absolute: false,
     onlyFiles: true,
     // followSymbolicLinks: false, // Consider adding this

@@ -134,9 +134,10 @@ export function detectLanguage(filePath: string): SupportedLanguage | null {
 }
 
 /**
- * Simplified chunking logic V9: Only chunk direct children of top node if boundary & fits.
+ * Recursive chunking logic: Chunks direct children if boundary & fits,
+ * otherwise recurses into children or splits oversized boundary nodes.
  */
-function simpleLezerChunker(
+function recursiveLezerChunker( // Renamed for clarity
   node: SyntaxNode,
   document: Document,
   options: Required<Omit<ChunkingOptions, 'metadata'>>,
@@ -159,9 +160,19 @@ function simpleLezerChunker(
           language: language,
         }),
       );
+    } else if (isBoundary && !fits) {
+      // If it's a boundary node but too large, recurse into it
+      chunks.push(...recursiveLezerChunker(child, document, options, language, chunkCounter));
+    } else if (!isBoundary && child.firstChild) {
+      // If it's not a boundary but has children, recurse into it
+      chunks.push(...recursiveLezerChunker(child, document, options, language, chunkCounter));
     } else {
+       // If it's not a boundary and has no children (e.g., simple text node)
+       // or if it's an oversized boundary with no further internal structure?
+       // Potentially split text here if childText is too long?
+       // For now, let's ignore small non-boundary text nodes between boundary chunks.
+       // If the whole file falls back, splitTextWithOverlap will handle it.
     }
-    // Ignore text between nodes and non-boundary/non-fitting children
 
     child = child.nextSibling;
   }
@@ -223,8 +234,8 @@ export function chunkCodeAst(
     const tree = parseCode(code, language);
     if (!tree || !tree.topNode) throw new Error('Parsing returned null or empty tree');
 
-    // Use the simplified chunking function
-    const chunks = simpleLezerChunker(
+    // Use the recursive chunking function
+    const chunks = recursiveLezerChunker(
       tree.topNode,
       document,
       mergedOptions,

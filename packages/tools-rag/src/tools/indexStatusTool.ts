@@ -2,9 +2,8 @@ import { defineTool } from '@sylphlab/tools-core';
 import { jsonPart } from '@sylphlab/tools-core';
 import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core';
 import { z } from 'zod';
-// No longer need VectorDbProvider here if logic is in IndexManager
-// import { VectorDbProvider } from '../indexManager.js';
-import type { IndexManager } from '../indexManager.js'; // Import IndexManager type
+import type { IndexManager } from '../indexManager.js';
+import type { RagToolExecuteOptions } from '../types.js'; // Import the shared extended options type
 
 // --- Input Schema ---
 const IndexStatusInputSchema = z.object({}).optional(); // No input needed
@@ -38,13 +37,6 @@ const IndexStatusResultSchema = z.object({
 // Define the output schema instance as a constant array
 const IndexStatusOutputSchema = z.array(IndexStatusResultSchema);
 
-// Define a specific options type for this tool
-// Alternatively, use a shared RagToolExecuteOptions if all RAG tools need the manager
-interface RagStatusToolExecuteOptions extends ToolExecuteOptions {
-    indexManager: IndexManager;
-}
-
-
 // --- Tool Definition using defineTool ---
 export const indexStatusTool = defineTool({
   name: 'getIndexStatus',
@@ -56,7 +48,7 @@ export const indexStatusTool = defineTool({
     _input: IndexStatusInput, // Input is optional/empty
     options: ToolExecuteOptions, // Keep base type for compatibility
   ): Promise<Part[]> => {
-    // Zod validation (though input is empty/optional)
+    // Zod validation
     const parsed = IndexStatusInputSchema.safeParse(_input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
@@ -67,8 +59,8 @@ export const indexStatusTool = defineTool({
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
 
-    // Assert options type to access indexManager
-    const ragOptions = options as RagStatusToolExecuteOptions;
+    // Assert options type to access indexManager using the shared type
+    const ragOptions = options as RagToolExecuteOptions;
     if (!ragOptions.indexManager) {
       throw new Error('IndexManager instance is missing in ToolExecuteOptions.');
     }

@@ -83,6 +83,15 @@ async function loadRagServiceConfig(): Promise<RagServiceConfig> {
         .option('debounce-delay', { type: 'number', default: 2000, description: 'Debounce delay (ms)' })
         .option('max-chunk-size', { type: 'number', description: 'Max chunk size for chunking' })
         .option('chunk-overlap', { type: 'number', description: 'Chunk overlap for chunking' })
+        .option('max-chunk-size', {
+            type: 'number',
+            description: 'Maximum size of code chunks (default depends on chunking function)',
+        })
+        .option('chunk-overlap', {
+            type: 'number',
+            description: 'Number of lines/tokens to overlap between chunks (default depends on chunking function)',
+        })
+        // TODO: Add include/exclude patterns parsing if needed
         .help().alias('h', 'help')
         .parseAsync();
 
@@ -107,14 +116,21 @@ async function loadRagServiceConfig(): Promise<RagServiceConfig> {
         embeddingConfig = { provider: EmbeddingModelProvider.Mock };
     }
 
+    // Construct chunkingOptions only including defined values
+    const chunkingOptions: { maxChunkSize?: number; chunkOverlap?: number } = {};
+    if (argv.maxChunkSize !== undefined && argv.maxChunkSize > 0) {
+        chunkingOptions.maxChunkSize = argv.maxChunkSize;
+    }
+    if (argv.chunkOverlap !== undefined && argv.chunkOverlap >= 0) {
+        chunkingOptions.chunkOverlap = argv.chunkOverlap;
+    }
+
     const serviceConfig = {
         autoWatchEnabled: argv.autoWatch,
         respectGitignore: argv.respectGitignore,
         debounceDelay: argv.debounceDelay,
-        chunkingOptions: {
-            maxChunkSize: argv.maxChunkSize,
-            chunkOverlap: argv.chunkOverlap,
-        },
+        // Only include chunkingOptions if it has properties
+        ...(Object.keys(chunkingOptions).length > 0 ? { chunkingOptions } : {}),
     };
 
     // Combine and Validate

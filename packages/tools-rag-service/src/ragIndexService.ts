@@ -93,14 +93,14 @@ export class RagIndexService {
     console.log('Starting workspace index synchronization...');
 
     try {
-      // Load all documents first
-      let documents = await loadDocuments(this.workspaceRoot);
-      console.log(`Loaded ${documents.length} raw documents.`);
-
-      // Filter documents based on ignore rules AFTER loading
-      documents = documents.filter(doc => !this.shouldIgnore(doc.id)); // Assuming doc.id is relative path
-
-      console.log(`Filtered down to ${documents.length} documents.`);
+      // Load documents using the updated loader with filtering options
+      const documents = await loadDocuments(
+          this.workspaceRoot,
+          this.config.includePatterns,
+          this.config.excludePatterns,
+          this.config.respectGitignore
+      );
+      console.log(`Loaded ${documents.length} documents after filtering.`);
       if (documents.length === 0) {
         console.log('No documents found to index after filtering.');
         // Optionally clear the index if no documents are found?
