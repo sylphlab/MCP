@@ -360,11 +360,42 @@ export class RagIndexService {
     return this.indexManager;
   }
 
-  public getServiceStatus(): { initialized: boolean; initialScanComplete: boolean; watching: boolean } {
+  /** Returns the current operational status and progress of the service. */
+  public getServiceStatus(): {
+      state: 'Initializing' | 'Scanning' | 'Processing Initial Queue' | 'Watching' | 'Idle' | 'Stopping';
+      initialized: boolean;
+      initialScanComplete: boolean;
+      watching: boolean;
+      filesInQueue: number;
+      processedFiles: number;
+      totalFilesInitialScan: number | null;
+  } {
+      let state: 'Initializing' | 'Scanning' | 'Processing Initial Queue' | 'Watching' | 'Idle' | 'Stopping' = 'Idle';
+      if (!this.isInitialized) {
+          state = 'Initializing';
+      } else if (!this.initialScanComplete) {
+          if (this.isProcessingQueue) {
+              state = 'Processing Initial Queue';
+          } else {
+              // If watcher exists but scan isn't complete and queue isn't processing, it's likely scanning
+              state = this.watcher ? 'Scanning' : 'Initializing'; // Or could be stuck?
+          }
+      } else if (this.watcher) {
+          state = this.isProcessingQueue ? 'Processing Initial Queue' : 'Watching'; // Still processing if queue has items after scan
+      } else if (this.isProcessingQueue) {
+          // Should not happen if watcher stopped correctly, but handle state
+          state = 'Processing Initial Queue';
+      }
+      // Note: 'Stopping' state isn't explicitly tracked yet
+
       return {
+          state: state,
           initialized: this.isInitialized,
           initialScanComplete: this.initialScanComplete,
           watching: !!this.watcher,
+          filesInQueue: this.fileProcessingQueue.length,
+          processedFiles: this.processedFilesCount,
+          totalFilesInitialScan: this.totalFilesFoundDuringScan,
       };
   }
 }

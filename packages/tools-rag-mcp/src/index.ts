@@ -174,10 +174,11 @@ async function startServer() {
       embedding: serviceConfig.embedding,
   };
   // Use the correct extended type RagToolExecuteOptions
-  const toolOptions: RagToolExecuteOptions = {
+  const toolOptions: RagToolExecuteOptions & { ragService?: RagIndexService } = {
       workspaceRoot: workspaceRoot,
       ragConfig: ragConfigForTools,
       indexManager: indexManagerInstance, // Pass the non-null instance
+      ragService: ragService, // Pass the service instance
   };
 
 

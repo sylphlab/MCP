@@ -13,12 +13,26 @@ export type IndexStatusInput = z.infer<typeof IndexStatusInputSchema>;
 
 // --- Output Types ---
 export interface IndexStatusResult {
-  /** Whether retrieving status was successful. */
+  /** Whether retrieving status was successful overall (primarily DB status). */
   success: boolean;
-  /** Number of items in the index collection. */
-  count?: number;
+  /** Number of chunks in the index collection. */
+  chunkCount?: number;
   /** Name of the index collection. */
   collectionName?: string;
+  /** Current operational state of the RAG service. */
+  serviceState?: 'Initializing' | 'Scanning' | 'Processing Initial Queue' | 'Watching' | 'Idle' | 'Stopping' | 'Unknown';
+  /** Whether the RAG service background process is initialized. */
+  serviceInitialized?: boolean;
+  /** Whether the initial scan and processing is complete. */
+  initialScanComplete?: boolean;
+  /** Whether the file watcher is currently active. */
+  serviceWatching?: boolean;
+  /** Number of files currently waiting in the processing queue. */
+  filesInQueue?: number;
+  /** Total number of files processed since service start (includes initial scan). */
+  processedFilesCount?: number;
+  /** Total number of files found during the initial scan (null if scan not complete). */
+  totalFilesInitialScan?: number | null;
   /** Error message, if retrieval failed. */
   error?: string;
   /** Suggestion for fixing the error. */
@@ -28,8 +42,15 @@ export interface IndexStatusResult {
 // Zod Schema for the individual result
 const IndexStatusResultSchema = z.object({
   success: z.boolean(),
-  count: z.number().int().nonnegative().optional(),
+  chunkCount: z.number().int().nonnegative().optional(),
   collectionName: z.string().optional(),
+  serviceState: z.enum(['Initializing', 'Scanning', 'Processing Initial Queue', 'Watching', 'Idle', 'Stopping', 'Unknown']).optional(),
+  serviceInitialized: z.boolean().optional(),
+  initialScanComplete: z.boolean().optional(),
+  serviceWatching: z.boolean().optional(),
+  filesInQueue: z.number().int().nonnegative().optional(),
+  processedFilesCount: z.number().int().nonnegative().optional(),
+  totalFilesInitialScan: z.number().int().nonnegative().nullable().optional(),
   error: z.string().optional(),
   suggestion: z.string().optional(),
 });
@@ -40,7 +61,7 @@ const IndexStatusOutputSchema = z.array(IndexStatusResultSchema);
 // --- Tool Definition using defineTool ---
 export const indexStatusTool = defineTool({
   name: 'getIndexStatus',
-  description: 'Gets the status of the RAG index (e.g., number of items).',
+  description: 'Gets the status of the RAG index (chunk count, collection name) and the background service state.',
   inputSchema: IndexStatusInputSchema,
 
 
@@ -52,56 +73,69 @@ export const indexStatusTool = defineTool({
     const parsed = IndexStatusInputSchema.safeParse(_input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
-        .map(
-          ([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : ''}`,
-        )
+        .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : ''}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
 
-    // Assert options type to access indexManager using the shared type
-    const ragOptions = options as RagToolExecuteOptions;
-    if (!ragOptions.indexManager) {
-      throw new Error('IndexManager instance is missing in ToolExecuteOptions.');
-    }
-    // Check if the manager instance itself is initialized
-    if (!ragOptions.indexManager.isInitialized()) {
-        throw new Error('IndexManager is not initialized. Cannot get status.');
-    }
-    const indexManager = ragOptions.indexManager;
+    // Assert options type to access indexManager and potentially ragService
+    // Assuming ragService instance is passed via options if available
+    const ragOptions = options as RagToolExecuteOptions & { ragService?: { getServiceStatus: () => any } };
 
-    const results: IndexStatusResult[] = [];
-    let count: number | undefined;
+    let dbSuccess = false;
+    let chunkCount: number | undefined;
     let collectionName: string | undefined;
-    let error: string | undefined;
-    let suggestion: string | undefined;
-    let success = false;
+    let dbError: string | undefined;
+    let dbSuggestion: string | undefined;
 
-    try {
-      // Call the getStatus method on the provided IndexManager instance
-      const status = await indexManager.getStatus();
-      count = status.count;
-      collectionName = status.name;
-      success = true;
-    } catch (e: unknown) {
-      success = false;
-      error = e instanceof Error ? e.message : 'Unknown error getting index status';
-      suggestion = 'Check vector database configuration and connectivity, or IndexManager initialization.';
-      count = undefined;
-      collectionName = undefined; // Reset on error
+    // Try to get DB status from IndexManager
+    if (ragOptions.indexManager?.isInitialized()) { // Use optional chaining
+        try {
+            const indexDbStatus = await ragOptions.indexManager.getStatus();
+            chunkCount = indexDbStatus.count;
+            collectionName = indexDbStatus.name;
+            dbSuccess = true; // DB status retrieval was successful
+        } catch (e: unknown) {
+            dbSuccess = false; // DB status retrieval failed
+            dbError = e instanceof Error ? e.message : 'Unknown error getting index DB status';
+            dbSuggestion = 'Check vector database configuration and connectivity.';
+        }
+    } else {
+        dbSuccess = false;
+        dbError = 'IndexManager instance is missing or not initialized in ToolExecuteOptions.';
+        dbSuggestion = 'Ensure the RAG service started correctly and passed the IndexManager.';
     }
 
-    // Push the single result
-    results.push({
-      success,
-      count,
-      collectionName,
-      error,
-      suggestion,
-    });
+    // Get service status if available
+    let serviceStatus: any = null; // Use 'any' to avoid complex type checking for now
+    if (ragOptions.ragService && typeof ragOptions.ragService.getServiceStatus === 'function') {
+        try {
+            serviceStatus = ragOptions.ragService.getServiceStatus();
+        } catch (serviceError) {
+            console.error("Error calling ragService.getServiceStatus():", serviceError);
+            // Don't fail the whole tool, just report service status as unknown
+        }
+    }
+
+    // Combine results
+    const finalResult: IndexStatusResult = {
+      success: dbSuccess, // Overall success depends primarily on getting DB status
+      chunkCount: chunkCount,
+      collectionName: collectionName,
+      error: dbError, // Report DB error if present
+      suggestion: dbSuggestion,
+      // Add service status fields, defaulting if serviceStatus is null/unavailable
+      serviceState: serviceStatus?.state ?? 'Unknown',
+      serviceInitialized: serviceStatus?.initialized ?? false,
+      initialScanComplete: serviceStatus?.initialScanComplete ?? false,
+      serviceWatching: serviceStatus?.watching ?? false,
+      filesInQueue: serviceStatus?.filesInQueue,
+      processedFilesCount: serviceStatus?.processedFilesCount,
+      totalFilesInitialScan: serviceStatus?.totalFilesInitialScan,
+    };
 
     // Return the result wrapped in jsonPart
-    return [jsonPart(results, IndexStatusOutputSchema)];
+    return [jsonPart([finalResult], IndexStatusOutputSchema)];
   },
 });
 
