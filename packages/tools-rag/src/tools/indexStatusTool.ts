@@ -2,10 +2,9 @@ import { defineTool } from '@sylphlab/tools-core';
 import { jsonPart } from '@sylphlab/tools-core';
 import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core';
 import { z } from 'zod';
-import { VectorDbProvider } from '../indexManager.js'; // Import Provider only
-import type { RagCoreToolExecuteOptions } from '../types.js'; // Import extended options type
-import { getRagCollection } from '../chroma.js'; // Import lower-level function
-import type { IEmbeddingFunction } from 'chromadb'; // Needed for dummy function
+// No longer need VectorDbProvider here if logic is in IndexManager
+// import { VectorDbProvider } from '../indexManager.js';
+import type { IndexManager } from '../indexManager.js'; // Import IndexManager type
 
 // --- Input Schema ---
 const IndexStatusInputSchema = z.object({}).optional(); // No input needed
@@ -39,6 +38,13 @@ const IndexStatusResultSchema = z.object({
 // Define the output schema instance as a constant array
 const IndexStatusOutputSchema = z.array(IndexStatusResultSchema);
 
+// Define a specific options type for this tool
+// Alternatively, use a shared RagToolExecuteOptions if all RAG tools need the manager
+interface RagStatusToolExecuteOptions extends ToolExecuteOptions {
+    indexManager: IndexManager;
+}
+
+
 // --- Tool Definition using defineTool ---
 export const indexStatusTool = defineTool({
   name: 'getIndexStatus',
@@ -61,12 +67,16 @@ export const indexStatusTool = defineTool({
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
 
-    // Assert options type to access ragConfig
-    const ragOptions = options as RagCoreToolExecuteOptions;
-    if (!ragOptions.ragConfig) {
-      throw new Error('RAG configuration (ragConfig) is missing in ToolExecuteOptions.');
+    // Assert options type to access indexManager
+    const ragOptions = options as RagStatusToolExecuteOptions;
+    if (!ragOptions.indexManager) {
+      throw new Error('IndexManager instance is missing in ToolExecuteOptions.');
     }
-    const { vectorDb: vectorDbConfig } = ragOptions.ragConfig;
+    // Check if the manager instance itself is initialized
+    if (!ragOptions.indexManager.isInitialized()) {
+        throw new Error('IndexManager is not initialized. Cannot get status.');
+    }
+    const indexManager = ragOptions.indexManager;
 
     const results: IndexStatusResult[] = [];
     let count: number | undefined;
@@ -76,62 +86,17 @@ export const indexStatusTool = defineTool({
     let success = false;
 
     try {
-      // Use getRagCollection directly for status as a workaround, using config from options
-      if (vectorDbConfig.provider !== VectorDbProvider.ChromaDB) {
-        success = false;
-        error = `getIndexStatus currently only supports ChromaDB via getRagCollection. Provider: ${vectorDbConfig.provider}`;
-        suggestion = 'Use a ChromaDB configuration or implement status retrieval for other providers.';
-        // Try to get name if possible
-        if (vectorDbConfig.provider === VectorDbProvider.Pinecone) {
-            collectionName = vectorDbConfig.indexName;
-        } else {
-            collectionName = 'N/A (Non-ChromaDB)';
-        }
-        count = undefined;
-      } else {
-        // Proceed with ChromaDB logic using getRagCollection
-
-        // Create a dummy embedding function as getRagCollection requires one
-        const dummyEmbeddingFn: IEmbeddingFunction = {
-          generate: async (texts: string[]) => texts.map(() => []),
-        };
-
-        // Use host URL if provided, otherwise local path
-        const clientPath = vectorDbConfig.host || vectorDbConfig.path;
-        if (!clientPath) {
-          throw new Error('ChromaDB configuration requires either a "path" or a "host".');
-        }
-
-        // Ensure collectionName is defined for ChromaDB
-        if (!vectorDbConfig.collectionName) {
-            throw new Error('ChromaDB configuration requires a "collectionName".');
-        }
-
-        // Call getRagCollection with details from vectorDbConfig
-        // Note: workspaceRoot is no longer passed as path/host should be absolute/resolvable
-        const collection = await getRagCollection(
-            dummyEmbeddingFn,
-            clientPath, // Pass URL or path
-            vectorDbConfig.collectionName // Pass collectionName from config
-        );
-
-        count = await collection.count();
-        collectionName = collection.name; // Get name directly from collection object
-        success = true;
-      }
+      // Call the getStatus method on the provided IndexManager instance
+      const status = await indexManager.getStatus();
+      count = status.count;
+      collectionName = status.name;
+      success = true;
     } catch (e: unknown) {
       success = false;
       error = e instanceof Error ? e.message : 'Unknown error getting index status';
-      suggestion = 'Check vector database configuration and connectivity.';
+      suggestion = 'Check vector database configuration and connectivity, or IndexManager initialization.';
       count = undefined;
-      // Try to get collection name from config even on error, if possible
-      if (vectorDbConfig.provider === VectorDbProvider.ChromaDB && vectorDbConfig.collectionName) {
-          collectionName = vectorDbConfig.collectionName;
-      } else if (vectorDbConfig.provider === VectorDbProvider.Pinecone && vectorDbConfig.indexName) {
-          collectionName = vectorDbConfig.indexName;
-      } else {
-          collectionName = undefined;
-      }
+      collectionName = undefined; // Reset on error
     }
 
     // Push the single result

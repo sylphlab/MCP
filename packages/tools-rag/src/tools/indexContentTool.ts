@@ -5,21 +5,21 @@ import hljs from 'highlight.js';
 import { z } from 'zod';
 import { type ChunkingOptions, chunkCodeAst } from '../chunking.js';
 import {
-  EmbeddingModelConfigSchema,
+  // EmbeddingModelConfigSchema, // No longer needed in input schema
   EmbeddingModelProvider,
-  defaultEmbeddingConfig,
+  // defaultEmbeddingConfig, // Config comes from options
   generateEmbeddings,
 } from '../embedding.js';
 import {
   IndexManager,
   type IndexedItem,
-  VectorDbConfigSchema,
+  // VectorDbConfigSchema, // No longer needed in input schema
   VectorDbProvider,
 } from '../indexManager.js';
 import { SupportedLanguage } from '../parsing.js';
-import type { Chunk, RagCoreToolExecuteOptions } from '../types.js'; // Import extended options type
+import type { Chunk, RagToolExecuteOptions } from '../types.js'; // Use the shared options type
 
-// --- Input Schemas (Copied from original for clarity) ---
+// --- Input Schemas ---
 export const IndexContentInputItemSchema = z.object({
   id: z.string().optional(),
   content: z.string(),
@@ -34,10 +34,10 @@ const ChunkingOptionsSchema = z
   })
   .optional();
 
+// Input schema no longer includes vectorDbConfig or embeddingConfig
 export const IndexContentInputSchema = z.object({
   items: z.array(IndexContentInputItemSchema),
   chunkingOptions: ChunkingOptionsSchema,
-  // embeddingConfig and vectorDbConfig removed - will come from options
 });
 
 // --- TypeScript Types ---
@@ -78,15 +78,13 @@ export const indexContentTool = defineTool({
   name: 'indexContent',
   description: 'Chunks, embeds, and indexes provided text content.',
   inputSchema: IndexContentInputSchema,
-  
+
 
   execute: async (
     input: IndexContentToolInput,
     options: ToolExecuteOptions, // Keep base type for compatibility
   ): Promise<Part[]> => {
-    // Return Part[]
-
-    // Zod validation (throw error on failure)
+    // Zod validation
     const parsed = IndexContentInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
@@ -94,26 +92,19 @@ export const indexContentTool = defineTool({
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { items, chunkingOptions } = parsed.data; // Remove config from input destructuring
+    const { items, chunkingOptions } = parsed.data;
 
-    // Assert options type to access ragConfig
-    const ragOptions = options as RagCoreToolExecuteOptions;
-    if (!ragOptions.ragConfig) {
-      throw new Error('RAG configuration (ragConfig) is missing in ToolExecuteOptions.');
+    // Assert options type to access indexManager and ragConfig
+    const ragOptions = options as RagToolExecuteOptions;
+    if (!ragOptions.indexManager || !ragOptions.ragConfig) {
+      throw new Error('IndexManager instance or RagConfig is missing in ToolExecuteOptions.');
     }
-    const { vectorDb: vectorDbConfig, embedding: embeddingConfig } = ragOptions.ragConfig;
-
-    // Initialize IndexManager (outside loop for efficiency)
-    // Use vectorDbConfig directly from options.ragConfig
-    const currentIndexConfig = vectorDbConfig; // No need for ?? default, config should be provided
-    let indexManager: IndexManager;
-    try {
-      indexManager = await IndexManager.create(currentIndexConfig);
-    } catch (managerError) {
-      throw new Error(
-        `Failed to initialize IndexManager: ${managerError instanceof Error ? managerError.message : String(managerError)}`,
-      );
+    // Check if the manager instance itself is initialized
+    if (!ragOptions.indexManager.isInitialized()) {
+        throw new Error('IndexManager is not initialized. Cannot index content.');
     }
+    const indexManager = ragOptions.indexManager;
+    const { embedding: embeddingConfig } = ragOptions.ragConfig; // Get embedding config
 
     const results: IndexContentResultItem[] = [];
 
@@ -133,33 +124,22 @@ export const indexContentTool = defineTool({
           const detectionResult = hljs.highlightAuto(item.content);
           const detectedLang = detectionResult.language;
           switch (detectedLang?.toLowerCase()) {
-            case 'javascript':
-            case 'js':
-            case 'jsx':
-              languageToUse = SupportedLanguage.JavaScript;
-              break;
-            case 'typescript':
-            case 'ts':
-            case 'tsx':
-              languageToUse = SupportedLanguage.TypeScript;
-              break;
-            case 'python':
-            case 'py':
-              languageToUse = SupportedLanguage.Python;
-              break;
-            // Add other mappings as needed
-            default:
-              languageToUse = null;
+            case 'javascript': case 'js': case 'jsx':
+              languageToUse = SupportedLanguage.JavaScript; break;
+            case 'typescript': case 'ts': case 'tsx':
+              languageToUse = SupportedLanguage.TypeScript; break;
+            case 'python': case 'py':
+              languageToUse = SupportedLanguage.Python; break;
+            default: languageToUse = null;
           }
         }
 
         // Chunk the content
         const chunks = await chunkCodeAst(item.content, languageToUse, chunkingOptions);
         if (chunks.length === 0) {
-          // If no chunks, report success but 0 chunks upserted
           itemResult.success = true;
           results.push(itemResult);
-          continue; // Skip to next item
+          continue;
         }
 
         const chunkObjects: Chunk[] = chunks.map((chunk, index) => ({
@@ -172,10 +152,8 @@ export const indexContentTool = defineTool({
           },
         }));
 
-        // Generate embeddings
-        // Use embeddingConfig directly from options.ragConfig
-        const currentEmbeddingConfig = embeddingConfig; // No need for ?? default
-        const embeddings = await generateEmbeddings(chunkObjects, currentEmbeddingConfig);
+        // Generate embeddings using config from options
+        const embeddings = await generateEmbeddings(chunkObjects, embeddingConfig);
         if (embeddings.length !== chunkObjects.length) {
           throw new Error('Mismatch between number of chunks and generated embeddings.');
         }
@@ -187,7 +165,7 @@ export const indexContentTool = defineTool({
           vector: embeddings[index],
         }));
 
-        // Upsert items
+        // Upsert items using the indexManager from options
         await indexManager.upsertItems(indexedItems);
 
         itemResult.success = true;
@@ -197,17 +175,11 @@ export const indexContentTool = defineTool({
         itemResult.error = error instanceof Error ? error.message : String(error);
         // Add basic suggestion
         if (itemResult.error.includes('embedding') || itemResult.error.includes('Embedding')) {
-          itemResult.suggestion =
-            'Check embedding model configuration and API key/endpoint validity.';
-        } else if (
-          itemResult.error.includes('index') ||
-          itemResult.error.includes('Index') ||
-          itemResult.error.includes('upsert')
-        ) {
+          itemResult.suggestion = 'Check embedding model configuration and API key/endpoint validity.';
+        } else if (itemResult.error.includes('index') || itemResult.error.includes('Index') || itemResult.error.includes('upsert')) {
           itemResult.suggestion = 'Check vector database configuration and connectivity.';
         } else if (itemResult.error.includes('chunk') || itemResult.error.includes('Chunk')) {
-          itemResult.suggestion =
-            'Check chunking options and content validity for the detected/specified language.';
+          itemResult.suggestion = 'Check chunking options and content validity for the detected/specified language.';
         } else {
           itemResult.suggestion = 'An unexpected error occurred during processing.';
         }

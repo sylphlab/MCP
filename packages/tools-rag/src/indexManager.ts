@@ -114,11 +114,12 @@ export class IndexManager {
           if (!clientPath) {
             throw new Error('ChromaDB config requires either a "path" or a "host".');
           }
-          console.log(`[IndexManager] Initializing ChromaClient with path/host: ${clientPath}`); // Log path/host being used
+          console.log(`[IndexManager] Attempting to initialize ChromaClient with path/host: ${clientPath}`);
           try {
             // Pass the URL or local path via the 'path' property
             this.chromaClient = new ChromaClient({ path: clientPath });
-            console.log(`[IndexManager] ChromaClient created. Getting/Creating collection: ${this.config.collectionName}`); // Added Log
+            console.log('[IndexManager] ChromaClient instance created successfully.');
+            console.log(`[IndexManager] Attempting to get/create collection: ${this.config.collectionName}`);
             this.chromaCollection = await this.chromaClient.getOrCreateCollection({
               name: this.config.collectionName,
               embeddingFunction: this.embeddingFn,

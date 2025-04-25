@@ -3,28 +3,28 @@ import { jsonPart } from '@sylphlab/tools-core';
 import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core'; // Add ToolExecuteOptions import
 import { z } from 'zod';
 import {
-  EmbeddingModelConfigSchema,
+  // EmbeddingModelConfigSchema, // No longer needed in input
   EmbeddingModelProvider,
   HttpEmbeddingFunction,
   MockEmbeddingFunction,
   OllamaEmbeddingFunction,
-  defaultEmbeddingConfig,
+  // defaultEmbeddingConfig, // Config comes from options
   generateEmbeddings,
 } from '../embedding.js';
 import {
   IndexManager,
   type QueryResult, // Keep QueryResult type
-  VectorDbConfigSchema,
+  // VectorDbConfigSchema, // No longer needed in input
   VectorDbProvider,
 } from '../indexManager.js';
-import type { RagCoreToolExecuteOptions } from '../types.js'; // Import extended options type
+import type { RagToolExecuteOptions } from '../types.js'; // Use the new shared options type
 
 // --- Input Schema ---
+// Remove embeddingConfig and vectorDbConfig
 export const QueryIndexInputSchema = z.object({
   queryText: z.string(),
   topK: z.number().int().positive().default(5),
   filter: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
-  // embeddingConfig and vectorDbConfig removed - will come from options
 });
 
 // --- TypeScript Types ---
@@ -45,13 +45,12 @@ export interface QueryIndexResult {
 }
 
 // Zod Schema for the result
-// Note: QueryResult contains complex data (metadata object), use z.custom or refine
 const QueryResultSchema = z.object({
   item: z.object({
     id: z.string(),
     content: z.string(),
-    vector: z.array(z.number()).optional(), // Vector might not always be returned
-    metadata: z.record(z.any()).optional(), // Metadata can be complex
+    vector: z.array(z.number()).optional(),
+    metadata: z.record(z.any()).optional(),
   }),
   score: z.number(),
 });
@@ -59,7 +58,7 @@ const QueryResultSchema = z.object({
 const QueryIndexResultSchema = z.object({
   success: z.boolean(),
   query: z.string(),
-  results: z.array(QueryResultSchema), // Use the defined schema
+  results: z.array(QueryResultSchema),
   error: z.string().optional(),
   suggestion: z.string().optional(),
 });
@@ -72,12 +71,10 @@ export const queryIndexTool = defineTool({
   name: 'queryIndex',
   description: 'Embeds a query text and searches the index for similar content.',
   inputSchema: QueryIndexInputSchema,
-  
 
-  execute: async (input: QueryIndexInput, options: ToolExecuteOptions): Promise<Part[]> => { // Keep base type for compatibility
-    // Return Part[]
 
-    // Zod validation (throw error on failure)
+  execute: async (input: QueryIndexInput, options: ToolExecuteOptions): Promise<Part[]> => { // Keep base type
+    // Zod validation
     const parsed = QueryIndexInputSchema.safeParse(input);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
@@ -85,62 +82,47 @@ export const queryIndexTool = defineTool({
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { queryText, topK, filter } = parsed.data; // Remove config from input destructuring
+    const { queryText, topK, filter } = parsed.data;
 
-    const resultsContainer: QueryIndexResult[] = []; // Array to hold the single result object
+    // Assert options type to access indexManager and ragConfig
+    const ragOptions = options as RagToolExecuteOptions;
+    if (!ragOptions.indexManager || !ragOptions.ragConfig) {
+      throw new Error('IndexManager instance or RagConfig is missing in ToolExecuteOptions.');
+    }
+    // Check if the manager instance itself is initialized
+    if (!ragOptions.indexManager.isInitialized()) {
+        throw new Error('IndexManager is not initialized. Cannot query index.');
+    }
+    const indexManager = ragOptions.indexManager;
+    const { embedding: embeddingConfig } = ragOptions.ragConfig; // Get embedding config
+
+    const resultsContainer: QueryIndexResult[] = [];
     let queryResults: QueryResult[] = [];
     let error: string | undefined;
     let suggestion: string | undefined;
     let success = false;
 
     try {
-      // Assert options type to access ragConfig
-      const ragOptions = options as RagCoreToolExecuteOptions;
-      if (!ragOptions.ragConfig) {
-        throw new Error('RAG configuration (ragConfig) is missing in ToolExecuteOptions.');
-      }
-      const { vectorDb: vectorDbConfig, embedding: embeddingConfig } = ragOptions.ragConfig;
-
-      // 1. Generate embedding for the query text
+      // 1. Generate embedding for the query text using config from options
       let queryVector: number[];
-      // Use embeddingConfig directly from options.ragConfig
-      const currentEmbeddingConfig = embeddingConfig; // No need for ?? default
       try {
-        const queryEmbeddings = await generateEmbeddings([queryText], currentEmbeddingConfig);
+        const queryEmbeddings = await generateEmbeddings([queryText], embeddingConfig);
         if (!queryEmbeddings || queryEmbeddings.length === 0 || !queryEmbeddings[0]) {
           throw new Error('Embedding generation returned no results or invalid data.');
         }
         queryVector = queryEmbeddings[0];
       } catch (embeddingError) {
-        const errorMessage =
-          embeddingError instanceof Error ? embeddingError.message : String(embeddingError);
-        throw new Error(`Error generating query embedding: ${errorMessage}`); // Re-throw for main catch
+        const errorMessage = embeddingError instanceof Error ? embeddingError.message : String(embeddingError);
+        throw new Error(`Error generating query embedding: ${errorMessage}`);
       }
 
-      // 2. Initialize IndexManager and query the index
-      // Use vectorDbConfig directly from options.ragConfig
-      const currentIndexConfig = vectorDbConfig; // No need for ?? default
+      // 2. Query the index using the indexManager instance from options
       try {
-        const embeddingFnInstance =
-          currentEmbeddingConfig.provider === EmbeddingModelProvider.Ollama
-            ? new OllamaEmbeddingFunction(
-                currentEmbeddingConfig.modelName,
-                currentEmbeddingConfig.baseURL,
-              )
-            : currentEmbeddingConfig.provider === EmbeddingModelProvider.Http
-              ? new HttpEmbeddingFunction(
-                  currentEmbeddingConfig.url,
-                  currentEmbeddingConfig.headers,
-                  currentEmbeddingConfig.batchSize,
-                )
-              : new MockEmbeddingFunction(currentEmbeddingConfig.mockDimension);
-
-        const indexManager = await IndexManager.create(currentIndexConfig, embeddingFnInstance);
         queryResults = await indexManager.queryIndex(queryVector, topK, filter);
         success = true;
       } catch (queryError) {
         const errorMessage = queryError instanceof Error ? queryError.message : String(queryError);
-        throw new Error(`Error querying index: ${errorMessage}`); // Re-throw for main catch
+        throw new Error(`Error querying index: ${errorMessage}`);
       }
     } catch (e: unknown) {
       success = false;

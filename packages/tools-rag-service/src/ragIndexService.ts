@@ -414,8 +414,13 @@ export class RagIndexService {
     }
   }
 
+  // --- Public Accessors ---
+  public get indexManagerInstance(): IndexManager | null {
+    return this.indexManager;
+  }
+
   // --- Public methods to potentially proxy core RAG operations ---
-  // (Keep commented out as tools will likely use IndexManager directly via config)
+  // (Keep commented out for now)
 
 }
 

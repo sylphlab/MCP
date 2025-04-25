@@ -1,7 +1,8 @@
 // Main export for @sylphlab/mcp-rag-core
 
 // Types
-export type { Document, Chunk, RagConfig, RagCoreToolExecuteOptions } from './types.js'; // Export RagConfig and RagCoreToolExecuteOptions
+// Export RagConfig and the correct RagToolExecuteOptions
+export type { Document, Chunk, RagConfig, RagToolExecuteOptions } from './types.js';
 export type { ChunkingOptions } from './chunking.js';
 export type { EmbeddingModelConfig, EmbeddingVector, IEmbeddingFunction } from './embedding.js'; // Ensure IEmbeddingFunction is exported
 export {

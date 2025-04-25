@@ -4,55 +4,55 @@ import { createRequire } from 'node:module';
 import process from 'node:process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import crypto from 'node:crypto'; // Import crypto for hashing
+import crypto from 'node:crypto';
 import { z } from 'zod';
-import yargs from 'yargs'; // Import yargs
-import { hideBin } from 'yargs/helpers'; // Helper for parsing argv
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
 import { startMcpServer } from '@sylphlab/tools-adaptor-mcp';
 import type { Tool, ToolExecuteOptions } from '@sylphlab/tools-core';
 import {
-  // Core tools are still needed
+  // Core tools
   indexContentTool,
   queryIndexTool,
   indexStatusTool,
-  // Config schemas and enums for parsing args
+  // Config schemas and enums
   VectorDbConfigSchema,
   EmbeddingModelConfigSchema,
   VectorDbProvider,
   EmbeddingModelProvider,
   defaultEmbeddingConfig,
-  // Type for tool options
-  type RagCoreToolExecuteOptions,
-  type RagConfig, // Needed for tool options
+  // Types
+  type RagToolExecuteOptions, // Correct extended options type
+  type RagConfig,
+  type IndexManager, // Import IndexManager type
 } from '@sylphlab/tools-rag';
 import {
   RagIndexService,
-  type RagServiceConfig, // Import the full service config type
+  type RagServiceConfig,
 } from '@sylphlab/tools-rag-service';
-
-// dotenv.config(); // Removed
 
 const require = createRequire(import.meta.url);
 const { name, version, description } = require('../package.json');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Assuming the script runs from dist, adjust path to get workspace root
-const workspaceRoot = path.resolve(__dirname, '../../../'); // Adjust if build output changes structure
+const workspaceRoot = path.resolve(__dirname, '../../../');
 
 // --- Configuration Loading ---
 
-// Define a schema for the service-specific parts of the config
 const ServiceOnlyConfigSchema = z.object({
     autoWatchEnabled: z.boolean().default(true),
     respectGitignore: z.boolean().default(true),
     debounceDelay: z.number().int().positive().default(2000),
     includePatterns: z.array(z.string()).optional(),
     excludePatterns: z.array(z.string()).optional(),
+    chunkingOptions: z.object({
+        maxChunkSize: z.number().int().positive().optional(),
+        chunkOverlap: z.number().int().nonnegative().optional(),
+    }).optional(),
 });
 
-// Combine core RAG config and service config schemas
 const RagServiceConfigSchema = z.intersection(
     z.object({
         vectorDb: VectorDbConfigSchema,
@@ -63,261 +63,169 @@ const RagServiceConfigSchema = z.intersection(
 
 
 async function loadRagServiceConfig(): Promise<RagServiceConfig> {
-    // --- Defaults ---
-    // Generate default collection name based on hashed workspace root path for uniqueness per project
     const workspaceHash = crypto.createHash('sha1').update(workspaceRoot).digest('hex').substring(0, 12);
     const defaultCollectionName = `rag_${workspaceHash}`;
-    // const defaultDbPath = path.join(workspaceRoot, '.rag_db'); // Removed
 
-    // --- Parse Command Line Arguments ---
     const argv = await yargs(hideBin(process.argv))
-        .option('db-provider', {
-            choices: Object.values(VectorDbProvider),
-            default: VectorDbProvider.ChromaDB,
-            description: 'Vector DB provider',
-        })
-        // .option('db-path', { // Removed - ChromaJS client primarily uses HTTP
-        //     type: 'string',
-        //     default: defaultDbPath,
-        //     description: 'Path for local ChromaDB (Likely non-functional with JS client)',
-        // })
-        .option('db-host', {
-            type: 'string',
-            description: 'Host URL for remote ChromaDB',
-        })
-        .option('collection-name', {
-            type: 'string',
-            default: defaultCollectionName,
-            description: 'Name of the collection/index',
-        })
-        .option('pinecone-api-key', {
-            type: 'string',
-            description: 'Pinecone API Key (required if db-provider=pinecone)',
-        })
-        .option('pinecone-index-name', {
-            type: 'string',
-            description: 'Pinecone Index Name (required if db-provider=pinecone)',
-        })
-        .option('pinecone-namespace', {
-            type: 'string',
-            description: 'Pinecone Namespace (optional)',
-        })
-        .option('embedding-provider', {
-            choices: Object.values(EmbeddingModelProvider),
-            default: EmbeddingModelProvider.Ollama,
-            description: 'Embedding model provider',
-        })
-        .option('ollama-model', {
-            type: 'string',
-            default: 'nomic-embed-text',
-            description: 'Ollama model name',
-        })
-        .option('ollama-base-url', {
-            type: 'string',
-            description: 'Ollama base URL (optional)',
-        })
-        .option('http-embedding-url', {
-            type: 'string',
-            description: 'URL for HTTP embedding endpoint (required if embedding-provider=http)',
-        })
-        .option('http-embedding-headers', {
-            type: 'string', // Expect JSON string
-            description: 'JSON string of headers for HTTP embedding endpoint (optional)',
-        })
-        .option('auto-watch', {
-            type: 'boolean',
-            default: true,
-            description: 'Enable automatic file watching and re-indexing',
-        })
-        .option('respect-gitignore', {
-            type: 'boolean',
-            default: true,
-            description: 'Respect .gitignore rules',
-        })
-        .option('debounce-delay', {
-            type: 'number',
-            default: 2000,
-            description: 'Debounce delay (ms) for file watching events',
-        })
-        // TODO: Add include/exclude patterns parsing if needed
-        .help()
-        .alias('h', 'help')
+        .option('db-provider', { choices: Object.values(VectorDbProvider), default: VectorDbProvider.ChromaDB, description: 'Vector DB provider' })
+        .option('db-host', { type: 'string', description: 'Host URL for ChromaDB (e.g., http://localhost:8000)' })
+        .option('collection-name', { type: 'string', default: defaultCollectionName, description: 'Name of the collection/index' })
+        .option('pinecone-api-key', { type: 'string', description: 'Pinecone API Key' })
+        .option('pinecone-index-name', { type: 'string', description: 'Pinecone Index Name' })
+        .option('pinecone-namespace', { type: 'string', description: 'Pinecone Namespace' })
+        .option('embedding-provider', { choices: Object.values(EmbeddingModelProvider), default: EmbeddingModelProvider.Ollama, description: 'Embedding model provider' })
+        .option('ollama-model', { type: 'string', default: 'nomic-embed-text', description: 'Ollama model name' })
+        .option('ollama-base-url', { type: 'string', description: 'Ollama base URL' })
+        .option('http-embedding-url', { type: 'string', description: 'URL for HTTP embedding endpoint' })
+        .option('http-embedding-headers', { type: 'string', description: 'JSON string of headers for HTTP embedding endpoint' })
+        .option('auto-watch', { type: 'boolean', default: true, description: 'Enable automatic file watching' })
+        .option('respect-gitignore', { type: 'boolean', default: true, description: 'Respect .gitignore rules' })
+        .option('debounce-delay', { type: 'number', default: 2000, description: 'Debounce delay (ms)' })
+        .option('max-chunk-size', { type: 'number', description: 'Max chunk size for chunking' })
+        .option('chunk-overlap', { type: 'number', description: 'Chunk overlap for chunking' })
+        .help().alias('h', 'help')
         .parseAsync();
 
-    // --- Construct Config Objects ---
+    // Construct Config Objects
     let vectorDbConfig: any = { provider: argv.dbProvider };
     if (argv.dbProvider === VectorDbProvider.ChromaDB) {
-        // Always require host for ChromaDB with JS client
-        const dbHost = argv.dbHost || 'http://localhost:8000'; // Default to localhost if not provided
-        console.warn(`ChromaDB provider selected. Ensure a ChromaDB server is running and accessible at ${dbHost}`);
-        vectorDbConfig = {
-            provider: VectorDbProvider.ChromaDB,
-            host: dbHost, // Use host (URL)
-            path: undefined, // Explicitly set path to undefined
-            collectionName: argv.collectionName,
-        };
+        const dbHost = argv.dbHost || 'http://localhost:8000';
+        vectorDbConfig = { provider: VectorDbProvider.ChromaDB, host: dbHost, path: undefined, collectionName: argv.collectionName };
     } else if (argv.dbProvider === VectorDbProvider.Pinecone) {
-        vectorDbConfig = {
-            provider: VectorDbProvider.Pinecone,
-            apiKey: argv.pineconeApiKey || '',
-            indexName: argv.pineconeIndexName || '',
-            namespace: argv.pineconeNamespace,
-        };
+        vectorDbConfig = { provider: VectorDbProvider.Pinecone, apiKey: argv.pineconeApiKey || '', indexName: argv.pineconeIndexName || '', namespace: argv.pineconeNamespace };
     } else {
         vectorDbConfig = { provider: VectorDbProvider.InMemory };
     }
 
     let embeddingConfig: any = { provider: argv.embeddingProvider };
     if (argv.embeddingProvider === EmbeddingModelProvider.Ollama) {
-        embeddingConfig = {
-            provider: EmbeddingModelProvider.Ollama,
-            modelName: argv.ollamaModel,
-            baseURL: argv.ollamaBaseUrl,
-        };
+        embeddingConfig = { provider: EmbeddingModelProvider.Ollama, modelName: argv.ollamaModel, baseURL: argv.ollamaBaseUrl };
     } else if (argv.embeddingProvider === EmbeddingModelProvider.Http) {
-        let headers;
-        try {
-            headers = argv.httpEmbeddingHeaders ? JSON.parse(argv.httpEmbeddingHeaders) : undefined;
-        } catch (e) {
-            console.warn("Failed to parse HTTP embedding headers JSON:", e);
-            headers = undefined;
-        }
-        embeddingConfig = {
-            provider: EmbeddingModelProvider.Http,
-            url: argv.httpEmbeddingUrl || '',
-            headers: headers,
-        };
-    } else { // Mock provider needs defaults from schema for validation
-        embeddingConfig = {
-             provider: EmbeddingModelProvider.Mock,
-             // Let zod add defaults for mockDimension, batchSize
-        };
+        let headers; try { headers = argv.httpEmbeddingHeaders ? JSON.parse(argv.httpEmbeddingHeaders) : undefined; } catch (e) { console.warn("Failed to parse HTTP headers JSON:", e); headers = undefined; }
+        embeddingConfig = { provider: EmbeddingModelProvider.Http, url: argv.httpEmbeddingUrl || '', headers: headers };
+    } else {
+        embeddingConfig = { provider: EmbeddingModelProvider.Mock };
     }
 
     const serviceConfig = {
         autoWatchEnabled: argv.autoWatch,
         respectGitignore: argv.respectGitignore,
         debounceDelay: argv.debounceDelay,
-        // includePatterns: argv.includePatterns, // Add if parsed
-        // excludePatterns: argv.excludePatterns, // Add if parsed
+        chunkingOptions: {
+            maxChunkSize: argv.maxChunkSize,
+            chunkOverlap: argv.chunkOverlap,
+        },
     };
 
-    // --- Combine and Validate ---
-    const fullConfigInput = {
-        vectorDb: vectorDbConfig,
-        embedding: embeddingConfig,
-        ...serviceConfig,
-    };
+    // Combine and Validate
+    const fullConfigInput = { vectorDb: vectorDbConfig, embedding: embeddingConfig, ...serviceConfig };
 
     try {
-        // Use parse to validate and apply defaults from schemas
         const validatedConfig = RagServiceConfigSchema.parse(fullConfigInput);
         console.log("Loaded RAG Service Config from args:", validatedConfig);
         return validatedConfig;
     } catch (error) {
         console.error("Failed to validate RAG configuration from args:", error);
         console.warn("Using default configuration due to validation errors.");
-        // Construct a minimal safe default config using parse
         return RagServiceConfigSchema.parse({
              vectorDb: { provider: VectorDbProvider.InMemory },
-             embedding: { provider: EmbeddingModelProvider.Mock }, // Zod will add defaults
-             autoWatchEnabled: false, // Safer default
-             respectGitignore: true,
-             debounceDelay: 2000,
+             embedding: { provider: EmbeddingModelProvider.Mock },
+             autoWatchEnabled: false, respectGitignore: true, debounceDelay: 2000,
         });
     }
 }
 
 
 // --- Server Setup ---
-
-// biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
 const tools: Tool<any>[] = [indexContentTool, queryIndexTool, indexStatusTool];
 
 // --- Start Server ---
-
-// Declare ragService in a higher scope to be accessible by shutdown handlers
-let ragService: RagIndexService | null = null;
+let ragService: RagIndexService | null = null; // Keep in higher scope for shutdown
 
 async function startServer() {
-  // let ragService: RagIndexService | null = null; // Removed from here
   let serviceConfig: RagServiceConfig | null = null;
+  let indexManagerInstance: IndexManager | null = null;
 
   try {
-    // 1. Load Configuration from Command Line Args
-    serviceConfig = await loadRagServiceConfig(); // Now async
+    // 1. Load Config
+    serviceConfig = await loadRagServiceConfig();
 
     // 2. Initialize RAG Service
+    console.log("Initializing RAG Service...");
     ragService = new RagIndexService(serviceConfig, workspaceRoot);
     await ragService.initialize();
+    indexManagerInstance = ragService.indexManagerInstance; // Get instance via getter
+    console.log("RAG Service initialized.");
 
-    // 3. Perform Initial Sync
-    console.log("Performing initial workspace index sync...");
-    await ragService.syncWorkspaceIndex();
-    console.log("Initial sync completed.");
-
-    // 4. Start File Watcher (if enabled)
-    ragService.startWatching(); // Service internally checks autoWatchEnabled
+    if (!indexManagerInstance) {
+        throw new Error("IndexManager instance is null after RAG service initialization.");
+    }
 
   } catch (setupError) {
-    console.error('Failed during RAG service setup:', setupError);
-    // Decide if server should still start without RAG service, or exit
-    // For now, let's allow server to start but log the error prominently
-    // process.exit(1); // Optionally exit
+    console.error('Failed during RAG service config loading or initialization:', setupError);
+    console.error("Exiting due to RAG service initialization failure.");
+    process.exit(1);
   }
 
-  // 5. Prepare Tool Options for MCP Server
-  // Ensure ragConfig is passed, even if service setup failed (use loaded or default config)
-  const ragConfigForTools: RagConfig = serviceConfig ? {
+  // 3. Prepare Tool Options *with* the IndexManager instance
+  const ragConfigForTools: RagConfig = {
       vectorDb: serviceConfig.vectorDb,
       embedding: serviceConfig.embedding,
-  } : { // Fallback if serviceConfig loading failed entirely
-      vectorDb: { provider: VectorDbProvider.InMemory },
-      // Provide full default mock embedding config for type compatibility
-      embedding: {
-          provider: EmbeddingModelProvider.Mock,
-          mockDimension: 768, // Add default dimension
-          batchSize: 32, // Add default batch size
-      },
+  };
+  // Use the correct extended type RagToolExecuteOptions
+  const toolOptions: RagToolExecuteOptions = {
+      workspaceRoot: workspaceRoot,
+      ragConfig: ragConfigForTools,
+      indexManager: indexManagerInstance, // Pass the non-null instance
   };
 
-  const toolOptions: RagCoreToolExecuteOptions = {
-    workspaceRoot: workspaceRoot, // Use calculated workspace root
-    ragConfig: ragConfigForTools,
-    // Add other base options if needed
-  };
 
-  // 6. Start the MCP server
+  // 4. Start the MCP server *BEFORE* sync/watch
   console.log("Starting MCP server...");
-  await startMcpServer(
-    {
-      name,
-      version,
-      description,
-      tools,
-    },
-    toolOptions, // Pass the extended options object
-  );
-  console.log("MCP server started successfully.");
+  startMcpServer(
+    { name, version, description, tools },
+    toolOptions // Pass the extended options
+  ).then(() => {
+      console.log("MCP server started successfully and listening.");
+
+      // 5. Trigger background Sync and Watch *after* MCP server is confirmed running
+      console.log("Triggering background RAG sync and watch...");
+      // Fire-and-forget async function (ragService is guaranteed non-null here)
+      (async () => {
+          try {
+              // Use if check instead of non-null assertion
+              if (ragService) {
+                  await ragService.syncWorkspaceIndex();
+                  ragService.startWatching();
+              }
+          } catch (bgError) {
+              console.error("Error during background RAG sync/watch:", bgError);
+          }
+      })();
+
+  }).catch(mcpError => {
+      console.error("Failed to start MCP server:", mcpError);
+      process.exit(1);
+  });
+
+  // Process should stay alive due to startMcpServer listener
 }
+
 
 // Use an async IIFE to call the startServer function
 (async () => {
   await startServer();
-  // If startServer completes without exiting, the server is running.
 })();
 
 // Optional: Graceful shutdown handling
 process.on('SIGINT', async () => {
   console.log('Received SIGINT. Shutting down...');
-  // Stop watcher if service was initialized
   await ragService?.stopWatching();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('Received SIGTERM. Shutting down...');
-  // Stop watcher if service was initialized
   await ragService?.stopWatching();
   process.exit(0);
 });

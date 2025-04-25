@@ -25,8 +25,8 @@ export interface Chunk extends Document {
 
 import type { ToolExecuteOptions } from '@sylphlab/tools-core';
 import type { EmbeddingModelConfig } from './embedding.js';
-import type { VectorDbConfig } from './indexManager.js';
-import type { ChunkingOptions } from './chunking.js'; // Import ChunkingOptions
+import type { VectorDbConfig, IndexManager } from './indexManager.js'; // Import IndexManager
+import type { ChunkingOptions } from './chunking.js';
 
 /**
  * Configuration for the core RAG operations (DB and Embedding).
@@ -41,6 +41,15 @@ export interface RagConfig {
  * Extended ToolExecuteOptions specifically for core RAG tools.
  * It includes the essential configuration needed for their execution.
  */
-export interface RagCoreToolExecuteOptions extends ToolExecuteOptions {
-  ragConfig: RagConfig;
+// export interface RagCoreToolExecuteOptions extends ToolExecuteOptions {
+//   ragConfig: RagConfig;
+// }
+
+/**
+ * Extended ToolExecuteOptions for RAG tools, providing access to the
+ * initialized IndexManager instance and the core RAG configuration.
+ */
+export interface RagToolExecuteOptions extends ToolExecuteOptions {
+  indexManager: IndexManager;
+  ragConfig: RagConfig; // Keep ragConfig for embedding details etc.
 }
