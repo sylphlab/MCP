@@ -41,7 +41,6 @@ const workspaceRoot = path.resolve(__dirname, '../../../');
 
 // --- Configuration Loading ---
 
-// Extend RagConfig with service-specific options
 const ServiceOnlyConfigSchema = z.object({
     autoWatchEnabled: z.boolean().default(true),
     respectGitignore: z.boolean().default(true),
@@ -131,7 +130,7 @@ async function loadRagServiceConfig(): Promise<RagServiceConfig> {
         console.warn("Using default configuration due to validation errors.");
         return RagServiceConfigSchema.parse({
              vectorDb: { provider: VectorDbProvider.InMemory },
-             embedding: { provider: EmbeddingModelProvider.Mock }, // Zod will add defaults
+             embedding: { provider: EmbeddingModelProvider.Mock },
              autoWatchEnabled: false, respectGitignore: true, debounceDelay: 2000,
         });
     }
@@ -204,6 +203,8 @@ async function startServer() {
               console.error("Error during background RAG sync/watch:", bgError);
           }
       })();
+      // console.warn("Background sync and watch temporarily disabled for debugging."); // Removed temporary disable
+      // --- END TEMPORARY DISABLE --- // Removed temporary disable
 
   }).catch(mcpError => {
       console.error("Failed to start MCP server:", mcpError);

@@ -4,8 +4,9 @@ import { SupportedLanguage, parseCode } from './parsing.js';
 import type { Chunk, Document } from './types.js';
 
 // --- Constants ---
-const DEFAULT_MAX_CHUNK_SIZE = 1000; // Default max characters per chunk
-const DEFAULT_CHUNK_OVERLAP = 100;  // Default character overlap for text splitting
+// Increased default size significantly for code, aiming for whole functions/classes
+const DEFAULT_MAX_CHUNK_SIZE = 16000;
+const DEFAULT_CHUNK_OVERLAP = 200;  // Slightly increase overlap for text splitting fallback
 
 // --- Types ---
 export interface ChunkingOptions {

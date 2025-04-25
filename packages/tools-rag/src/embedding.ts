@@ -1,7 +1,7 @@
-import { embedMany } from 'ai'; // Import Vercel AI SDK function
-import type { IEmbeddingFunction as ChromaIEmbeddingFunction } from 'chromadb'; // Import the type
-import { fetch } from 'node-fetch-native'; // Use node-fetch-native for reliable fetch
-import { createOllama } from 'ollama-ai-provider'; // Import Ollama provider
+import { embedMany } from 'ai'; // Re-add Vercel AI SDK function
+import type { IEmbeddingFunction as ChromaIEmbeddingFunction } from 'chromadb';
+import { fetch } from 'node-fetch-native';
+import { createOllama } from 'ollama-ai-provider'; // Re-add Ollama provider import
 import { z } from 'zod';
 import type { Chunk } from './types.js';
 
@@ -25,7 +25,7 @@ const OllamaConfigSchema = z.object({
   provider: z.literal(EmbeddingModelProvider.Ollama),
   modelName: z.string().default('nomic-embed-text'),
   baseURL: z.string().url().optional(),
-  batchSize: z.number().int().positive().default(50),
+  batchSize: z.number().int().positive().default(50), // Default batch size for Ollama
   options: z.record(z.unknown()).optional(),
 });
 
@@ -67,17 +67,18 @@ export class MockEmbeddingFunction implements IEmbeddingFunction {
   }
 }
 
-// Ollama Implementation (using Vercel AI SDK)
+// Ollama Implementation (using Vercel AI SDK) - Reverted
 export class OllamaEmbeddingFunction implements IEmbeddingFunction {
   private ollamaInstance: ReturnType<typeof createOllama>;
   private modelId: string;
   constructor(modelName: string, baseURL?: string) {
-    this.ollamaInstance = createOllama({ baseURL });
+    this.ollamaInstance = createOllama({ baseURL }); // Use Vercel AI SDK helper
     this.modelId = modelName;
   }
 
   public async generate(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
+    // Use embedMany from Vercel AI SDK
     const { embeddings } = await embedMany({
       model: this.ollamaInstance.embedding(this.modelId),
       values: texts,
@@ -91,7 +92,8 @@ export class OllamaEmbeddingFunction implements IEmbeddingFunction {
   }
 }
 
-// Http Implementation
+
+// Http Implementation (using direct fetch)
 export class HttpEmbeddingFunction implements IEmbeddingFunction {
   private url: string;
   private headers: Record<string, string>;
@@ -101,6 +103,9 @@ export class HttpEmbeddingFunction implements IEmbeddingFunction {
     this.url = url;
     this.headers = headers || {};
     this.batchSize = batchSize;
+    if (this.url.endsWith('/')) {
+        this.url = this.url.slice(0, -1);
+    }
   }
 
   public async generate(texts: string[]): Promise<number[][]> {
@@ -113,14 +118,14 @@ export class HttpEmbeddingFunction implements IEmbeddingFunction {
     };
 
     for (let i = 0; i < texts.length; i += this.batchSize) {
-      const batchTexts = texts.slice(i, i + this.batchSize);
+      const batchTexts = texts.slice(i, i + this.batchSize); // Use this.batchSize
 
       try {
         const response = await fetch(this.url, {
           method: 'POST',
           headers: headers,
-          // Assuming API expects { "texts": [...] }
-          body: JSON.stringify({ texts: batchTexts }),
+          // Assuming API expects { "input": [...] } or { "texts": [...] } - adjust if needed
+          body: JSON.stringify({ input: batchTexts }), // Common pattern, adjust if API differs
         });
 
         if (!response.ok) {
@@ -130,24 +135,28 @@ export class HttpEmbeddingFunction implements IEmbeddingFunction {
           );
         }
 
-        // Assuming API returns { "embeddings": [[...], ...] }
-        const result = (await response.json()) as { embeddings: number[][] };
+        // Assuming API returns { "data": [{ "embedding": [...] }, ...] } or { "embeddings": [[...], ...] }
+        const result = await response.json() as any; // Use any for flexibility
 
-        if (!result || !Array.isArray(result.embeddings)) {
+        let batchEmbeddings: number[][] | undefined;
+
+        if (result && Array.isArray(result.embeddings)) {
+            batchEmbeddings = result.embeddings;
+        } else if (result && Array.isArray(result.data) && result.data[0]?.embedding) {
+            batchEmbeddings = result.data.map((item: any) => item.embedding);
+        } else {
+             throw new Error('Invalid response format from HTTP embedding API.');
+        }
+
+
+        if (!batchEmbeddings || batchEmbeddings.length !== batchTexts.length) {
           throw new Error(
-            'Invalid response format from embedding API. Expected { "embeddings": [...] }.',
+            `HTTP embedding count mismatch: expected ${batchTexts.length}, got ${batchEmbeddings?.length ?? 0}`,
           );
         }
 
-        if (result.embeddings.length !== batchTexts.length) {
-          throw new Error(
-            `HTTP embedding count mismatch: expected ${batchTexts.length}, got ${result.embeddings.length}`,
-          );
-        }
-
-        allEmbeddings.push(...result.embeddings);
+        allEmbeddings.push(...batchEmbeddings);
       } catch (error) {
-        // Re-throw the error to stop the process if a batch fails
         throw new Error(
           `HTTP embedding generation failed: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -157,11 +166,9 @@ export class HttpEmbeddingFunction implements IEmbeddingFunction {
   }
 }
 
-// HttpEmbeddingFunction is already exported via 'export class'
-
 /**
  * Generates embeddings for an array of text chunks using configured provider.
- * DEPRECATED in favor of using specific class instances.
+ * Uses the specific class instances for generation.
  */
 export async function generateEmbeddings(
   chunks: (Chunk | string)[],
@@ -169,22 +176,49 @@ export async function generateEmbeddings(
 ): Promise<EmbeddingVector[]> {
   const textsToEmbed = chunks.map((chunk) => (typeof chunk === 'string' ? chunk : chunk.content));
   if (textsToEmbed.length === 0) return [];
+
+  let embeddingFn: IEmbeddingFunction;
+
   switch (config.provider) {
     case EmbeddingModelProvider.Mock: {
-      const mockFn = new MockEmbeddingFunction(config.mockDimension);
-      return mockFn.generate(textsToEmbed);
+      embeddingFn = new MockEmbeddingFunction(config.mockDimension);
+      break;
     }
     case EmbeddingModelProvider.Ollama: {
-      const ollamaFn = new OllamaEmbeddingFunction(config.modelName, config.baseURL);
-      return ollamaFn.generate(textsToEmbed);
+      embeddingFn = new OllamaEmbeddingFunction(config.modelName, config.baseURL);
+      break;
     }
     case EmbeddingModelProvider.Http: {
-      const httpFn = new HttpEmbeddingFunction(config.url, config.headers, config.batchSize);
-      return httpFn.generate(textsToEmbed);
+      embeddingFn = new HttpEmbeddingFunction(config.url, config.headers, config.batchSize);
+      break;
     }
     default: {
       const exhaustiveCheck: never = config;
       throw new Error(`Unhandled embedding provider: ${exhaustiveCheck}`);
     }
   }
+
+  // Determine batch size from config or use a default reasonable for the function
+  const batchSize = config.batchSize || (config.provider === EmbeddingModelProvider.Ollama ? 50 : 100);
+  const allEmbeddings: number[][] = [];
+
+  // Process in batches according to the function's preferred batch size
+  for (let i = 0; i < textsToEmbed.length; i += batchSize) {
+      const batchTexts = textsToEmbed.slice(i, i + batchSize);
+      try {
+          const batchEmbeddings = await embeddingFn.generate(batchTexts);
+          if (batchEmbeddings.length !== batchTexts.length) {
+               console.warn(`Embedding batch size mismatch for provider ${config.provider}. Expected ${batchTexts.length}, got ${batchEmbeddings.length}.`);
+               // Decide how to handle: throw, skip, pad? For now, let's throw.
+               throw new Error('Embedding batch size mismatch.');
+          }
+          allEmbeddings.push(...batchEmbeddings);
+      } catch (error) {
+          console.error(`Error generating embedding batch (index ${i}) for provider ${config.provider}:`, error);
+          // Decide how to handle: throw, skip batch, return partial? Re-throwing for now.
+          throw error;
+      }
+  }
+
+  return allEmbeddings;
 }
