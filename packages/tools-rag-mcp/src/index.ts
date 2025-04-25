@@ -181,7 +181,7 @@ async function startServer() {
   };
 
 
-  // 4. Start the MCP server *BEFORE* sync/watch
+  // 4. Start the MCP server
   console.log("Starting MCP server...");
   startMcpServer(
     { name, version, description, tools },
@@ -189,22 +189,21 @@ async function startServer() {
   ).then(() => {
       console.log("MCP server started successfully and listening.");
 
-      // 5. Trigger background Sync and Watch *after* MCP server is confirmed running
-      console.log("Triggering background RAG sync and watch...");
-      // Fire-and-forget async function (ragService is guaranteed non-null here)
-      (async () => {
-          try {
-              // Use if check instead of non-null assertion
-              if (ragService) {
-                  await ragService.syncWorkspaceIndex();
-                  ragService.startWatching();
+      // 5. Start watching (which includes initial scan) *after* MCP server starts
+      if (ragService) {
+          console.log("Starting background RAG initial scan and watching...");
+          // Fire-and-forget async function
+          (async () => {
+              try {
+                  await ragService.startWatching(); // This now handles initial scan + watching
+              } catch (bgError) {
+                  console.error("Error during background RAG scan/watch:", bgError);
               }
-          } catch (bgError) {
-              console.error("Error during background RAG sync/watch:", bgError);
-          }
-      })();
-      // console.warn("Background sync and watch temporarily disabled for debugging."); // Removed temporary disable
-      // --- END TEMPORARY DISABLE --- // Removed temporary disable
+          })();
+      } else {
+          // This case should not happen due to exit(1) in catch block above
+          console.error("RAG service not available, cannot start watching.");
+      }
 
   }).catch(mcpError => {
       console.error("Failed to start MCP server:", mcpError);

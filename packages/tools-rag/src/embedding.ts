@@ -67,7 +67,7 @@ export class MockEmbeddingFunction implements IEmbeddingFunction {
   }
 }
 
-// Ollama Implementation (using Vercel AI SDK) - Reverted
+// Ollama Implementation (using Vercel AI SDK) - Restored
 export class OllamaEmbeddingFunction implements IEmbeddingFunction {
   private ollamaInstance: ReturnType<typeof createOllama>;
   private modelId: string;
@@ -124,7 +124,6 @@ export class HttpEmbeddingFunction implements IEmbeddingFunction {
         const response = await fetch(this.url, {
           method: 'POST',
           headers: headers,
-          // Assuming API expects { "input": [...] } or { "texts": [...] } - adjust if needed
           body: JSON.stringify({ input: batchTexts }), // Common pattern, adjust if API differs
         });
 
@@ -135,7 +134,6 @@ export class HttpEmbeddingFunction implements IEmbeddingFunction {
           );
         }
 
-        // Assuming API returns { "data": [{ "embedding": [...] }, ...] } or { "embeddings": [[...], ...] }
         const result = await response.json() as any; // Use any for flexibility
 
         let batchEmbeddings: number[][] | undefined;
@@ -185,6 +183,7 @@ export async function generateEmbeddings(
       break;
     }
     case EmbeddingModelProvider.Ollama: {
+      // Use the restored OllamaEmbeddingFunction
       embeddingFn = new OllamaEmbeddingFunction(config.modelName, config.baseURL);
       break;
     }
@@ -209,14 +208,12 @@ export async function generateEmbeddings(
           const batchEmbeddings = await embeddingFn.generate(batchTexts);
           if (batchEmbeddings.length !== batchTexts.length) {
                console.warn(`Embedding batch size mismatch for provider ${config.provider}. Expected ${batchTexts.length}, got ${batchEmbeddings.length}.`);
-               // Decide how to handle: throw, skip, pad? For now, let's throw.
                throw new Error('Embedding batch size mismatch.');
           }
           allEmbeddings.push(...batchEmbeddings);
       } catch (error) {
           console.error(`Error generating embedding batch (index ${i}) for provider ${config.provider}:`, error);
-          // Decide how to handle: throw, skip batch, return partial? Re-throwing for now.
-          throw error;
+          throw error; // Re-throw error
       }
   }
 

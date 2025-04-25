@@ -20,7 +20,7 @@ export { VectorDbConfigSchema, IndexManager, VectorDbProvider } from './indexMan
 export { chunkCodeAst, detectLanguage } from './chunking.js'; // Ensure detectLanguage is exported
 export { generateEmbeddings } from './embedding.js';
 export { parseCode, SupportedLanguage } from './parsing.js';
-export { loadDocuments } from './loader.js';
+export { loadDocuments } from './loader.js'; // Restored
 export { getRagCollection, convertFilterToChromaWhere } from './chroma.js';
 
 // Tools
