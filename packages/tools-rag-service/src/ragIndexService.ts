@@ -351,8 +351,13 @@ export class RagIndexService {
 
             const indexedItems: IndexedItem[] = chunkBatch.map((chunk, index) => {
                 const chunkId = `${relativePath}::${chunk.metadata?.chunkIndex ?? (j + index)}`;
-                // Ensure fileMtime is included in the metadata for future comparisons
-                const finalMetadata = { ...chunk.metadata, fileMtime: currentMtime };
+                // Ensure fileMtime is included and handle null language for Pinecone
+                const finalMetadata = {
+                    ...chunk.metadata,
+                    fileMtime: currentMtime,
+                    // Explicitly set language, replacing null with "unknown"
+                    language: language === null ? "unknown" : language
+                };
                 // Remove processedChunkIdsDuringScan logic
                 return { ...chunk, metadata: finalMetadata, id: chunkId, vector: vectors[index] };
             });

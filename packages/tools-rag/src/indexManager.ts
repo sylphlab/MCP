@@ -395,8 +395,8 @@ export class IndexManager {
           console.warn('[Pinecone] getAllFileStates requires listing all IDs and fetching metadata, which can be slow for large indexes.');
 
           let nextToken: string | undefined = undefined;
-          const listLimit = 1000;
-          const fetchLimit = 1000;
+          const listLimit = 100; // Corrected: Pinecone listPaginated limit is 100
+          const fetchLimit = 1000; // Pinecone fetch limit is 1000
 
           do {
             const listResponse = await ns.listPaginated({ limit: listLimit, paginationToken: nextToken });
