@@ -4,9 +4,8 @@ import { SupportedLanguage, parseCode } from './parsing.js';
 import type { Chunk, Document } from './types.js';
 
 // --- Constants ---
-// Increased default size significantly for code, aiming for whole functions/classes
-const DEFAULT_MAX_CHUNK_SIZE = 16000;
-const DEFAULT_CHUNK_OVERLAP = 200;  // Slightly increase overlap for text splitting fallback
+const DEFAULT_MAX_CHUNK_SIZE = 16000; // Keep increased size
+const DEFAULT_CHUNK_OVERLAP = 200;  // Keep increased overlap
 
 // --- Types ---
 export interface ChunkingOptions {
@@ -55,7 +54,7 @@ function splitTextWithOverlap(text: string, maxSize: number, overlap: number): s
     chunks.push(text.substring(start, end));
     if (end === text.length) break;
     start += step;
-    if (start >= end) break; // Avoid infinite loop
+    if (start >= end) break;
   }
   return chunks;
 }
@@ -104,27 +103,35 @@ export function detectLanguage(filePath: string): SupportedLanguage | null {
 
 /**
  * Recursive Lezer AST chunking logic.
+ * Attempts to chunk based on boundary types. If a boundary node is too large,
+ * it RECURSES into the oversized node to find smaller boundaries within.
  */
 function recursiveLezerChunker(
   node: SyntaxNode,
   document: Document,
-  options: Required<ChunkingOptions>, // Use Required internally
+  options: Required<ChunkingOptions>,
   language: SupportedLanguage,
-  chunkCounter: { index: number }, // Pass counter by reference
+  chunkCounter: { index: number },
 ): Chunk[] {
   const chunks: Chunk[] = [];
   const boundaryTypes = CHUNK_BOUNDARY_TYPES[language] || [];
 
   let currentChild = node.firstChild;
   while (currentChild) {
-    // Assign to a new const within the loop scope for non-null guarantee
-    const child = currentChild;
+    const child = currentChild; // Guaranteed non-null within the loop
     const childText = document.content.substring(child.from, child.to);
     const isBoundary = boundaryTypes.includes(child.type.name);
     const fits = childText.length <= options.maxChunkSize;
 
+    // --- DEBUG LOGGING ---
+    // Log details for all nodes being considered in the target file
+    if (document.id.endsWith('ragIndexService.ts')) {
+        console.log(`DEBUG[Chunker]: Node ${child.type.name} (${child.from}-${child.to}), Length: ${childText.length}, Fits (<=${options.maxChunkSize}): ${fits}, IsBoundary: ${isBoundary}, HasChildren: ${!!child.firstChild}`);
+    }
+    // --- END DEBUG ---
+
     if (isBoundary && fits) {
-      // Boundary node fits, create a chunk for the whole node
+      // Boundary node fits, create a chunk
       chunks.push(
         createChunk(document, childText, child.from, child.to, chunkCounter.index++, {
           nodeType: child.type.name,
@@ -132,26 +139,17 @@ function recursiveLezerChunker(
         }),
       );
     } else if (isBoundary && !fits) {
-      // Boundary node is too large, split its *content* using text splitter
-      console.warn(`Node type ${child.type.name} at ${child.from}-${child.to} exceeds maxChunkSize. Applying text split.`);
-      const subChunks = splitTextWithOverlap(childText, options.maxChunkSize, options.chunkOverlap);
-      subChunks.forEach((subChunk, subIndex) => {
-          chunks.push(
-              createChunk(document, subChunk, child.from, child.to, chunkCounter.index++, { // start/end still refer to original node
-                  nodeType: child.type.name,
-                  language: language,
-                  warning: `Text split applied within oversized node (part ${subIndex + 1}/${subChunks.length})`,
-              })
-          );
-      });
+      // Boundary node is too large, RECURSE into it
+      console.warn(`Node type ${child.type.name} at ${child.from}-${child.to} exceeds maxChunkSize. Recursing into node.`);
+      chunks.push(...recursiveLezerChunker(child, document, options, language, chunkCounter));
     } else if (!isBoundary && child.firstChild) {
       // Not a boundary, but has children, recurse into it
       chunks.push(...recursiveLezerChunker(child, document, options, language, chunkCounter));
     } else {
-       // Leaf node or unhandled case - ignore small text nodes between boundaries
+       // Leaf node or unhandled case. Ignore small text nodes between boundaries.
     }
 
-    currentChild = child.nextSibling; // Iterate using the loop variable
+    currentChild = child.nextSibling;
   }
   return chunks;
 }
@@ -193,6 +191,7 @@ export function chunkCodeAst(
 
     const chunks = recursiveLezerChunker(tree.topNode, document, mergedOptions, language, chunkCounter);
 
+    // Fallback if AST chunking yields no results
     if (chunks.length === 0 && code.trim().length > 0) {
       console.warn(`AST chunking yielded no chunks for language ${language}. Applying fallback text split.`);
       const textChunks = splitTextWithOverlap(code, mergedOptions.maxChunkSize, mergedOptions.chunkOverlap);
@@ -202,13 +201,14 @@ export function chunkCodeAst(
     }
     return chunks;
   } catch (error) {
+    // Fallback on any parsing or chunking error
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.warn(`Error during AST parsing/chunking for language ${language}: ${errorMessage}. Applying fallback text split.`);
     const textChunks = splitTextWithOverlap(code, mergedOptions.maxChunkSize, mergedOptions.chunkOverlap);
     return textChunks.map((textChunk: string, idx: number) =>
       createChunk(document, textChunk, -1, -1, chunkCounter.index++, {
         language: language,
-        warning: 'Fallback text splitting applied (parsing/chunking error)', // Fixed template literal
+        warning: 'Fallback text splitting applied (parsing/chunking error)',
         error: errorMessage,
         fallbackIndex: idx + 1,
         fallbackTotal: textChunks.length,

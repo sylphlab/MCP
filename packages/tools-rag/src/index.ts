@@ -27,4 +27,6 @@ export { getRagCollection, convertFilterToChromaWhere } from './chroma.js';
 export { indexContentTool } from './tools/indexContentTool.js';
 export { queryIndexTool } from './tools/queryIndexTool.js';
 export { indexStatusTool } from './tools/indexStatusTool.js';
+export { getChunksForFileTool } from './tools/getChunksForFileTool.js';
+export { manualIndexFileTool } from './tools/manualIndexFileTool.js'; // Added export
 

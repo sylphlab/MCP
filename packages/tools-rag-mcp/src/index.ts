@@ -16,6 +16,8 @@ import {
   indexContentTool,
   queryIndexTool,
   indexStatusTool,
+  getChunksForFileTool,
+  manualIndexFileTool, // Added new tool
   // Config schemas and enums
   VectorDbConfigSchema,
   EmbeddingModelConfigSchema,
@@ -138,7 +140,7 @@ async function loadRagServiceConfig(): Promise<RagServiceConfig> {
 
 
 // --- Server Setup ---
-const tools: Tool<any>[] = [indexContentTool, queryIndexTool, indexStatusTool];
+const tools: Tool<any>[] = [indexContentTool, queryIndexTool, indexStatusTool, getChunksForFileTool, manualIndexFileTool]; // Added new tool
 
 // --- Start Server ---
 let ragService: RagIndexService | null = null; // Keep in higher scope for shutdown

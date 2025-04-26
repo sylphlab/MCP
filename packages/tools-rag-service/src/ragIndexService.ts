@@ -36,7 +36,7 @@ export class RagIndexService {
   private initialDbIds: Set<string> | null = null;
   private totalFilesFoundDuringScan: number | null = null; // Track total files found in initial scan
   private processedFilesCount = 0; // Track processed files for progress
-  private gitIgnoreFilter: Ignore | null = null;
+  private gitIgnoreFilter: Ignore | null = null; // Parsed .gitignore content
   // Debounce only for file changes *after* initial scan
   private debouncedIndexFile: DebouncedFunc<(filePath: string) => Promise<void>>;
 
@@ -71,8 +71,8 @@ export class RagIndexService {
     // Initialize IndexManager
     if (!this.embeddingFn) { throw new Error('Embedding function failed to initialize.'); }
     this.indexManager = await IndexManager.create(this.config.vectorDb, this.embeddingFn);
-    // Load .gitignore
-    if (this.config.respectGitignore) { await this.loadGitIgnore(); }
+    // Load .gitignore filter instance *during* initialization
+    await this.loadGitIgnore(); // Load and store the filter instance
     this.isInitialized = true;
     console.log('RagIndexService initialized successfully.');
   }
@@ -102,13 +102,26 @@ export class RagIndexService {
         this.initialDbIds = new Set();
     }
 
-    // Prepare basic ignore patterns for chokidar
-    const ignoredPaths: string[] = [];
-    if (this.config.excludePatterns) { ignoredPaths.push(...this.config.excludePatterns); }
-    ignoredPaths.push('**/node_modules/**', '**/.git/**', '**/dist/**', '**/.*', '.*');
+    // --- Prepare ignore patterns for Chokidar ---
+    const chokidarIgnorePatterns: string[] = [];
+    // 1. Add common ignores
+    chokidarIgnorePatterns.push('**/node_modules/**', '**/.git/**', '**/dist/**', '**/.*', '.*');
+    // 2. Add patterns from config.excludePatterns
+    if (this.config.excludePatterns) {
+        chokidarIgnorePatterns.push(...this.config.excludePatterns);
+    }
+    // 3. Add patterns from .gitignore if loaded
+    if (this.config.respectGitignore && this.gitIgnoreFilter) {
+        const gitignorePatterns = (this.gitIgnoreFilter as any)._rules?.map((rule: any) => rule.origin) || [];
+        chokidarIgnorePatterns.push(...gitignorePatterns.filter((p: string | undefined): p is string => !!p));
+    }
+    // Remove duplicates
+    const finalIgnoredPaths = [...new Set(chokidarIgnorePatterns)];
+    console.log(`[Chokidar Options] Ignoring patterns: ${JSON.stringify(finalIgnoredPaths)}`);
+    // --- End Prepare ignore patterns ---
 
     this.watcher = chokidar.watch(this.workspaceRoot, {
-      ignored: ignoredPaths,
+      ignored: finalIgnoredPaths, // Pass the combined list
       persistent: true,
       ignoreInitial: false, // Process initial 'add' events
       awaitWriteFinish: {
@@ -119,12 +132,10 @@ export class RagIndexService {
 
     this.watcher
       .on('add', (filePath: string) => {
-          // During initial scan phase, collect files if not ignored
+          // During initial scan phase, chokidar should have already filtered ignored files
           if (!this.initialScanComplete) {
-              const relativePath = path.relative(this.workspaceRoot, filePath);
-              if (!this.shouldIgnore(relativePath)) {
-                  initialFilesFound.push(filePath); // Add to temp list
-              }
+              // No need for shouldIgnore check here anymore
+              initialFilesFound.push(filePath); // Add directly to temp list
           } else {
               // After initial scan, handle 'add' like a normal change event
               this.handleFileEvent('add', filePath);
@@ -186,10 +197,9 @@ export class RagIndexService {
 
   /** Unified handler for all file events */
   private handleFileEvent(eventType: 'add' | 'change' | 'unlink', filePath: string): void {
-    const relativePath = path.relative(this.workspaceRoot, filePath);
-    if (this.shouldIgnore(relativePath)) { return; }
-
-    // console.log(`File event: ${eventType} - ${relativePath}`); // Reduce noise
+    // No need for shouldIgnore check here, chokidar should handle it
+    // const relativePath = path.relative(this.workspaceRoot, filePath); // Removed
+    // console.log(`File event: ${eventType} - ${filePath}`); // Log absolute path if needed
 
     if (eventType === 'add' || eventType === 'change') {
         // Add to the single queue for both initial scan and subsequent changes
@@ -223,10 +233,18 @@ export class RagIndexService {
           const filePath = this.fileProcessingQueue.shift();
           if (filePath) {
               const isInitial = !this.initialScanComplete;
-              this.processedFilesCount++;
-              const total = this.totalFilesFoundDuringScan ?? '?'; // Use '?' if total not yet known
+              // Only increment processed count during initial scan phase for progress reporting
+              if (isInitial) {
+                  this.processedFilesCount++;
+              }
+              const total = this.totalFilesFoundDuringScan ?? '?';
               const relativePath = path.relative(this.workspaceRoot, filePath);
-              console.log(`[${this.processedFilesCount}/${total}] Processing ${relativePath}...`);
+              // Log progress differently based on phase
+              if (isInitial) {
+                  console.log(`[${this.processedFilesCount}/${total}] Processing ${relativePath}...`);
+              } else {
+                  console.log(`[Queue: ${this.fileProcessingQueue.length}] Processing changed file ${relativePath}...`);
+              }
               await this.indexSingleFile(filePath, isInitial);
           }
       }
@@ -236,23 +254,10 @@ export class RagIndexService {
   }
 
 
-   private shouldIgnore(relativePath: string): boolean { /* ... (same as before) ... */
-    const cleanRelativePath = relativePath.replace(/\\/g, '/');
-    if (this.config.excludePatterns?.some((pattern: string) => minimatch(cleanRelativePath, pattern, { dot: true }))) { return true; }
-    if (this.config.respectGitignore && this.gitIgnoreFilter?.ignores(cleanRelativePath)) { return true; }
-    if (cleanRelativePath.startsWith('.') || cleanRelativePath.includes('/.')) { return true; }
-    if (cleanRelativePath.includes('/node_modules/') || cleanRelativePath.startsWith('node_modules/')) { return true; }
-    if (cleanRelativePath.includes('/.git/') || cleanRelativePath.startsWith('.git/')) { return true; }
-    if (cleanRelativePath.includes('/dist/') || cleanRelativePath.startsWith('dist/')) { return true; }
-    if (this.config.includePatterns && this.config.includePatterns.length > 0) {
-        if (!this.config.includePatterns.some((pattern: string) => minimatch(cleanRelativePath, pattern, { dot: true }))) {
-            return true;
-        }
-    }
-    return false;
-  }
+   // Removed shouldIgnore method
 
-  private async loadGitIgnore(): Promise<void> { /* ... (same as before) ... */
+  /** Loads .gitignore content and creates the filter instance */
+  private async loadGitIgnore(): Promise<void> {
     const gitignorePath = path.join(this.workspaceRoot, '.gitignore');
     try {
       const content = await fs.readFile(gitignorePath, 'utf-8');
@@ -261,26 +266,54 @@ export class RagIndexService {
     } catch (error: any) {
       if (error.code !== 'ENOENT') { console.warn('Error reading .gitignore:', error); }
       else { console.log('.gitignore file not found, skipping.'); }
-      this.gitIgnoreFilter = null;
+      this.gitIgnoreFilter = null; // Ensure it's null if loading fails
     }
   }
 
   /**
    * Indexes or re-indexes a single file. Adds generated chunk IDs to tracking set if during initial scan.
+   * Implements incremental update check based on modification time.
    */
   private async indexSingleFile(filePath: string, isInitialScan = false): Promise<void> {
-     if (!this.isInitialized || !this.indexManager || !this.embeddingFn) { /* ... */ return; }
+     if (!this.isInitialized || !this.indexManager || !this.embeddingFn) {
+         console.error('Cannot index file, service not initialized.');
+         return;
+     }
 
     const relativePath = path.relative(this.workspaceRoot, filePath);
-    // Ignore check is done by the caller (handleFileEvent)
-
-    // console.log(`Indexing file: ${relativePath} ${isInitialScan ? '(Initial Scan)' : ''}`); // Reduce log noise
+    // Ignore check is now handled by chokidar
 
     try {
-        const stats = await fs.stat(filePath); // Get stats first
+        const stats = await fs.stat(filePath);
+        const currentMtime = stats.mtimeMs;
+
+        // --- Incremental Check ---
+        let existingMtime: number | undefined | null = null;
+        let existingChunkIds: string[] = [];
+        // Only perform DB check if we are in initial scan phase
+        if (isInitialScan && this.processedChunkIdsDuringScan) { // Check processedChunkIdsDuringScan is not null
+            const existingMetadataMap = await this.indexManager.getChunksMetadataByFilePath(relativePath);
+            if (existingMetadataMap && existingMetadataMap.size > 0) {
+                const firstEntry = existingMetadataMap.values().next().value;
+                existingMtime = firstEntry?.fileMtime as number | undefined | null;
+                existingChunkIds = Array.from(existingMetadataMap.keys());
+            }
+
+            // If file hasn't changed, skip processing but track existing IDs
+            if (existingMtime && currentMtime <= existingMtime) {
+                // console.log(`  Skipping unchanged file: ${relativePath}`);
+                if (this.processedChunkIdsDuringScan) { // Add null check again for safety
+                    for (const id of existingChunkIds) {
+                        this.processedChunkIdsDuringScan.add(id);
+                    }
+                }
+                return; // Skip the rest of the function
+            }
+        }
+        // --- End Incremental Check ---
+
         const content = await fs.readFile(filePath, 'utf-8');
-        // Include mtimeMs in the base metadata for the document/chunks
-        const doc: Document = { id: relativePath, content: content, metadata: { filePath: relativePath, fileMtime: stats.mtimeMs } };
+        const doc: Document = { id: relativePath, content: content, metadata: { filePath: relativePath, fileMtime: currentMtime } };
         const language = detectLanguage(relativePath);
         const chunks = await chunkCodeAst(doc.content, language, this.config.chunkingOptions, doc.metadata);
 
@@ -296,7 +329,6 @@ export class RagIndexService {
         const embeddingBatchSize = (this.config.embedding as any)?.batchSize || 50;
         for (let j = 0; j < chunks.length; j += embeddingBatchSize) {
             const chunkBatch = chunks.slice(j, j + embeddingBatchSize);
-            // const batchLogPrefix = `...`;
 
             let vectors: number[][];
             try {
@@ -317,8 +349,7 @@ export class RagIndexService {
                 if (isInitialScan && this.processedChunkIdsDuringScan) {
                     this.processedChunkIdsDuringScan.add(chunkId);
                 }
-                // Ensure fileMtime is included in the final metadata for upsert
-                const finalMetadata = { ...chunk.metadata, fileMtime: stats.mtimeMs };
+                const finalMetadata = { ...chunk.metadata, fileMtime: currentMtime };
                 return { ...chunk, metadata: finalMetadata, id: chunkId, vector: vectors[index] };
             });
 
@@ -328,7 +359,6 @@ export class RagIndexService {
                 console.error(`Error upserting chunk batch for ${relativePath}:`, upsertError);
             }
         }
-        // console.log(`Finished indexing ${relativePath}.`); // Reduce log noise
 
     } catch (error: unknown) {
         if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
@@ -342,8 +372,7 @@ export class RagIndexService {
 
   private async deleteFileIndex(filePath: string): Promise<void> {
      if (!this.isInitialized || !this.indexManager) { /* ... */ return; }
-     // Only allow deletion after initial scan is complete
-     if (!this.initialScanComplete) { return; }
+     if (!this.initialScanComplete) { return; } // Only delete after initial scan
 
     const relativePath = path.relative(this.workspaceRoot, filePath);
     console.log(`Deleting index entries for file: ${relativePath}`);
@@ -360,9 +389,8 @@ export class RagIndexService {
     return this.indexManager;
   }
 
-  /** Returns the current operational status and progress of the service. */
   public getServiceStatus(): {
-      state: 'Initializing' | 'Scanning' | 'Processing Initial Queue' | 'Watching' | 'Idle' | 'Stopping';
+      state: 'Initializing' | 'Initial File Discovery' | 'Initial Processing' | 'Watching' | 'Processing Changes' | 'Idle' | 'Stopping'; // Updated states
       initialized: boolean;
       initialScanComplete: boolean;
       watching: boolean;
@@ -370,23 +398,34 @@ export class RagIndexService {
       processedFiles: number;
       totalFilesInitialScan: number | null;
   } {
-      let state: 'Initializing' | 'Scanning' | 'Processing Initial Queue' | 'Watching' | 'Idle' | 'Stopping' = 'Idle';
+      let state: 'Initializing' | 'Initial File Discovery' | 'Initial Processing' | 'Watching' | 'Processing Changes' | 'Idle' | 'Stopping' = 'Idle';
       if (!this.isInitialized) {
           state = 'Initializing';
       } else if (!this.initialScanComplete) {
-          if (this.isProcessingQueue) {
-              state = 'Processing Initial Queue';
-          } else {
-              // If watcher exists but scan isn't complete and queue isn't processing, it's likely scanning
-              state = this.watcher ? 'Scanning' : 'Initializing'; // Or could be stuck?
+          // If watcher exists but totalFiles is null, chokidar is still scanning (discovery phase)
+          if (this.watcher && this.totalFilesFoundDuringScan === null) {
+              state = 'Initial File Discovery';
+          }
+          // If watcher exists and totalFiles is set, OR if queue is processing/has items
+          // it means we are processing the initial batch.
+          else if (this.watcher && (this.isProcessingQueue || this.fileProcessingQueue.length > 0)) {
+               state = 'Initial Processing';
+          }
+          // If watcher exists, totalFiles is set, but queue is empty and not processing (transient state before initialScanComplete=true)
+          else if (this.watcher && this.totalFilesFoundDuringScan !== null) {
+               state = 'Initial Processing'; // Still considered processing until flag is set
+          }
+          // Fallback if watcher doesn't exist but scan not complete (shouldn't happen)
+          else {
+               state = 'Initializing'; // Or some error state?
           }
       } else if (this.watcher) {
-          state = this.isProcessingQueue ? 'Processing Initial Queue' : 'Watching'; // Still processing if queue has items after scan
-      } else if (this.isProcessingQueue) {
-          // Should not happen if watcher stopped correctly, but handle state
-          state = 'Processing Initial Queue';
+          // After initial scan, if queue still has items (e.g., from watch events), show processing changes
+          state = this.isProcessingQueue || this.fileProcessingQueue.length > 0 ? 'Processing Changes' : 'Watching';
+      } else if (this.isProcessingQueue || this.fileProcessingQueue.length > 0) {
+          // If watcher stopped but queue still processing
+          state = 'Processing Changes'; // Or 'Stopping'?
       }
-      // Note: 'Stopping' state isn't explicitly tracked yet
 
       return {
           state: state,
