@@ -343,6 +343,99 @@ export class IndexManager {
       }
   }
 
+  /**
+   * Retrieves the last known modification time (mtime) for each unique file path present in the index.
+   * @returns A Map where keys are file paths and values are the latest mtime (in milliseconds) found for that path.
+   */
+  async getAllFileStates(): Promise<Map<string, number>> {
+    if (!this.isInitialized()) {
+      throw new Error('IndexManager not initialized.');
+    }
+    const fileStates = new Map<string, number>();
+
+    try {
+      switch (this.config.provider) {
+        case VectorDbProvider.InMemory: {
+          for (const item of inMemoryStore.values()) {
+            const filePath = item.metadata?.filePath as string | undefined;
+            const mtime = item.metadata?.fileMtime as number | undefined;
+            if (filePath && typeof mtime === 'number') {
+              const currentMtime = fileStates.get(filePath) ?? -1;
+              if (mtime > currentMtime) {
+                fileStates.set(filePath, mtime);
+              }
+            }
+          }
+          break;
+        }
+        case VectorDbProvider.ChromaDB: {
+          if (!this.chromaCollection) throw new Error('ChromaDB collection not initialized.');
+          // Fetch all metadatas. This might be inefficient for very large collections.
+          // Consider pagination or more targeted queries if performance becomes an issue.
+          const results = await this.chromaCollection.get({ include: [IncludeEnum.Metadatas] });
+          if (results.metadatas) {
+            for (const metadata of results.metadatas) {
+              if (metadata) {
+                const filePath = metadata.filePath as string | undefined;
+                const mtime = metadata.fileMtime as number | undefined;
+                if (filePath && typeof mtime === 'number') {
+                  const currentMtime = fileStates.get(filePath) ?? -1;
+                  if (mtime > currentMtime) {
+                    fileStates.set(filePath, mtime);
+                  }
+                }
+              }
+            }
+          }
+          break;
+        }
+        case VectorDbProvider.Pinecone: {
+          if (!this.pineconeIndex) throw new Error('Pinecone index not initialized.');
+          const ns = this.pineconeIndex.namespace(this.config.namespace || '');
+          console.warn('[Pinecone] getAllFileStates requires listing all IDs and fetching metadata, which can be slow for large indexes.');
+
+          let nextToken: string | undefined = undefined;
+          const listLimit = 1000;
+          const fetchLimit = 1000;
+
+          do {
+            const listResponse = await ns.listPaginated({ limit: listLimit, paginationToken: nextToken });
+            const vectorIds = (listResponse.vectors?.map(v => v.id) || []).filter((id): id is string => !!id);
+
+            if (vectorIds.length > 0) {
+              for (let i = 0; i < vectorIds.length; i += fetchLimit) {
+                const idBatch = vectorIds.slice(i, i + fetchLimit);
+                const fetchResponse = await ns.fetch(idBatch);
+                for (const id in fetchResponse.records) {
+                  const record = fetchResponse.records[id];
+                  if (record.metadata) {
+                    const filePath = record.metadata.filePath as string | undefined;
+                    const mtime = record.metadata.fileMtime as number | undefined;
+                    if (filePath && typeof mtime === 'number') {
+                      const currentMtime = fileStates.get(filePath) ?? -1;
+                      if (mtime > currentMtime) {
+                        fileStates.set(filePath, mtime);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            nextToken = listResponse.pagination?.next;
+          } while (nextToken);
+          break;
+        }
+        default: {
+          const exhaustiveCheck: never = this.config;
+          throw new Error(`Unsupported vector DB provider for getAllFileStates: ${exhaustiveCheck}`);
+        }
+      }
+      return fileStates;
+    } catch (error) {
+      throw new Error(`getAllFileStates failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
 
   async deleteItems(ids: string[]): Promise<void> {
     if (ids.length === 0) return;

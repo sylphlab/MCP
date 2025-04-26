@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { type SyntaxNode } from '@lezer/common'; // Import Lezer types
+import type { SyntaxNode } from '@lezer/common'; // Import Lezer types
 import { SupportedLanguage, parseCode } from './parsing.js';
 import type { Chunk, Document } from './types.js';
 
@@ -59,6 +59,85 @@ function splitTextWithOverlap(text: string, maxSize: number, overlap: number): s
   return chunks;
 }
 
+/**
+ * Attempts to split text using sentence-like boundaries or blank lines.
+ * Used as a fallback when an AST node is too large but has no children.
+ */
+function applySmartFallbackSplitting(
+    text: string,
+    originalStartIndex: number, // Need this to calculate correct chunk start/end positions
+    document: Document,
+    options: Required<ChunkingOptions>,
+    language: SupportedLanguage | null, // Pass language for context
+    chunkCounter: { index: number }
+): Chunk[] {
+    const { maxChunkSize, chunkOverlap } = options;
+    let splitChunks: string[] = [];
+    let warning = 'Smart fallback applied';
+
+    // 1. Try splitting by sentences/paragraphs (simple regex)
+    // Match sentence endings followed by space or newline, or double newlines
+    const sentenceRegex = /([.?!])(?:\s+|\n)|(\n\n)/g;
+    let lastIndex = 0;
+    const potentialSentenceChunks: string[] = [];
+    let match: RegExpExecArray | null;
+    // biome-ignore lint/correctness/noConstantCondition: Standard pattern for exec loop
+    while (true) {
+        match = sentenceRegex.exec(text);
+        if (match === null) {
+            break;
+        }
+        const endIndex = match.index + match[0].length;
+        potentialSentenceChunks.push(text.substring(lastIndex, endIndex).trim());
+        lastIndex = endIndex;
+    }
+    potentialSentenceChunks.push(text.substring(lastIndex).trim()); // Add the remainder
+
+    if (potentialSentenceChunks.every(c => c.length <= maxChunkSize) && potentialSentenceChunks.length > 1) {
+        splitChunks = potentialSentenceChunks.filter(c => c.length > 0);
+        warning += ' (by sentence/paragraph)';
+    } else {
+        // 2. Try splitting by blank lines
+        const blankLineChunks = text.split(/\n\s*\n/).map(s => s.trim()).filter(s => s.length > 0);
+        if (blankLineChunks.every(c => c.length <= maxChunkSize) && blankLineChunks.length > 1) {
+            splitChunks = blankLineChunks;
+            warning += ' (by blank line)';
+        } else {
+            // 3. Final resort: splitTextWithOverlap
+            console.warn(`Smart fallback failed for text starting at ${originalStartIndex}, using basic overlap split.`);
+            splitChunks = splitTextWithOverlap(text, maxChunkSize, chunkOverlap);
+            warning += ' (by overlap)';
+        }
+    }
+
+    // Create Chunk objects, adjusting start/end positions
+    const finalChunks: Chunk[] = [];
+    let currentOffset = 0;
+    for (const splitText of splitChunks) {
+        if (splitText.length === 0) continue;
+        // Find the actual start index of this splitText within the original oversized text
+        // This indexOf might be unreliable if the splitText appears multiple times.
+        // A more robust approach might involve tracking offsets during splitting.
+        const relativeStartIndex = text.indexOf(splitText, currentOffset);
+        if (relativeStartIndex === -1) {
+             console.error(`Could not find split chunk within original text during fallback. Original start: ${originalStartIndex}. Skipping chunk.`);
+             // Fallback to less accurate positioning if needed, or skip
+             continue;
+        }
+        const chunkStartIndex = originalStartIndex + relativeStartIndex;
+        const chunkEndIndex = chunkStartIndex + splitText.length;
+        finalChunks.push(
+            createChunk(document, splitText, chunkStartIndex, chunkEndIndex, chunkCounter.index++, {
+                language: language,
+                warning: warning,
+            })
+        );
+        currentOffset = relativeStartIndex + splitText.length; // Update offset for next search
+    }
+    return finalChunks;
+}
+
+
 /** Creates a Chunk object with consistent metadata. */
 function createChunk(
   document: Document,
@@ -101,10 +180,11 @@ export function detectLanguage(filePath: string): SupportedLanguage | null {
   }
 }
 
+
 /**
- * Recursive Lezer AST chunking logic.
- * Attempts to chunk based on boundary types. If a boundary node is too large,
- * it RECURSES into the oversized node to find smaller boundaries within.
+ * Enhanced recursive Lezer AST chunking logic.
+ * Always traverses children. Prioritizes fitting boundary nodes.
+ * Recurses into oversized nodes or applies smart fallback if no children.
  */
 function recursiveLezerChunker(
   node: SyntaxNode,
@@ -131,25 +211,34 @@ function recursiveLezerChunker(
     // --- END DEBUG ---
 
     if (isBoundary && fits) {
-      // Boundary node fits, create a chunk
+      // Boundary node fits -> Create chunk
       chunks.push(
         createChunk(document, childText, child.from, child.to, chunkCounter.index++, {
           nodeType: child.type.name,
           language: language,
         }),
       );
-    } else if (isBoundary && !fits) {
-      // Boundary node is too large, RECURSE into it
-      console.warn(`Node type ${child.type.name} at ${child.from}-${child.to} exceeds maxChunkSize. Recursing into node.`);
-      chunks.push(...recursiveLezerChunker(child, document, options, language, chunkCounter));
-    } else if (!isBoundary && child.firstChild) {
-      // Not a boundary, but has children, recurse into it
-      chunks.push(...recursiveLezerChunker(child, document, options, language, chunkCounter));
-    } else {
-       // Leaf node or unhandled case. Ignore small text nodes between boundaries.
+      // Don't recurse into fitting boundary nodes, treat them as units.
+    } else if (!fits) {
+      // Node is too large (boundary or not)
+      if (child.firstChild) {
+        // Too large, but has children -> Recurse
+        console.warn(`Node ${child.type.name} (${child.from}-${child.to}) too large, recursing...`);
+        chunks.push(...recursiveLezerChunker(child, document, options, language, chunkCounter));
+      } else {
+        // Too large, no children (e.g., large comment/text) -> Apply Smart Fallback
+        console.warn(`Node ${child.type.name} (${child.from}-${child.to}) too large, no children, applying smart fallback...`);
+        chunks.push(...applySmartFallbackSplitting(childText, child.from, document, options, language, chunkCounter));
+      }
+    } else { // Node fits, but is NOT a boundary
+      if (child.firstChild) {
+         // Fits, not boundary, but has children -> Recurse to find boundaries within
+         chunks.push(...recursiveLezerChunker(child, document, options, language, chunkCounter));
+      }
+      // else: Fits, not boundary, no children (e.g., small identifier, operator) -> Ignore, let parent handle context
     }
 
-    currentChild = child.nextSibling;
+    currentChild = child.nextSibling; // Move to the next sibling
   }
   return chunks;
 }
@@ -175,17 +264,18 @@ export function chunkCodeAst(
   };
   const chunkCounter = { index: 0 };
 
-  if (language === SupportedLanguage.Markdown || !language) {
-    const warningMsg = language === SupportedLanguage.Markdown
-        ? 'Fallback text splitting applied (Markdown AST deferred)'
-        : 'Fallback text splitting applied (no language)';
-    const textChunks = splitTextWithOverlap(code, mergedOptions.maxChunkSize, mergedOptions.chunkOverlap);
-    return textChunks.map((textChunk: string, _idx: number) =>
-      createChunk(document, textChunk, -1, -1, chunkCounter.index++, { language: language, warning: warningMsg })
-    );
+  // Removed specific Markdown fallback - will now use Lezer parser for Markdown too.
+  if (!language) {
+      // Fallback for unknown language
+      console.warn(`No language detected for document ${document.id}. Applying fallback text split.`);
+      const textChunks = splitTextWithOverlap(code, mergedOptions.maxChunkSize, mergedOptions.chunkOverlap);
+      return textChunks.map((textChunk: string, _idx: number) =>
+          createChunk(document, textChunk, -1, -1, chunkCounter.index++, { language: null, warning: 'Fallback text splitting applied (no language detected)' })
+      );
   }
 
   try {
+    // Parse using the appropriate Lezer parser (including Markdown)
     const tree = parseCode(code, language);
     if (!tree || !tree.topNode) throw new Error('Parsing returned null or empty tree');
 
