@@ -288,7 +288,7 @@ export class RagIndexService {
     const gitignorePath = path.join(this.workspaceRoot, '.gitignore');
     try {
       const content = await fs.readFile(gitignorePath, 'utf-8');
-      this.gitIgnoreFilter = ignore.default().add(content); // Reverted to ignore.default()
+      this.gitIgnoreFilter = ignore().add(content); // Reverted to ignore.default()
       console.log('.gitignore file loaded and parsed.');
     } catch (error: any) {
       if (error.code !== 'ENOENT') { console.warn('Error reading .gitignore:', error); }
