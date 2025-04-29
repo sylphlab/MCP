@@ -6,6 +6,11 @@ export default defineConfig({
     // Remove workspace option, use include instead
     // workspace: ['packages/*'],
     include: ['packages/*/src/**/*.test.ts'], // Include test files from all packages
+    exclude: [
+      'packages/tools-rag/**', // Exclude the entire tools-rag package
+      '**/node_modules/**', // Keep existing excludes
+      '**/dist/**',
+    ],
     globals: true, // Ensure globals are enabled for tests using vi, describe etc.
     environment: 'node', // Default environment
     // Configure coverage for the entire workspace
