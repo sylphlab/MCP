@@ -1,5 +1,13 @@
 # @sylphlab/tools-memory-mcp
 
+## 0.1.2
+
+### Patch Changes
+
+- 7960294: fixed cannot start up
+- Updated dependencies [7960294]
+  - @sylphlab/tools-memory@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes
