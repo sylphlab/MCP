@@ -1,29 +1,9 @@
 {
+  "extends": "../../tsconfig.base.json", // Inherit from the root tsconfig
   "compilerOptions": {
-    /* Base Options */
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "moduleDetection": "force",
-    "isolatedModules": true,
-
-    /* Strictness */
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-
-    /* Build options */
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "./dist",
-
-    /* Type Checking */
-    "types": ["node"]
+    "outDir": "dist", // Specify output directory for compiled files
+    "types": ["node"] // Explicitly include node types
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src"], // Include all files in the src directory
+  "exclude": ["node_modules", "dist"] // Exclude node_modules and the output directory
 }

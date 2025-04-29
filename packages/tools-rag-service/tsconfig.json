@@ -1,18 +1,9 @@
 {
+  "extends": "../../tsconfig.base.json", // Inherit from the root tsconfig
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "module": "NodeNext", // Use NodeNext for modern module handling
-    "target": "ES2022", // Target modern Node.js versions
-    "moduleResolution": "NodeNext", // Use NodeNext for module resolution with package.json exports
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true, // Generate .d.ts files
-    "declarationMap": true, // Generate sourcemaps for .d.ts files
-    "sourceMap": true // Generate .js.map files
+    "outDir": "dist", // Specify output directory for compiled files
+    "types": ["node"] // Explicitly include node types
   },
-  "include": ["src/**/*"], // Compile files in the src directory
+  "include": ["src"], // Include all files in the src directory
   "exclude": ["node_modules", "dist"] // Exclude node_modules and the output directory
 }

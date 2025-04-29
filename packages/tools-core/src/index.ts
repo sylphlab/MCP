@@ -93,7 +93,7 @@ export function validateAndResolvePath(
   // Add check for empty input path
   if (!relativePathInput || relativePathInput.trim() === '') {
       return {
-          error: `Path validation failed: Input path cannot be empty.`,
+          error: 'Path validation failed: Input path cannot be empty.',
           suggestion: 'Provide a valid relative path.',
       };
   }

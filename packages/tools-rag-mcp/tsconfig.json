@@ -1,18 +1,9 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.base.json", // Inherit from the root tsconfig
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "baseUrl": ".",
-    "paths": {
-      "@sylphlab/mcp-rag-core/*": ["../rag-core/src/*"],
-      "@sylphlab/mcp-core/*": ["../core/src/*"],
-      "@sylphlab/mcp-utils/*": ["../utils/src/*"]
-    }
-    // "skipLibCheck": true // Add skipLibCheck
-    // No composite, declaration etc. needed for server package if not referenced
+    "outDir": "dist", // Specify output directory for compiled files
+    "types": ["node"] // Explicitly include node types
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
-  // Remove references
+  "include": ["src"], // Include all files in the src directory
+  "exclude": ["node_modules", "dist"] // Exclude node_modules and the output directory
 }

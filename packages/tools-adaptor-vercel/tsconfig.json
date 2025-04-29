@@ -1,9 +1,9 @@
 {
-  "extends": "../../tsconfig.json", // Inherit from the root tsconfig
+  "extends": "../../tsconfig.base.json", // Inherit from the root tsconfig
   "compilerOptions": {
-    "outDir": "./dist", // Specify output directory for compiled files
-    "rootDir": "./src" // Specify the root directory of source files
+    "outDir": "dist", // Specify output directory for compiled files
+    "types": ["node"] // Explicitly include node types
   },
-  "include": ["src/**/*"], // Include all files in the src directory
+  "include": ["src"], // Include all files in the src directory
   "exclude": ["node_modules", "dist"] // Exclude node_modules and the output directory
 }

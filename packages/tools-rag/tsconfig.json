@@ -1,16 +1,9 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.base.json", // Inherit from the root tsconfig
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    // "composite": false, // Remove
-    "declaration": true, // Keep for tsup dts: true
-    "declarationMap": true, // Keep for tsup dts: true
-    // "emitDeclarationOnly": false, // Remove
-    // "declarationDir": "./dist", // Remove
-    "types": ["node", "vitest/globals"] // Keep vitest types
+    "outDir": "dist", // Specify output directory for compiled files
+    "types": ["node"] // Explicitly include node types
   },
-  "include": ["src"], // Include everything in src for analysis
-  "exclude": ["node_modules", "dist"] // Remove test file exclusion
-  // Remove references
+  "include": ["src"], // Include all files in the src directory
+  "exclude": ["node_modules", "dist"] // Exclude node_modules and the output directory
 }
