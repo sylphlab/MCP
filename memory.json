@@ -1,0 +1,175 @@
+{"type":"entity","name":"Project: MCP Tools Monorepo","entityType":"Project","observations":["Manages a collection of MCP (Model Context Protocol) tools and related packages.","Uses pnpm workspaces for monorepo management.","Primary language appears to be TypeScript based on file extensions.","Located at workspace root: c:/Users/shtse/mcp","Uses Turborepo for task orchestration.","Uses Biome for linting/formatting with @sylphlab/biome-config.","Uses Vitest for testing.","Uses Changesets for versioning.","Uses Lefthook for Git hooks.","Managed by pnpm version 10.8.1.","Potentially uses Vite for testing or building.","Contains a directory 'packages/tools-google-fonts-core' which lacks a package.json, suggesting it holds source code used by another package (likely 'tools-google-fonts') rather than being an independent package.","Contains a directory 'packages/tools-google-fonts' which lacks a package.json, suggesting it holds source code used by another package rather than being an independent package."]}
+{"type":"entity","name":"Tech: @sylphlab/tools-core","entityType":"Tech","observations":["Provides core types and utilities for Sylph Lab Tools packages.","Includes a framework for defining MCP tools (defineTool).","Handles multi-part data representation (TextPart, JsonPart, ImagePart, AudioPart, FileRefPart).","Provides type guards and utility functions (when, mapWhen) for parts.","Includes a utility for validating and resolving file paths (validateAndResolvePath).","Depends on 'zod' for schema validation.","Version: 0.3.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: zod","entityType":"Tech","observations":["A TypeScript-first schema declaration and validation library."]}
+{"type":"entity","name":"Tech: @sylphlab/tools-memory","entityType":"Tech","observations":["Provides core logic for Knowledge Graph (KG) memory management.","Defines core KG types: Entity, Relation, KnowledgeGraph.","Includes utilities (graphUtils.ts) for loading and saving the KG to a file (likely JSON Lines format).","Handles file path resolution and directory creation for the memory file.","Likely contains tool definitions (using @sylphlab/tools-core) for CRUD operations on the KG.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.1.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-filesystem","entityType":"Tech","observations":["Provides MCP tools for filesystem operations.","Includes tools for: copy, create folder, delete, edit (patch), list, move/rename, read, replace content, search content, stat, write.","Tools seem to be defined in the 'src/tools/' subdirectory.","Leverages '@sylphlab/tools-core' for core functionality like path validation.","Uses 'zod' for input validation.","Depends on 'diff-match-patch' for file editing.","Depends on 'fast-glob' for file searching/globbing.","Depends on 'trash' for safe deletion.","Version: 0.5.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: diff-match-patch","entityType":"Tech","observations":["Library for computing differences between text and applying patches."]}
+{"type":"entity","name":"Tech: fast-glob","entityType":"Tech","observations":["Library for fast glob pattern matching."]}
+{"type":"entity","name":"Tech: trash","entityType":"Tech","observations":["Library for moving files/directories to the system trash (safer deletion)."]}
+{"type":"entity","name":"Tech: @sylphlab/tools-base64","entityType":"Tech","observations":["Provides core logic for MCP Base64 encoding and decoding tools.","Includes an 'encodeBase64Tool' for encoding strings to Base64.","Includes a 'decodeBase64Tool' for decoding Base64 strings.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.4.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-base64-mcp","entityType":"Tech","observations":["MCP server package providing Base64 tools (encode/decode).","Wraps the core logic from '@sylphlab/tools-base64'.","Provides an executable ('mcp-base64') to run as a standalone server.","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Likely uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.4.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @modelcontextprotocol/sdk","entityType":"Tech","observations":["The official SDK for building Model Context Protocol (MCP) servers."]}
+{"type":"entity","name":"Tech: @sylphlab/tools-adaptor-mcp","entityType":"Tech","observations":["Provides an adapter to convert internal SylphTool definitions (likely from @sylphlab/tools-core) into the format required by the @modelcontextprotocol/sdk.","Acts as a bridge between core tool logic and MCP server implementation.","Depends on '@modelcontextprotocol/sdk', '@sylphlab/tools-core', and 'zod'.","Version: 0.2.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-hasher","entityType":"Tech","observations":["Provides core logic for MCP hashing tools.","Includes a unified 'hashTool' for computing hashes using various algorithms (e.g., MD5, SHA256, SHA512).","Accepts string input and potentially supports batch processing.","Handles errors like unsupported algorithms.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.6.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-json","entityType":"Tech","observations":["Provides core logic for MCP JSON tools.","Includes a unified 'jsonTool' for parsing JSON strings and stringifying JavaScript objects.","Supports batch processing of operations.","Handles errors like invalid JSON and circular references.","Depends on '@sylphlab/tools-core' and 'zod'.","Keywords suggest potential diff/patch capabilities, but not confirmed by tests.","Version: 0.6.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-adaptor-vercel","entityType":"Tech","observations":["Provides an adapter to convert internal SylphTool definitions (likely from @sylphlab/tools-core) into the format required by the Vercel AI SDK ('ai' package).","Acts as a bridge between core tool logic and Vercel AI SDK integration.","Depends on '@sylphlab/tools-core', 'ai', 'zod', and 'zod-to-json-schema'.","Version: 0.2.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: ai","entityType":"Tech","observations":["The Vercel AI SDK, likely used for integrating AI models and tools in Vercel environments."]}
+{"type":"entity","name":"Tech: zod-to-json-schema","entityType":"Tech","observations":["Library for converting Zod schemas into JSON Schema definitions."]}
+{"type":"entity","name":"Tech: @sylphlab/tools-fetch-mcp","entityType":"Tech","observations":["MCP server package providing a tool for fetching content via HTTP.","Wraps the core logic likely from '@sylphlab/tools-net'.","Provides an executable ('mcp-fetch') to run as a standalone server.","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.4.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-net","entityType":"Tech","observations":["Likely provides core logic for network operations, specifically HTTP fetching, used by '@sylphlab/tools-fetch-mcp'.","Provides core logic for MCP network tools.","Includes a 'getPublicIpTool' for fetching the public IP address.","Includes a 'getInterfacesTool' for retrieving local network interface information.","Likely contains core fetch logic used by '@sylphlab/tools-fetch-mcp'.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.7.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-filesystem-mcp","entityType":"Tech","observations":["MCP server package providing filesystem tools (copy, delete, list, read, write, etc.).","Wraps the core logic from '@sylphlab/tools-filesystem'.","Provides an executable ('mcp-filesystem') to run as a standalone server.","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core', 'zod', and 'zod-to-json-schema'.","Version: 0.5.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-hasher-mcp","entityType":"Tech","observations":["MCP server package providing a hashing tool (MD5, SHA256, etc.).","Wraps the core logic from '@sylphlab/tools-hasher'.","Provides an executable ('mcp-hasher') to run as a standalone server.","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.4.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-json-mcp","entityType":"Tech","observations":["MCP server package providing JSON tools (parse, stringify).","Wraps the core logic from '@sylphlab/tools-json'.","Provides an executable ('mcp-json') to run as a standalone server.","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.4.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-memory-mcp","entityType":"Tech","observations":["MCP server package providing Knowledge Graph memory tools (CRUD operations on entities, relations, observations).","Wraps the core logic from '@sylphlab/tools-memory'.","Provides an executable ('mcp-memory') to run as a standalone server.","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.1.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-net-mcp","entityType":"Tech","observations":["MCP server package providing network tools (getPublicIp, getInterfaces, likely fetch).","Wraps the core logic from '@sylphlab/tools-net'.","Provides an executable ('mcp-net') to run as a standalone server.","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.5.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-pdf","entityType":"Tech","observations":["Provides core logic for MCP PDF tools, primarily text extraction.","Includes a 'getTextTool' for extracting text content from PDF files.","Uses the 'mupdf' library (via 'mupdf/mupdfjs') for PDF processing.","Supports batch processing of PDF files.","Handles file read errors, PDF opening errors, and path validation.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.6.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: mupdf","entityType":"Tech","observations":["A library used for PDF processing, including text extraction. Accessed via 'mupdf/mupdfjs' in this project."]}
+{"type":"entity","name":"Tech: @sylphlab/tools-pdf-mcp","entityType":"Tech","observations":["MCP server package providing PDF tools (e.g., text extraction).","Wraps the core logic from '@sylphlab/tools-pdf'.","Provides an executable ('mcp-pdf') to run as a standalone server.","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.4.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-rag","entityType":"Tech","observations":["Provides core logic for Retrieval-Augmented Generation (RAG).","Includes document loading, parsing (using Lezer), smart chunking, embedding generation (supporting Ollama, HTTP, Mock), and vector database interaction.","Features an IndexManager abstracting ChromaDB, Pinecone, and InMemory vector stores.","Likely contains tools for indexing content, querying the index, and managing index status.","Depends on '@sylphlab/tools-core', 'zod', 'ai', 'fast-glob', '@lezer/common', 'chromadb', '@pinecone-database/pinecone', 'highlight.js', 'node-fetch-native', 'ollama-ai-provider'.","Version: 0.2.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @lezer/common","entityType":"Tech","observations":["Core library for the Lezer parser system, used for code/text parsing in @sylphlab/tools-rag."]}
+{"type":"entity","name":"Tech: chromadb","entityType":"Tech","observations":["Client library for interacting with the ChromaDB vector database."]}
+{"type":"entity","name":"Tech: @pinecone-database/pinecone","entityType":"Tech","observations":["Client library for interacting with the Pinecone vector database."]}
+{"type":"entity","name":"Tech: highlight.js","entityType":"Tech","observations":["Library for syntax highlighting, potentially used for processing code chunks in @sylphlab/tools-rag."]}
+{"type":"entity","name":"Tech: node-fetch-native","entityType":"Tech","observations":["Provides a Node.js fetch implementation, likely used for HTTP requests within @sylphlab/tools-rag (e.g., for HTTP embedding provider)."]}
+{"type":"entity","name":"Tech: ollama-ai-provider","entityType":"Tech","observations":["Library for integrating with Ollama models, used for embedding generation in @sylphlab/tools-rag."]}
+{"type":"entity","name":"Tech: @sylphlab/tools-rag-mcp","entityType":"Tech","observations":["MCP server package providing RAG tools (indexing, querying, etc.).","Wraps the core logic from '@sylphlab/tools-rag'.","Likely interacts with '@sylphlab/tools-rag-service' for service-level operations.","Provides an executable ('mcp-rag-server') to run as a standalone server, potentially configured via CLI arguments (uses 'yargs').","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.2.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-rag-service","entityType":"Tech","observations":["Likely provides service-level abstractions or management for RAG indexing and querying, used by '@sylphlab/tools-rag-mcp'.","Provides an optional background service for automatic RAG index maintenance.","Uses 'chokidar' for file watching.","Uses 'ignore' for handling ignore rules (e.g., .gitignore).","Uses 'dotenv' for environment variable loading.","Uses 'lodash-es' for utility functions.","Depends on '@sylphlab/tools-core' and '@sylphlab/tools-rag'.","Version: 0.1.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: yargs","entityType":"Tech","observations":["Library for parsing command-line arguments."]}
+{"type":"entity","name":"Tech: chokidar","entityType":"Tech","observations":["A library for watching file system changes."]}
+{"type":"entity","name":"Tech: dotenv","entityType":"Tech","observations":["A library for loading environment variables from a .env file."]}
+{"type":"entity","name":"Tech: ignore","entityType":"Tech","observations":["A library for handling ignore rules, similar to .gitignore."]}
+{"type":"entity","name":"Tech: lodash-es","entityType":"Tech","observations":["The Lodash library exported as ES modules, providing utility functions."]}
+{"type":"entity","name":"Tech: @sylphlab/tools-wait","entityType":"Tech","observations":["Provides core logic for an MCP wait/delay tool.","Includes a 'waitTool' to pause execution for a specified duration in milliseconds.","Processes batch operations sequentially.","Handles errors during the wait operation.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.6.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-wait-mcp","entityType":"Tech","observations":["MCP server package providing a wait/delay tool.","Wraps the core logic from '@sylphlab/tools-wait'.","Provides an executable ('mcp-wait') to run as a standalone server.","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.4.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-xml","entityType":"Tech","observations":["Provides core logic for MCP XML tools.","Includes a unified 'xmlTool' primarily focused on parsing XML strings.","Supports batch processing of parse operations.","Handles errors like invalid XML during parsing.","Keywords suggest potential XML building capabilities, but not confirmed by tests.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.6.1 (as per package.json)"]}
+{"type":"entity","name":"Tech: @sylphlab/tools-xml-mcp","entityType":"Tech","observations":["MCP server package providing XML tools (primarily parsing).","Wraps the core logic from '@sylphlab/tools-xml'.","Provides an executable ('mcp-xml') to run as a standalone server.","Uses '@modelcontextprotocol/sdk' for MCP server implementation.","Uses '@sylphlab/tools-adaptor-mcp' for common server adaptation logic.","Depends on '@sylphlab/tools-core' and 'zod'.","Version: 0.4.1 (as per package.json)"]}
+{"type":"relation","from":"Tech: @sylphlab/tools-core","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-core","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-memory","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-memory","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-memory","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem","to":"Tech: diff-match-patch","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem","to":"Tech: fast-glob","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem","to":"Tech: trash","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-base64","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-base64","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-base64","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-adaptor-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-adaptor-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-adaptor-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-adaptor-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-base64-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-base64-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-base64-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-base64-mcp","to":"Tech: @sylphlab/tools-base64","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-base64-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-base64-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-hasher","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-hasher","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-hasher","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-json","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-json","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-json","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-adaptor-vercel","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-adaptor-vercel","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-adaptor-vercel","to":"Tech: ai","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-adaptor-vercel","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-adaptor-vercel","to":"Tech: zod-to-json-schema","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-fetch-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-fetch-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-fetch-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-fetch-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-fetch-mcp","to":"Tech: @sylphlab/tools-net","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-fetch-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-net","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-net","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-net","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem-mcp","to":"Tech: @sylphlab/tools-filesystem","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-filesystem-mcp","to":"Tech: zod-to-json-schema","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-hasher-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-hasher-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-hasher-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-hasher-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-hasher-mcp","to":"Tech: @sylphlab/tools-hasher","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-hasher-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-json-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-json-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-json-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-json-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-json-mcp","to":"Tech: @sylphlab/tools-json","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-json-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-memory-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-memory-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-memory-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-memory-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-memory-mcp","to":"Tech: @sylphlab/tools-memory","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-memory-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-net-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-net-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-net-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-net-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-net-mcp","to":"Tech: @sylphlab/tools-net","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-net-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-pdf","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-pdf","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-pdf","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-pdf","to":"Tech: mupdf","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-pdf-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-pdf-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-pdf-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-pdf-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-pdf-mcp","to":"Tech: @sylphlab/tools-pdf","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-pdf-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Tech: ai","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Tech: fast-glob","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Tech: @lezer/common","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Tech: chromadb","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Tech: @pinecone-database/pinecone","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Tech: highlight.js","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Tech: node-fetch-native","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag","to":"Tech: ollama-ai-provider","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-mcp","to":"Tech: @sylphlab/tools-rag","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-mcp","to":"Tech: @sylphlab/tools-rag-service","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-mcp","to":"Tech: yargs","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-service","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-service","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-service","to":"Tech: @sylphlab/tools-rag","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-service","to":"Tech: chokidar","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-service","to":"Tech: dotenv","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-service","to":"Tech: ignore","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-service","to":"Tech: lodash-es","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-rag-service","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-wait","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-wait","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-wait","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-wait-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-wait-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-wait-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-wait-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-wait-mcp","to":"Tech: @sylphlab/tools-wait","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-wait-mcp","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-xml","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-xml","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-xml","to":"Tech: zod","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-xml-mcp","to":"Project: MCP Tools Monorepo","relationType":"partOf"}
+{"type":"relation","from":"Tech: @sylphlab/tools-xml-mcp","to":"Tech: @modelcontextprotocol/sdk","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-xml-mcp","to":"Tech: @sylphlab/tools-adaptor-mcp","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-xml-mcp","to":"Tech: @sylphlab/tools-core","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-xml-mcp","to":"Tech: @sylphlab/tools-xml","relationType":"uses"}
+{"type":"relation","from":"Tech: @sylphlab/tools-xml-mcp","to":"Tech: zod","relationType":"uses"}
