@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-adaptor-mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Adapter to convert internal SylphTool definitions to MCP SDK format.",
   "main": "dist/index.cjs",
   "module": "dist/index.js",

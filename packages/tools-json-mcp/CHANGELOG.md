@@ -1,5 +1,18 @@
 # @sylphlab/mcp-json
 
+## 0.5.0
+
+### Minor Changes
+
+- f422f02: rename tools
+
+### Patch Changes
+
+- Updated dependencies [f422f02]
+  - @sylphlab/tools-adaptor-mcp@0.3.0
+  - @sylphlab/tools-core@0.4.0
+  - @sylphlab/tools-json@0.7.0
+
 ## 0.4.1
 
 ### Patch Changes
