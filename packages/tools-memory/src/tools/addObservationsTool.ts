@@ -1,8 +1,8 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
 import type { Part } from '@sylphlab/tools-core';
 import type { z } from 'zod';
-import { KnowledgeGraphManager } from '../knowledgeGraphManager.js';
-import type { MemoryToolExecuteOptions } from '../types.js'; // Import extended options type
+import { loadGraph, saveGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
+import type { MemoryToolExecuteOptions, KnowledgeGraph, Entity } from '../types'; // Import types
 import {
   addObservationsToolInputSchema,
   addObservationsToolOutputSchema,
@@ -18,23 +18,55 @@ export const addObservationsTool = defineTool({
 
   execute: async (
     input: AddObservationsInput,
-    options: MemoryToolExecuteOptions, // Use extended options type
+    options: MemoryToolExecuteOptions,
   ): Promise<Part[]> => {
-    // Use memoryFilePath from options
-    const manager = new KnowledgeGraphManager(options.workspaceRoot, options.memoryFilePath);
+    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
 
     try {
-      const addedResults = await manager.addObservations(input.observations);
-      const validatedOutput = addObservationsToolOutputSchema.parse(addedResults);
+      const currentGraph = await loadGraph(memoryFilePath);
+      const results: { entityName: string; addedObservations: string[] }[] = [];
+      let graphChanged = false;
+
+      // Create a mutable copy of entities to modify
+      const nextEntities = currentGraph.entities.map(e => ({ ...e, observations: [...e.observations] }));
+
+      for (const obsInput of input.observations) {
+        const entityIndex = nextEntities.findIndex(e => e.name === obsInput.entityName);
+        if (entityIndex === -1) {
+          // Throw error if entity not found, as per original manager logic
+          throw new Error(`Entity with name '${obsInput.entityName}' not found.`);
+        }
+
+        const entity = nextEntities[entityIndex];
+        const currentObservations = new Set(entity.observations);
+        const newObservations = obsInput.contents.filter(content => typeof content === 'string' && !currentObservations.has(content));
+
+        if (newObservations.length > 0) {
+          entity.observations.push(...newObservations); // Modify the copied entity
+          results.push({ entityName: obsInput.entityName, addedObservations: newObservations });
+          graphChanged = true;
+        } else {
+          results.push({ entityName: obsInput.entityName, addedObservations: [] });
+        }
+      }
+
+      if (graphChanged) {
+        const nextGraph: KnowledgeGraph = {
+          ...currentGraph,
+          entities: nextEntities, // Use the modified entities array
+        };
+        await saveGraph(memoryFilePath, nextGraph);
+      }
+
+      const validatedOutput = addObservationsToolOutputSchema.parse(results);
       return [jsonPart(validatedOutput, addObservationsToolOutputSchema)];
+
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error adding observations.';
-      // Check for specific error like "Entity not found"
-      if (errorMessage.includes('not found')) {
-         throw new Error(`Failed to add observations: ${errorMessage} Please ensure the entity exists before adding observations.`);
-      }
+       if (errorMessage.includes('not found')) {
+          throw new Error(`Failed to add observations: ${errorMessage} Please ensure the entity exists before adding observations.`);
+       }
       throw new Error(`Failed to add observations: ${errorMessage}`);
-      // Or return an error part
     }
   },
 });

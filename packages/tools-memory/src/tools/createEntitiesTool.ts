@@ -1,8 +1,8 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
 import type { Part } from '@sylphlab/tools-core'; // Keep Part
-import type { z } from 'zod'; // Use type import for Zod value
-import { KnowledgeGraphManager } from '../knowledgeGraphManager.js';
-import type { MemoryToolExecuteOptions } from '../types.js'; // Import extended options type
+import type { z } from 'zod';
+import { loadGraph, saveGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
+import type { MemoryToolExecuteOptions, KnowledgeGraph, Entity } from '../types'; // Import types
 import {
   createEntitiesToolInputSchema,
   createEntitiesToolOutputSchema,
@@ -18,29 +18,38 @@ export const createEntitiesTool = defineTool({
 
   execute: async (
     input: CreateEntitiesInput,
-    options: MemoryToolExecuteOptions, // Use extended options type
+    options: MemoryToolExecuteOptions,
   ): Promise<Part[]> => {
-    // Input validation is implicitly handled by the structure before execution,
-    // but defineTool could potentially add runtime checks if needed.
-
-    // Use memoryFilePath from options, fallback handled within manager constructor
-    const manager = new KnowledgeGraphManager(options.workspaceRoot, options.memoryFilePath);
+    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
 
     try {
-      const createdEntities = await manager.createEntities(input.entities);
+      const currentGraph = await loadGraph(memoryFilePath);
+      const existingNames = new Set(currentGraph.entities.map(e => e.name));
+      const newEntities: Entity[] = [];
 
-      // Validate output against schema before returning (good practice)
-      const validatedOutput = createEntitiesToolOutputSchema.parse(createdEntities);
+      for (const entityInput of input.entities) {
+        if (!existingNames.has(entityInput.name)) {
+          // Ensure observations array exists even if not provided in input
+          newEntities.push({ ...entityInput, observations: entityInput.observations ?? [] });
+          existingNames.add(entityInput.name); // Add to set to prevent duplicates within the same batch
+        }
+      }
 
+      if (newEntities.length > 0) {
+        const nextGraph: KnowledgeGraph = {
+          ...currentGraph,
+          entities: [...currentGraph.entities, ...newEntities], // Create new array
+        };
+        await saveGraph(memoryFilePath, nextGraph);
+      }
+
+      // Validate output against schema before returning
+      const validatedOutput = createEntitiesToolOutputSchema.parse(newEntities);
       return [jsonPart(validatedOutput, createEntitiesToolOutputSchema)];
+
     } catch (error: unknown) {
-      // Handle errors from the manager (e.g., file system errors)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error during entity creation.';
-      // Consider creating a specific error part type or using textPart
-      // For now, re-throwing might be handled by the adaptor/server runner
       throw new Error(`Failed to create entities: ${errorMessage}`);
-      // Or return an error part:
-      // return [textPart(`Error: Failed to create entities - ${errorMessage}`)];
     }
   },
 });

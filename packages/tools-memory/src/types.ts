@@ -7,3 +7,22 @@ export interface MemoryToolExecuteOptions extends CoreToolExecuteOptions { // Ex
   /** Optional override for the memory file path. */
   memoryFilePath?: string;
 }
+
+// --- Knowledge Graph Specific Types ---
+
+export interface Entity {
+  name: string;
+  entityType: string;
+  observations: string[];
+}
+
+export interface Relation {
+  from: string;
+  to: string;
+  relationType: string;
+}
+
+export interface KnowledgeGraph {
+  entities: Entity[];
+  relations: Relation[];
+}

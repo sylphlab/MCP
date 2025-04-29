@@ -25,7 +25,7 @@
   
       /* Type Checking */
       // "noEmit": true, // Let tsup handle emit, TS only checks types (Try removing this)
-      "types": ["node"] // Base node types
+      "types": ["node", "vitest/globals"] // Add vitest/globals
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist"]

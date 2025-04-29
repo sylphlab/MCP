@@ -3,8 +3,11 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     pool: 'threads',
-    // Define the workspace using the modern approach
-    workspace: ['packages/*'],
+    // Remove workspace option, use include instead
+    // workspace: ['packages/*'],
+    include: ['packages/*/src/**/*.test.ts'], // Include test files from all packages
+    globals: true, // Ensure globals are enabled for tests using vi, describe etc.
+    environment: 'node', // Default environment
     // Configure coverage for the entire workspace
     coverage: {
       provider: 'v8', // or 'istanbul'

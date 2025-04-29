@@ -1,8 +1,8 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
 import type { Part } from '@sylphlab/tools-core';
-import { z } from 'zod'; // Keep value import as z.object is used
-import { KnowledgeGraphManager } from '../knowledgeGraphManager.js';
-import type { MemoryToolExecuteOptions } from '../types.js'; // Import extended options type
+import { z } from 'zod';
+import { loadGraph, saveGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
+import type { MemoryToolExecuteOptions, KnowledgeGraph, Relation } from '../types'; // Import types
 import {
   deleteRelationsToolInputSchema,
   deleteRelationsToolOutputSchema,
@@ -18,21 +18,41 @@ export const deleteRelationsTool = defineTool({
 
   execute: async (
     input: DeleteRelationsInput,
-    options: MemoryToolExecuteOptions, // Use extended options type
+    options: MemoryToolExecuteOptions,
   ): Promise<Part[]> => {
-    // Use memoryFilePath from options
-    const manager = new KnowledgeGraphManager(options.workspaceRoot, options.memoryFilePath);
+    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
 
     try {
-      const deletedCount = await manager.deleteRelations(input.relations);
-      // Output is a single number
+      const currentGraph = await loadGraph(memoryFilePath);
+      const initialRelationCount = currentGraph.relations.length;
+
+      const deleteKeys = new Set(
+        input.relations
+            .filter((r: Relation) => r?.from && r?.to && r?.relationType)
+            .map((delRelation: Relation) => `${delRelation.from}|${delRelation.to}|${delRelation.relationType}`)
+      );
+
+      const nextRelations = currentGraph.relations.filter((r: Relation) => {
+          const relationKey = `${r.from}|${r.to}|${r.relationType}`;
+          return !deleteKeys.has(relationKey);
+      });
+
+      const deletedCount = initialRelationCount - nextRelations.length;
+
+      if (deletedCount > 0) {
+        const nextGraph: KnowledgeGraph = {
+          ...currentGraph, // Keep original entities
+          relations: nextRelations, // Use the filtered relations array
+        };
+        await saveGraph(memoryFilePath, nextGraph);
+      }
+
       const validatedOutput = deleteRelationsToolOutputSchema.parse(deletedCount);
-      // Wrap the number in a simple JSON structure for the output part
       return [jsonPart({ deletedCount: validatedOutput }, z.object({ deletedCount: deleteRelationsToolOutputSchema }))];
+
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error deleting relations.';
       throw new Error(`Failed to delete relations: ${errorMessage}`);
-      // Or return an error part
     }
   },
 });

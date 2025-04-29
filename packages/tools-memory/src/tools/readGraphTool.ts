@@ -1,8 +1,8 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
 import type { Part } from '@sylphlab/tools-core';
 import type { z } from 'zod';
-import { KnowledgeGraphManager } from '../knowledgeGraphManager.js';
-import type { MemoryToolExecuteOptions } from '../types.js'; // Import extended options type
+import { loadGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
+import type { MemoryToolExecuteOptions } from '../types'; // Import types
 import {
   readGraphToolInputSchema,
   readGraphToolOutputSchema,
@@ -17,20 +17,18 @@ export const readGraphTool = defineTool({
   inputSchema: readGraphToolInputSchema, // Empty schema
 
   execute: async (
-    _input: ReadGraphInput, // Mark input as unused
-    options: MemoryToolExecuteOptions, // Use extended options type
+    _input: ReadGraphInput,
+    options: MemoryToolExecuteOptions,
   ): Promise<Part[]> => {
-    // Use memoryFilePath from options
-    const manager = new KnowledgeGraphManager(options.workspaceRoot, options.memoryFilePath);
+    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
 
     try {
-      const graphData = await manager.readGraph();
+      const graphData = await loadGraph(memoryFilePath);
       const validatedOutput = readGraphToolOutputSchema.parse(graphData);
       return [jsonPart(validatedOutput, readGraphToolOutputSchema)];
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error reading graph.';
       throw new Error(`Failed to read graph: ${errorMessage}`);
-      // Or return an error part
     }
   },
 });

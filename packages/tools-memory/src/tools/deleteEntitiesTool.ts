@@ -1,8 +1,8 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
 import type { Part } from '@sylphlab/tools-core';
 import type { z } from 'zod';
-import { KnowledgeGraphManager } from '../knowledgeGraphManager.js';
-import type { MemoryToolExecuteOptions } from '../types.js'; // Import extended options type
+import { loadGraph, saveGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
+import type { MemoryToolExecuteOptions, KnowledgeGraph, Entity, Relation } from '../types'; // Import types
 import {
   deleteEntitiesToolInputSchema,
   deleteEntitiesToolOutputSchema,
@@ -18,20 +18,44 @@ export const deleteEntitiesTool = defineTool({
 
   execute: async (
     input: DeleteEntitiesInput,
-    options: MemoryToolExecuteOptions, // Use extended options type
+    options: MemoryToolExecuteOptions,
   ): Promise<Part[]> => {
-    // Use memoryFilePath from options
-    const manager = new KnowledgeGraphManager(options.workspaceRoot, options.memoryFilePath);
+    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
 
     try {
-      const deletedNames = await manager.deleteEntities(input.entityNames);
-      // Output schema is just an array of strings, parsing might be optional but good for consistency
-      const validatedOutput = deleteEntitiesToolOutputSchema.parse(deletedNames);
+      const currentGraph = await loadGraph(memoryFilePath);
+      const namesToDeleteSet = new Set(input.entityNames);
+      const deletedEntityNames: string[] = [];
+
+      const nextEntities = currentGraph.entities.filter((e: Entity) => {
+        if (namesToDeleteSet.has(e.name)) {
+          deletedEntityNames.push(e.name);
+          return false;
+        }
+        return true;
+      });
+
+      const nextRelations = currentGraph.relations.filter((r: Relation) =>
+        !namesToDeleteSet.has(r.from) && !namesToDeleteSet.has(r.to)
+      );
+
+      const graphChanged = nextEntities.length !== currentGraph.entities.length ||
+                           nextRelations.length !== currentGraph.relations.length;
+
+      if (graphChanged) {
+        const nextGraph: KnowledgeGraph = {
+          entities: nextEntities,
+          relations: nextRelations,
+        };
+        await saveGraph(memoryFilePath, nextGraph);
+      }
+
+      const validatedOutput = deleteEntitiesToolOutputSchema.parse(deletedEntityNames);
       return [jsonPart(validatedOutput, deleteEntitiesToolOutputSchema)];
+
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error deleting entities.';
       throw new Error(`Failed to delete entities: ${errorMessage}`);
-      // Or return an error part
     }
   },
 });

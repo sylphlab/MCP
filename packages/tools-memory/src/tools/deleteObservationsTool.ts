@@ -1,8 +1,8 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
 import type { Part } from '@sylphlab/tools-core';
 import type { z } from 'zod';
-import { KnowledgeGraphManager } from '../knowledgeGraphManager.js';
-import type { MemoryToolExecuteOptions } from '../types.js'; // Import extended options type
+import { loadGraph, saveGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
+import type { MemoryToolExecuteOptions, KnowledgeGraph, Entity } from '../types'; // Import types
 import {
   deleteObservationsToolInputSchema,
   deleteObservationsToolOutputSchema,
@@ -18,19 +18,52 @@ export const deleteObservationsTool = defineTool({
 
   execute: async (
     input: DeleteObservationsInput,
-    options: MemoryToolExecuteOptions, // Use extended options type
+    options: MemoryToolExecuteOptions,
   ): Promise<Part[]> => {
-    // Use memoryFilePath from options
-    const manager = new KnowledgeGraphManager(options.workspaceRoot, options.memoryFilePath);
+    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
 
     try {
-      const deletedResults = await manager.deleteObservations(input.deletions);
-      const validatedOutput = deleteObservationsToolOutputSchema.parse(deletedResults);
+      const currentGraph = await loadGraph(memoryFilePath);
+      const results: { entityName: string; deletedCount: number }[] = [];
+      let graphChanged = false;
+
+      // Create a mutable copy of entities to modify
+      const nextEntities = currentGraph.entities.map(e => ({ ...e, observations: [...e.observations] }));
+
+      for (const deletionInput of input.deletions) {
+        let deletedCount = 0;
+        const entityIndex = nextEntities.findIndex(e => e.name === deletionInput.entityName);
+
+        if (entityIndex !== -1) {
+          const entity = nextEntities[entityIndex];
+          const observationsToDeleteSet = new Set(deletionInput.observations.filter((obs: string) => typeof obs === 'string'));
+          const initialObservationCount = entity.observations.length;
+          // Filter observations in the copied entity
+          entity.observations = entity.observations.filter((o: string) => !observationsToDeleteSet.has(o));
+          deletedCount = initialObservationCount - entity.observations.length;
+          if (deletedCount > 0) {
+            graphChanged = true;
+          }
+        } else {
+           console.warn(`[deleteObservationsTool] Entity with name ${deletionInput.entityName} not found.`);
+        }
+        results.push({ entityName: deletionInput.entityName, deletedCount });
+      }
+
+      if (graphChanged) {
+        const nextGraph: KnowledgeGraph = {
+          ...currentGraph, // Keep original relations
+          entities: nextEntities, // Use the modified entities array
+        };
+        await saveGraph(memoryFilePath, nextGraph);
+      }
+
+      const validatedOutput = deleteObservationsToolOutputSchema.parse(results);
       return [jsonPart(validatedOutput, deleteObservationsToolOutputSchema)];
+
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error deleting observations.';
       throw new Error(`Failed to delete observations: ${errorMessage}`);
-      // Or return an error part
     }
   },
 });

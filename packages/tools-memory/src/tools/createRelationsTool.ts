@@ -1,8 +1,8 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
-import type { Part } from '@sylphlab/tools-core'; // Keep Part
-import type { z } from 'zod'; // Use type import as suggested by Biome
-import { KnowledgeGraphManager } from '../knowledgeGraphManager'; // Remove .js extension
-import type { MemoryToolExecuteOptions } from '../types.js'; // Import extended options type
+import type { Part } from '@sylphlab/tools-core';
+import type { z } from 'zod';
+import { loadGraph, saveGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
+import type { MemoryToolExecuteOptions, KnowledgeGraph, Relation } from '../types'; // Import types
 import {
   createRelationsToolInputSchema,
   createRelationsToolOutputSchema,
@@ -18,19 +18,37 @@ export const createRelationsTool = defineTool({
 
   execute: async (
     input: CreateRelationsInput,
-    options: MemoryToolExecuteOptions, // Use extended options type
+    options: MemoryToolExecuteOptions,
   ): Promise<Part[]> => {
-    // Use memoryFilePath from options
-    const manager = new KnowledgeGraphManager(options.workspaceRoot, options.memoryFilePath);
+    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
 
     try {
-      const createdRelations = await manager.createRelations(input.relations);
-      const validatedOutput = createRelationsToolOutputSchema.parse(createdRelations);
+      const currentGraph = await loadGraph(memoryFilePath);
+      const existingRelationSet = new Set(currentGraph.relations.map(r => `${r.from}|${r.to}|${r.relationType}`));
+      const newRelations: Relation[] = [];
+
+      for (const relationInput of input.relations) {
+        const relationKey = `${relationInput.from}|${relationInput.to}|${relationInput.relationType}`;
+        if (!existingRelationSet.has(relationKey)) {
+          newRelations.push(relationInput);
+          existingRelationSet.add(relationKey);
+        }
+      }
+
+      if (newRelations.length > 0) {
+        const nextGraph: KnowledgeGraph = {
+          ...currentGraph,
+          relations: [...currentGraph.relations, ...newRelations], // Create new array
+        };
+        await saveGraph(memoryFilePath, nextGraph);
+      }
+
+      const validatedOutput = createRelationsToolOutputSchema.parse(newRelations);
       return [jsonPart(validatedOutput, createRelationsToolOutputSchema)];
+
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error during relation creation.';
       throw new Error(`Failed to create relations: ${errorMessage}`);
-      // Or return an error part
     }
   },
 });
