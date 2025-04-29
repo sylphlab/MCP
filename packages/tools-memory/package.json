@@ -1,0 +1,41 @@
+{
+  "name": "@sylphlab/tools-memory",
+  "version": "0.1.0",
+  "description": "Core logic for Knowledge Graph memory management",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "format": "biome format --write .",
+    "check": "biome check --write --unsafe .",
+    "lint": "pnpm run check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate": "pnpm run check && pnpm run typecheck && pnpm run test"
+  },
+  "keywords": [
+    "knowledge-graph",
+    "memory",
+    "core"
+  ],
+  "author": "Sylph Lab <hi@sylphlab.com>",
+  "license": "MIT",
+  "packageManager": "pnpm@10.8.0",
+  "dependencies": {
+    "@sylphlab/tools-core": "workspace:*",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
+    "@types/node": "^22.14.1",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
+}

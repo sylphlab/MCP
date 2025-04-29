@@ -1,0 +1,48 @@
+{
+  "name": "@sylphlab/tools-memory-mcp",
+  "version": "0.1.0",
+  "description": "MCP Memory Server (Knowledge Graph based, CWD storage)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "mcp-memory": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js",
+    "format": "biome format --write .",
+    "check": "biome check --write --unsafe .",
+    "lint": "pnpm run check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate": "pnpm run check && pnpm run typecheck && pnpm run test"
+  },
+  "keywords": [
+    "mcp",
+    "memory",
+    "server"
+  ],
+  "author": "Sylph Lab <hi@sylphlab.com>",
+  "license": "MIT",
+  "packageManager": "pnpm@10.8.0",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.1",
+    "@sylphlab/tools-core": "workspace:*",
+    "@sylphlab/tools-memory": "workspace:*",
+    "@sylphlab/tools-adaptor-mcp": "workspace:*",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
+    "@types/node": "^22.14.1",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
+}

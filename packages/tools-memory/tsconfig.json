@@ -1,0 +1,33 @@
+{
+    // Consider extending a base tsconfig.base.json later
+    "compilerOptions": {
+      /* Base Options */
+      "target": "ESNext",
+      "module": "ESNext",
+      "moduleResolution": "Bundler", // Use modern resolution
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "resolveJsonModule": true,
+      "moduleDetection": "force",
+      "isolatedModules": true,
+      // "composite": true, // Not needed for the final runnable server package
+  
+      /* Strictness */
+      "strict": true,
+      "noImplicitAny": true,
+      "strictNullChecks": true,
+      // Add other strict flags as desired
+  
+      /* Build options (Handled by tsup) */
+      "sourceMap": true, // tsup uses this
+      "outDir": "./dist", // tsup uses this, but good for editor understanding
+      "rootDir": "./src",
+  
+      /* Type Checking */
+      // "noEmit": true, // Let tsup handle emit, TS only checks types (Try removing this)
+      "types": ["node"] // Base node types
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist"]
+  }
+  
