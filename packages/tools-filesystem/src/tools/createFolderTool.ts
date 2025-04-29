@@ -43,7 +43,7 @@ const CreateFolderOutputSchema = z.array(CreateFolderResultSchema);
 
 // --- Tool Definition using defineTool ---
 export const createFolderTool = defineTool({
-  name: 'createFolderTool',
+  name: 'create-folder',
   description: 'Creates one or more new folders at the specified paths within the workspace.',
   inputSchema: createFolderToolInputSchema,
    // Use the constant schema instance

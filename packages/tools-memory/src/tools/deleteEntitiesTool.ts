@@ -12,7 +12,7 @@ import {
 type DeleteEntitiesInput = z.infer<typeof deleteEntitiesToolInputSchema>;
 
 export const deleteEntitiesTool = defineTool({
-  name: 'deleteEntities',
+  name: 'delete-entities',
   description: 'Delete multiple entities and their associated relations from the knowledge graph.',
   inputSchema: deleteEntitiesToolInputSchema,
 

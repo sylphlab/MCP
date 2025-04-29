@@ -40,7 +40,7 @@ const GetInterfacesOutputSchema = z.array(GetInterfacesResultSchema);
 
 // --- Tool Definition using defineTool ---
 export const getInterfacesTool = defineTool({
-  name: 'getInterfaces',
+  name: 'get-interfaces',
   description: 'Retrieves details about the network interfaces on the machine.',
   inputSchema: GetInterfacesToolInputSchema,
 

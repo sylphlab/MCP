@@ -65,7 +65,7 @@ const SearchContentOutputSchema = z.array(FileSearchResultSchema);
 // --- Tool Definition using defineTool ---
 
 export const searchContentTool = defineTool({
-  name: 'searchContentTool',
+  name: 'search-content',
   description: 'Searches for content within multiple files (supports globs).',
   inputSchema: searchContentToolInputSchema,
 

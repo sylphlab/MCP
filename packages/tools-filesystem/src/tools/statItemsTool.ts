@@ -30,7 +30,7 @@ const StatItemResultSchema = z.object({
 const StatItemsOutputSchema = z.array(StatItemResultSchema);
 
 export const statItemsTool = defineTool({
-  name: 'statItemsTool',
+  name: 'stat-items',
   description: 'Gets file system stats for one or more specified paths within the workspace.',
   inputSchema: statItemsToolInputSchema,
 

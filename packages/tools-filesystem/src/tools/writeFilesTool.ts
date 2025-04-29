@@ -48,7 +48,7 @@ const WriteFilesOutputSchema = z.array(WriteFileResultSchema);
 // --- Tool Definition using defineTool ---
 
 export const writeFilesTool = defineTool({
-  name: 'writeFilesTool',
+  name: 'write-files',
   description: 'Writes or appends content to one or more files within the workspace.',
   inputSchema: writeFilesToolInputSchema,
 

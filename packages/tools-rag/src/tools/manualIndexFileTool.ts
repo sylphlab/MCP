@@ -58,7 +58,7 @@ const ManualIndexOutputSchema = z.array(ManualIndexResultSchema);
 
 // --- Tool Definition ---
 export const manualIndexFileTool = defineTool({
-  name: 'manualIndexFile',
+  name: 'manual-index-file',
   description: 'Manually triggers the indexing process (chunk, embed, upsert) for a specific file, or optionally returns the generated chunks for debugging.',
   inputSchema: ManualIndexInputSchema,
 

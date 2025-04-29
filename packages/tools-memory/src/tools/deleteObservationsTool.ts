@@ -12,7 +12,7 @@ import {
 type DeleteObservationsInput = z.infer<typeof deleteObservationsToolInputSchema>;
 
 export const deleteObservationsTool = defineTool({
-  name: 'deleteObservations',
+  name: 'delete-observations',
   description: 'Delete specific observations from entities in the knowledge graph.',
   inputSchema: deleteObservationsToolInputSchema,
 

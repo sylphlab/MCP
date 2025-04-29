@@ -65,7 +65,7 @@ const EditFileOutputSchema = z.array(FileEditResultSchema);
 // --- Tool Definition using defineTool ---
 
 export const editFileTool = defineTool({
-  name: 'editFileTool',
+  name: 'edit-file',
   description: 'Applies precise, context-aware edits to a single file using a diff patch.',
   inputSchema: editFileToolInputSchema, // Schema enforces only one apply_diff_patch
 

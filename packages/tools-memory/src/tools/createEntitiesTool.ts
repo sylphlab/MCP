@@ -12,7 +12,7 @@ import {
 type CreateEntitiesInput = z.infer<typeof createEntitiesToolInputSchema>;
 
 export const createEntitiesTool = defineTool({
-  name: 'createEntities', // Keep the original tool name for consistency
+  name: 'create-entities', // Keep the original tool name for consistency
   description: 'Create multiple new entities in the knowledge graph.',
   inputSchema: createEntitiesToolInputSchema,
 

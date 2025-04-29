@@ -75,7 +75,7 @@ const IndexContentOutputSchema = z.array(IndexContentResultItemSchema);
 
 // --- Tool Definition using defineTool ---
 export const indexContentTool = defineTool({
-  name: 'indexContent',
+  name: 'index-content',
   description: 'Chunks, embeds, and indexes provided text content.',
   inputSchema: IndexContentInputSchema,
 

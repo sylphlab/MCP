@@ -60,7 +60,7 @@ const IndexStatusOutputSchema = z.array(IndexStatusResultSchema);
 
 // --- Tool Definition using defineTool ---
 export const indexStatusTool = defineTool({
-  name: 'getIndexStatus',
+  name: 'get-index-status',
   description: 'Gets the status of the RAG index (chunk count, collection name) and the background service state.',
   inputSchema: IndexStatusInputSchema,
 

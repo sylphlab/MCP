@@ -12,7 +12,7 @@ import {
 type SearchNodesInput = z.infer<typeof searchNodesToolInputSchema>;
 
 export const searchNodesTool = defineTool({
-  name: 'searchNodes',
+  name: 'search-nodes',
   description: 'Search for nodes (entities and relations) in the knowledge graph based on a query.',
   inputSchema: searchNodesToolInputSchema,
 

@@ -12,7 +12,7 @@ import {
 type CreateRelationsInput = z.infer<typeof createRelationsToolInputSchema>;
 
 export const createRelationsTool = defineTool({
-  name: 'createRelations',
+  name: 'create-relations',
   description: 'Create multiple new relations between entities in the knowledge graph. Relations should be in active voice.',
   inputSchema: createRelationsToolInputSchema,
 

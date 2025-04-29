@@ -44,7 +44,7 @@ const MoveRenameItemsOutputSchema = z.array(MoveRenameItemResultSchema);
 // --- Tool Definition using defineTool ---
 
 export const moveRenameItemsTool = defineTool({
-  name: 'moveRenameItemsTool',
+  name: 'move-rename-items',
   description:
     'Moves or renames one or more files or folders within the workspace. Use relative paths.',
   inputSchema: moveRenameItemsToolInputSchema,

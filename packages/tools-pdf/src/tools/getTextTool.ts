@@ -138,7 +138,7 @@ async function processSinglePdfGetText(
 
 // --- Tool Definition using defineTool ---
 export const getTextTool = defineTool({
-  name: 'getText',
+  name: 'get-text',
   description: 'Extracts text content from one or more PDF files.',
   inputSchema: getTextToolInputSchema,
   execute: async (input: GetTextToolInput, options: ToolExecuteOptions): Promise<Part[]> => {

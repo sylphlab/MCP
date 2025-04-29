@@ -46,7 +46,7 @@ const GetChunksOutputSchema = z.array(GetChunksResultSchema);
 
 // --- Tool Definition ---
 export const getChunksForFileTool = defineTool({
-  name: 'getChunksForFile',
+  name: 'get-chunks-for-file',
   description: 'Retrieves the metadata for all indexed chunks associated with a specific file path.',
   inputSchema: GetChunksInputSchema,
 

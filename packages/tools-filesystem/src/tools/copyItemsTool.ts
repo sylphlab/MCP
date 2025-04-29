@@ -59,7 +59,7 @@ const CopyItemsOutputSchema = z.array(CopyItemResultSchema);
 // --- Tool Definition using defineTool ---
 
 export const copyItemsTool = defineTool({
-  name: 'copyItemsTool',
+  name: 'copy-items',
   description:
     'Copies one or more files or folders within the workspace. Handles recursion. Use relative paths.',
   inputSchema: copyItemsToolInputSchema,

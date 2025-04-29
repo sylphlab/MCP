@@ -52,7 +52,7 @@ const ReadFilesOutputSchema = z.array(ReadFileResultSchema);
 // --- Tool Definition using defineTool ---
 
 export const readFilesTool = defineTool({
-  name: 'readFilesTool',
+  name: 'read-files',
   description: 'Reads the content of one or more files within the workspace.',
   inputSchema: readFilesToolInputSchema,
 

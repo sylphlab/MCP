@@ -141,7 +141,7 @@ async function processSingleDownload(
 // --- Tool Definition using defineTool ---
 
 export const downloadTool = defineTool({
-  name: 'downloadTool',
+  name: 'download',
   description: 'Downloads one or more files from URLs to specified paths within the workspace.',
   inputSchema: downloadToolInputSchema,
 

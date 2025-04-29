@@ -60,7 +60,7 @@ const ReplaceContentOutputSchema = z.array(FileReplaceResultSchema);
 // --- Tool Definition using defineTool ---
 
 export const replaceContentTool = defineTool({
-  name: 'replaceContentTool',
+  name: 'replace-content',
   description: 'Performs search and replace operations across multiple files (supports globs).',
   inputSchema: replaceContentToolInputSchema,
 

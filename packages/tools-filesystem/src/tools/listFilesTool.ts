@@ -112,7 +112,7 @@ async function listDirectoryRecursive(
 // --- Tool Definition using defineTool ---
 
 export const listFilesTool = defineTool({
-  name: 'listFilesTool',
+  name: 'list-files',
   description: 'Lists files and directories within one or more specified paths in the workspace.',
   inputSchema: listFilesToolInputSchema,
 

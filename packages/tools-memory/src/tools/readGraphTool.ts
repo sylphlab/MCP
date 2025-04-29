@@ -12,7 +12,7 @@ import {
 type ReadGraphInput = z.infer<typeof readGraphToolInputSchema>;
 
 export const readGraphTool = defineTool({
-  name: 'readGraph',
+  name: 'read-graph',
   description: 'Read the entire knowledge graph.',
   inputSchema: readGraphToolInputSchema, // Empty schema
 

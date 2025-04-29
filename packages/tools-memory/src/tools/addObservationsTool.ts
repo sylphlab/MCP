@@ -12,7 +12,7 @@ import {
 type AddObservationsInput = z.infer<typeof addObservationsToolInputSchema>;
 
 export const addObservationsTool = defineTool({
-  name: 'addObservations',
+  name: 'add-observations',
   description: 'Add new observations to existing entities in the knowledge graph.',
   inputSchema: addObservationsToolInputSchema,
 

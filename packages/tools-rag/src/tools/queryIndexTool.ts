@@ -68,7 +68,7 @@ const QueryIndexOutputSchema = z.array(QueryIndexResultSchema);
 
 // --- Tool Definition using defineTool ---
 export const queryIndexTool = defineTool({
-  name: 'queryIndex',
+  name: 'query-index',
   description: 'Embeds a query text and searches the index for similar content.',
   inputSchema: QueryIndexInputSchema,
 

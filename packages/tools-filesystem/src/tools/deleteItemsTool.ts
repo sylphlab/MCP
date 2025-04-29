@@ -36,7 +36,7 @@ const DeleteItemsOutputSchema = z.array(DeleteItemResultSchema);
 
 // --- Tool Definition using defineTool ---
 export const deleteItemsTool = defineTool({
-  name: 'deleteItemsTool',
+  name: 'delete-items',
   description:
     'Deletes specified files or directories (supports globs - TODO: implement glob support). Uses trash by default.',
   inputSchema: deleteItemsToolInputSchema,

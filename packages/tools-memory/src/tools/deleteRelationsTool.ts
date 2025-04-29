@@ -12,7 +12,7 @@ import {
 type DeleteRelationsInput = z.infer<typeof deleteRelationsToolInputSchema>;
 
 export const deleteRelationsTool = defineTool({
-  name: 'deleteRelations',
+  name: 'delete-relations',
   description: 'Delete multiple relations from the knowledge graph.',
   inputSchema: deleteRelationsToolInputSchema,
 

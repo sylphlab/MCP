@@ -12,7 +12,7 @@ import {
 type OpenNodesInput = z.infer<typeof openNodesToolInputSchema>;
 
 export const openNodesTool = defineTool({
-  name: 'openNodes',
+  name: 'open-nodes',
   description: 'Retrieve specific entities and their direct relations from the knowledge graph by name.',
   inputSchema: openNodesToolInputSchema,
 

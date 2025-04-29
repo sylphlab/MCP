@@ -64,7 +64,7 @@ async function fetchPublicIp(): Promise<{ ip: string | null; error: string | nul
 
 // --- Tool Definition using defineTool ---
 export const getPublicIpTool = defineTool({
-  name: 'getPublicIp',
+  name: 'get-public-ip',
   description: 'Retrieves the public IP address of the machine running the MCP server.',
   inputSchema: GetPublicIpToolInputSchema,
   
