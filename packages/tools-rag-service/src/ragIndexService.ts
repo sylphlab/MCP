@@ -6,7 +6,6 @@ import fs from 'node:fs/promises';
 import ignore from 'ignore';
 import type { Ignore } from 'ignore';
 import { chunkCodeAst, generateEmbeddings, detectLanguage, type Chunk, type IndexedItem, type IEmbeddingFunction, EmbeddingModelProvider, OllamaEmbeddingFunction, MockEmbeddingFunction, HttpEmbeddingFunction } from '@sylphlab/tools-rag';
-import { minimatch } from 'minimatch';
 // Keep debounce for post-scan changes
 import { debounce, type DebouncedFunc } from 'lodash-es';
 
