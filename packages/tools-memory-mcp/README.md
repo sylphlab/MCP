@@ -6,7 +6,7 @@ MCP Server adaptor for the Knowledge Graph memory tools.
 
 This package provides an MCP (Model Context Protocol) server that exposes the knowledge graph memory management tools defined in `@sylphlab/tools-memory`. It acts as an adaptor, making the core logic available to AI agents via the MCP protocol over stdio.
 
-The server reads/writes the knowledge graph data (default: `memory.json`) relative to the **current working directory (`process.cwd()`)** where the server is started.
+The server reads/writes the knowledge graph data (default: `memory.jsonl`) relative to the **current working directory (`process.cwd()`)** where the server is started.
 
 ## Features
 
@@ -32,12 +32,12 @@ The server reads/writes the knowledge graph data (default: `memory.json`) relati
     # Or via pnpm from the workspace root (if linked correctly)
     # pnpm --filter @sylphlab/tools-memory-mcp start
     ```
-    The server will start and listen on stdio. It will create/use `memory.json` in the directory where you run the command.
+    The server will start and listen on stdio. It will create/use `memory.jsonl` in the directory where you run the command.
 
 3.  **Environment Variable (Optional):**
     You can specify a different file path or name relative to the CWD using the `MEMORY_FILE_PATH` environment variable (this is handled by the underlying `@sylphlab/tools-memory` package):
     ```bash
-    MEMORY_FILE_PATH=./data/my_memory.json node ./node_modules/.bin/mcp-memory
+    MEMORY_FILE_PATH=./data/my_memory.jsonl node ./node_modules/.bin/mcp-memory
     ```
 
 ## Development

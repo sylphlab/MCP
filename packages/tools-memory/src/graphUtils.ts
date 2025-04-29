@@ -88,7 +88,7 @@ export async function saveGraph(memoryFilePath: string, graph: KnowledgeGraph): 
  */
 export function resolveMemoryFilePath(workspaceRoot: string, memoryFilePathOverride?: string): string {
     // Restore original logic
-    const defaultMemoryPath = path.join(workspaceRoot, 'memory.json');
+    const defaultMemoryPath = path.join(workspaceRoot, 'memory.jsonl');
     return memoryFilePathOverride
       ? path.resolve(workspaceRoot, memoryFilePathOverride)
       : defaultMemoryPath;

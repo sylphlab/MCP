@@ -24,7 +24,7 @@ const mockedFs = {
   mkdir: vi.mocked(fs.mkdir),
 };
 
-const testFilePath = '/fake/path/memory.json';
+const testFilePath = '/fake/path/memory.jsonl';
 const testWorkspaceRoot = '/fake/path';
 
 describe('graphUtils', () => {
@@ -48,12 +48,12 @@ describe('graphUtils', () => {
   // --- resolveMemoryFilePath Tests ---
   describe('resolveMemoryFilePath', () => {
     it('should return the default path when no override is provided', () => {
-      const expectedPath = path.join(testWorkspaceRoot, 'memory.json');
+      const expectedPath = path.join(testWorkspaceRoot, 'memory.jsonl');
       expect(resolveMemoryFilePath(testWorkspaceRoot)).toBe(expectedPath);
     });
 
     it('should resolve a relative override path correctly', () => {
-      const override = 'data/my_memory.json';
+      const override = 'data/my_memory.jsonl';
       const expectedPath = path.resolve(testWorkspaceRoot, override);
       expect(resolveMemoryFilePath(testWorkspaceRoot, override)).toBe(expectedPath);
     });
@@ -63,12 +63,12 @@ describe('graphUtils', () => {
       // To ensure it's treated as absolute, we might need a drive letter or use a different approach
       // depending on the exact behavior needed. For cross-platform testing, let's assume
       // path.resolve handles it correctly based on the OS.
-      const override = path.resolve('/absolute/override/memory.json'); // Use path.resolve for consistency
+      const override = path.resolve('/absolute/override/memory.jsonl'); // Use path.resolve for consistency
       expect(resolveMemoryFilePath(testWorkspaceRoot, override)).toBe(override);
     });
 
      it('should resolve a relative override path with .. correctly', () => {
-      const override = '../sibling_dir/memory.json';
+      const override = '../sibling_dir/memory.jsonl';
       const expectedPath = path.resolve(testWorkspaceRoot, override);
       expect(resolveMemoryFilePath(testWorkspaceRoot, override)).toBe(expectedPath);
     });
