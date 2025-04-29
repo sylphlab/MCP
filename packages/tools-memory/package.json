@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-memory",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Core logic for Knowledge Graph memory management",
   "type": "module",
   "main": "dist/index.js",

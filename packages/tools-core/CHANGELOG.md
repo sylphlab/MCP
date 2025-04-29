@@ -1,5 +1,11 @@
 # @sylphlab/mcp-core
 
+## 0.4.0
+
+### Minor Changes
+
+- f422f02: rename tools
+
 ## 0.3.1
 
 ### Patch Changes

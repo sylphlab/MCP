@@ -1,5 +1,16 @@
 # @sylphlab/filesystem
 
+## 0.6.0
+
+### Minor Changes
+
+- f422f02: rename tools
+
+### Patch Changes
+
+- Updated dependencies [f422f02]
+  - @sylphlab/tools-core@0.4.0
+
 ## 0.5.1
 
 ### Patch Changes
