@@ -67,34 +67,44 @@ const QueryIndexResultSchema = z.object({
 const QueryIndexOutputSchema = z.array(QueryIndexResultSchema);
 
 // --- Tool Definition using defineTool ---
+import { RagContextSchema, type RagContext } from '../types.js'; // Import schema and inferred type
+
+// Generic parameters are now inferred from the definition object
 export const queryIndexTool = defineTool({
   name: 'query-index',
   description: 'Embeds a query text and searches the index for similar content.',
   inputSchema: QueryIndexInputSchema,
+  contextSchema: RagContextSchema, // Add the context schema
 
 
-  execute: async (input: QueryIndexInput, options: ToolExecuteOptions): Promise<Part[]> => { // Keep base type
+  execute: async (
+    // Context type is inferred from RagContextSchema
+    { context, args }: { context: RagContext; args: QueryIndexInput } // Use destructuring
+  ): Promise<Part[]> => {
+    // context and args are destructured
+
     // Zod validation
-    const parsed = QueryIndexInputSchema.safeParse(input);
+    // Validate args instead of the old input
+    const parsed = QueryIndexInputSchema.safeParse(args);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
+    // Get input data from parsed args
     const { queryText, topK, filter } = parsed.data;
 
-    // Assert options type to access indexManager and ragConfig
-    const ragOptions = options as RagToolExecuteOptions;
-    if (!ragOptions.indexManager || !ragOptions.ragConfig) {
-      throw new Error('IndexManager instance or RagConfig is missing in ToolExecuteOptions.');
+    // Access indexManager and ragConfig via context
+    if (!context.indexManager || !context.ragConfig) {
+      throw new Error('IndexManager instance or RagConfig is missing in context.'); // Updated error message
     }
     // Check if the manager instance itself is initialized
-    if (!ragOptions.indexManager.isInitialized()) {
+    if (!context.indexManager.isInitialized()) {
         throw new Error('IndexManager is not initialized. Cannot query index.');
     }
-    const indexManager = ragOptions.indexManager;
-    const { embedding: embeddingConfig } = ragOptions.ragConfig; // Get embedding config
+    const indexManager = context.indexManager;
+    const { embedding: embeddingConfig } = context.ragConfig; // Get embedding config
 
     const resultsContainer: QueryIndexResult[] = [];
     let queryResults: QueryResult[] = [];
@@ -103,7 +113,7 @@ export const queryIndexTool = defineTool({
     let success = false;
 
     try {
-      // 1. Generate embedding for the query text using config from options
+      // 1. Generate embedding for the query text using config from context
       let queryVector: number[];
       try {
         const queryEmbeddings = await generateEmbeddings([queryText], embeddingConfig);
@@ -116,7 +126,7 @@ export const queryIndexTool = defineTool({
         throw new Error(`Error generating query embedding: ${errorMessage}`);
       }
 
-      // 2. Query the index using the indexManager instance from options
+      // 2. Query the index using the indexManager instance from context
       try {
         queryResults = await indexManager.queryIndex(queryVector, topK, filter);
         success = true;
@@ -140,13 +150,14 @@ export const queryIndexTool = defineTool({
     // Push the single result object
     resultsContainer.push({
       success,
-      query: queryText,
+      query: queryText, // Use original query text
       results: queryResults,
       error,
       suggestion,
     });
 
-    // Return the result wrapped in jsonPart
+
+    // Return the results wrapped in jsonPart
     return [jsonPart(resultsContainer, QueryIndexOutputSchema)];
   },
 });

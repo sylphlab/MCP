@@ -6,7 +6,8 @@ import fs from 'node:fs/promises';
 // Import necessary functions and types from the rag package
 import { detectLanguage, chunkCodeAst, generateEmbeddings } from '../index.js';
 import type { IndexManager, IndexedItem } from '../indexManager.js';
-import type { RagToolExecuteOptions, Document, Chunk } from '../types.js';
+import type { RagToolExecuteOptions, Document, Chunk, RagContext } from '../types.js'; // Import RagContext
+import { RagContextSchema } from '../types.js'; // Import schema
 
 // --- Input Schema ---
 const ManualIndexInputSchema = z.object({
@@ -57,29 +58,35 @@ const ManualIndexResultSchema = z.object({
 const ManualIndexOutputSchema = z.array(ManualIndexResultSchema);
 
 // --- Tool Definition ---
+// Generic parameters are now inferred from the definition object
 export const manualIndexFileTool = defineTool({
   name: 'manual-index-file',
   description: 'Manually triggers the indexing process (chunk, embed, upsert) for a specific file, or optionally returns the generated chunks for debugging.',
   inputSchema: ManualIndexInputSchema,
+  contextSchema: RagContextSchema, // Add the context schema
 
-  execute: async (input: ManualIndexInput, options: ToolExecuteOptions): Promise<Part[]> => {
-    const parsed = ManualIndexInputSchema.safeParse(input);
+  execute: async (
+    // Context type is inferred from RagContextSchema
+    { context, args }: { context: RagContext; args: ManualIndexInput } // Use destructuring
+  ): Promise<Part[]> => {
+    // Validate args
+    const parsed = ManualIndexInputSchema.safeParse(args);
     if (!parsed.success) {
       throw new Error(`Input validation failed: ${parsed.error.message}`);
     }
     const { filePath, returnChunks, maxChunksToReturn } = parsed.data; // Relative path
 
-    const ragOptions = options as RagToolExecuteOptions;
-    const { indexManager, workspaceRoot, ragConfig } = ragOptions;
+    // Access context properties
+    const { indexManager, workspaceRoot, ragConfig } = context;
 
     if (!indexManager || !indexManager.isInitialized()) { /* ... error handling ... */
         return [jsonPart([{ success: false, filePath, message: "IndexManager not available or not initialized." }], ManualIndexOutputSchema)];
     }
     if (!workspaceRoot) { /* ... error handling ... */
-        return [jsonPart([{ success: false, filePath, message: "workspaceRoot not found in options." }], ManualIndexOutputSchema)];
+        return [jsonPart([{ success: false, filePath, message: "workspaceRoot not found in context." }], ManualIndexOutputSchema)]; // Updated message
     }
      if (!ragConfig) { /* ... error handling ... */
-        return [jsonPart([{ success: false, filePath, message: "ragConfig not found in options." }], ManualIndexOutputSchema)];
+        return [jsonPart([{ success: false, filePath, message: "ragConfig not found in context." }], ManualIndexOutputSchema)]; // Updated message
     }
      if (returnChunks && !maxChunksToReturn) {
          // Should be handled by default value, but safeguard
@@ -141,6 +148,6 @@ export const manualIndexFileTool = defineTool({
         result = { success: false, filePath, message: `Error processing file: ${errorMsg}`, error: errorMsg };
     }
 
-    return [jsonPart([result], ManualIndexOutputSchema)];
+    return [jsonPart([result], ManualIndexOutputSchema)]; // Wrap result in array
   },
 });

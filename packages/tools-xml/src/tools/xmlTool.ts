@@ -78,24 +78,35 @@ async function processSingleXml(item: XmlInputItem): Promise<XmlResultItem> {
 }
 
 // --- Tool Definition using defineTool ---
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
+// Since this tool only needs the base context, we provide BaseContextSchema.
+// The generic parameters for defineTool are now inferred.
 export const xmlTool = defineTool({
   name: 'xml',
   description:
     'Performs XML operations (currently parse with placeholder logic) on one or more inputs.',
   inputSchema: xmlToolInputSchema,
+  contextSchema: BaseContextSchema, // Add the base context schema
   // Use the array schema
 
-  execute: async (input: XmlToolInput, _options: ToolExecuteOptions): Promise<Part[]> => {
+  execute: async (
+    // The context type is now correctly inferred from BaseContextSchema
+    { args }: { context: ToolExecuteOptions; args: XmlToolInput } // Destructure args directly
+   ): Promise<Part[]> => {
+    // context is available if needed, e.g., context.workspaceRoot
     // Return Part[]
 
     // Zod validation (throw error on failure)
-    const parsed = xmlToolInputSchema.safeParse(input);
+    // Validate args instead of the old input
+    const parsed = xmlToolInputSchema.safeParse(args);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
+    // Get items from parsed data (which comes from args)
     const { items } = parsed.data;
 
     const results: XmlResultItem[] = [];

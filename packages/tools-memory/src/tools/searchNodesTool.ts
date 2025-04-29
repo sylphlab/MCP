@@ -1,5 +1,5 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
-import type { Part } from '@sylphlab/tools-core';
+import type { Part } from '@sylphlab/tools-core'; // No ToolContext import needed
 import type { z } from 'zod';
 import { loadGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
 import type { MemoryToolExecuteOptions, KnowledgeGraph, Entity, Relation } from '../types'; // Import types
@@ -11,20 +11,27 @@ import {
 // Infer input type from schema
 type SearchNodesInput = z.infer<typeof searchNodesToolInputSchema>;
 
+import { MemoryContextSchema, type MemoryContext } from '../types.js'; // Import schema and inferred type
+
+// Generic parameters are now inferred from the definition object
 export const searchNodesTool = defineTool({
   name: 'search-nodes',
   description: 'Search for nodes (entities and relations) in the knowledge graph based on a query.',
   inputSchema: searchNodesToolInputSchema,
+  contextSchema: MemoryContextSchema, // Add the context schema
 
   execute: async (
-    input: SearchNodesInput,
-    options: MemoryToolExecuteOptions,
+    // Context type is inferred from MemoryContextSchema
+    { context, args }: { context: MemoryContext; args: SearchNodesInput } // Use destructuring
   ): Promise<Part[]> => {
-    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
+    // context and args are destructured
+    // Access options via context
+    const memoryFilePath = resolveMemoryFilePath(context.workspaceRoot, context.memoryFilePath);
 
     try {
       const currentGraph = await loadGraph(memoryFilePath);
-      const lowerCaseQuery = input.query.toLowerCase();
+      // Access input via args
+      const lowerCaseQuery = args.query.toLowerCase();
 
       const filteredEntities = currentGraph.entities.filter((e: Entity) =>
         e.name.toLowerCase().includes(lowerCaseQuery) ||

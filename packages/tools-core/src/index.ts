@@ -59,6 +59,8 @@ export const ErrorSchema = z.object({
 });
 export type Error = z.infer<typeof ErrorSchema>;
 
+// z is already imported at the top
+
 /** Options passed internally to the tool's execute function by the server */
 export interface ToolExecuteOptions {
   /** If true, allows the tool to access paths outside the workspace root. Defaults to false. */
@@ -69,6 +71,21 @@ export interface ToolExecuteOptions {
   workspaceRoot: string;
   // Add other internal options as needed
 }
+
+/**
+ * Base Zod schema corresponding to ToolExecuteOptions.
+ * This serves as the default context schema for tools.
+ */
+export const BaseContextSchema = z.object({
+  allowOutsideWorkspace: z.boolean().optional(),
+  maxOutputChars: z.number().int().positive().optional(),
+  workspaceRoot: z.string(),
+  // Add other base context properties as needed, mirroring ToolExecuteOptions
+  // Ensure this stays in sync with ToolExecuteOptions interface
+});
+export type BaseContext = z.infer<typeof BaseContextSchema>;
+
+
 // --- Path Validation Utility ---
 
 export interface PathValidationError {

@@ -2,7 +2,8 @@ import { defineTool, jsonPart } from '@sylphlab/tools-core';
 import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core';
 import { z } from 'zod';
 import type { IndexManager } from '../indexManager.js';
-import type { RagToolExecuteOptions } from '../types.js';
+import type { RagToolExecuteOptions, RagContext } from '../types.js'; // Import RagContext
+import { RagContextSchema } from '../types.js'; // Import schema
 
 // --- Input Schema ---
 const GetChunksInputSchema = z.object({
@@ -45,21 +46,28 @@ const GetChunksOutputSchema = z.array(GetChunksResultSchema);
 
 
 // --- Tool Definition ---
+// Generic parameters are now inferred from the definition object
 export const getChunksForFileTool = defineTool({
   name: 'get-chunks-for-file',
   description: 'Retrieves the metadata for all indexed chunks associated with a specific file path.',
   inputSchema: GetChunksInputSchema,
+  contextSchema: RagContextSchema, // Add the context schema
 
-  execute: async (input: GetChunksInput, options: ToolExecuteOptions): Promise<Part[]> => {
-    const parsed = GetChunksInputSchema.safeParse(input);
+  execute: async (
+    // Context type is inferred from RagContextSchema
+    { context, args }: { context: RagContext; args: GetChunksInput } // Use destructuring
+  ): Promise<Part[]> => {
+    // Validate args
+    const parsed = GetChunksInputSchema.safeParse(args);
     if (!parsed.success) {
       // ... (Input validation error handling) ...
       throw new Error(`Input validation failed: ${parsed.error.message}`);
     }
     const { filePath } = parsed.data;
 
-    const ragOptions = options as RagToolExecuteOptions;
-    if (!ragOptions.indexManager || !ragOptions.indexManager.isInitialized()) {
+    // Access context properties
+    const { indexManager } = context;
+    if (!indexManager || !indexManager.isInitialized()) {
       return [jsonPart([{
           success: false,
           filePath: filePath,
@@ -69,7 +77,6 @@ export const getChunksForFileTool = defineTool({
       }], GetChunksOutputSchema)];
     }
 
-    const indexManager = ragOptions.indexManager;
     let results: GetChunksResult;
 
     try {

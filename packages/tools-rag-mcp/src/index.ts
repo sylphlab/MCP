@@ -10,7 +10,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import { startMcpServer } from '@sylphlab/tools-adaptor-mcp';
-import type { Tool, ToolExecuteOptions } from '@sylphlab/tools-core';
+import type { ToolDefinition, ToolExecuteOptions } from '@sylphlab/tools-core'; // Use ToolDefinition
 import {
   // Core tools
   indexContentTool,
@@ -140,7 +140,8 @@ async function loadRagServiceConfig(): Promise<RagServiceConfig> {
 
 
 // --- Server Setup ---
-const tools: Tool<any>[] = [indexContentTool, queryIndexTool, indexStatusTool, getChunksForFileTool, manualIndexFileTool]; // Added new tool
+// biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
+const tools: ToolDefinition<any, any>[] = [indexContentTool, queryIndexTool, indexStatusTool, getChunksForFileTool, manualIndexFileTool]; // Use ToolDefinition<any, any>
 
 // --- Start Server ---
 let ragService: RagIndexService | null = null; // Keep in higher scope for shutdown

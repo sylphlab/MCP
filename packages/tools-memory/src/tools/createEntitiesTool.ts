@@ -1,5 +1,5 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
-import type { Part } from '@sylphlab/tools-core'; // Keep Part
+import type { Part } from '@sylphlab/tools-core'; // No ToolContext import needed
 import type { z } from 'zod';
 import { loadGraph, saveGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
 import type { MemoryToolExecuteOptions, KnowledgeGraph, Entity } from '../types'; // Import types
@@ -11,23 +11,30 @@ import {
 // Infer input type from schema
 type CreateEntitiesInput = z.infer<typeof createEntitiesToolInputSchema>;
 
+import { MemoryContextSchema, type MemoryContext } from '../types.js'; // Import schema and inferred type
+
+// Generic parameters are now inferred from the definition object
 export const createEntitiesTool = defineTool({
   name: 'create-entities', // Keep the original tool name for consistency
   description: 'Create multiple new entities in the knowledge graph.',
   inputSchema: createEntitiesToolInputSchema,
+  contextSchema: MemoryContextSchema, // Add the context schema
 
   execute: async (
-    input: CreateEntitiesInput,
-    options: MemoryToolExecuteOptions,
+    // Context type is inferred from MemoryContextSchema
+    { context, args }: { context: MemoryContext; args: CreateEntitiesInput } // Use destructuring
   ): Promise<Part[]> => {
-    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
+    // context and args are destructured
+    // Access options via context
+    const memoryFilePath = resolveMemoryFilePath(context.workspaceRoot, context.memoryFilePath);
 
     try {
       const currentGraph = await loadGraph(memoryFilePath);
       const existingNames = new Set(currentGraph.entities.map(e => e.name));
       const newEntities: Entity[] = [];
 
-      for (const entityInput of input.entities) {
+      // Access input via args
+      for (const entityInput of args.entities) {
         if (!existingNames.has(entityInput.name)) {
           // Ensure observations array exists even if not provided in input
           newEntities.push({ ...entityInput, observations: entityInput.observations ?? [] });

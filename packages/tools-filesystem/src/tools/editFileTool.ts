@@ -64,14 +64,20 @@ const EditFileOutputSchema = z.array(FileEditResultSchema);
 
 // --- Tool Definition using defineTool ---
 
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const editFileTool = defineTool({
   name: 'edit-file',
   description: 'Applies precise, context-aware edits to a single file using a diff patch.',
   inputSchema: editFileToolInputSchema, // Schema enforces only one apply_diff_patch
+  contextSchema: BaseContextSchema, // Add context schema
 
-  execute: async (input: EditFileToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
+  execute: async (
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: EditFileToolInput }
+  ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
-    const parsed = editFileToolInputSchema.safeParse(input);
+    const parsed = editFileToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
@@ -79,7 +85,7 @@ export const editFileTool = defineTool({
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
     // Destructure after successful parse. Schema guarantees changes[0] exists.
-    const { changes, dryRun: isDryRunGlobal } = parsed.data;
+    const { changes, dryRun: isDryRunGlobal } = parsed.data; // Get data from parsed args
     const change = changes[0];
     // Add explicit check to satisfy TS, though schema guarantees it exists
     if (!change) {
@@ -103,10 +109,11 @@ export const editFileTool = defineTool({
     const isDryRun = isDryRunGlobal ?? false;
 
     // --- Validate and Resolve Path ---
+    // Use context for workspaceRoot and allowOutsideWorkspace
     const validationResult = validateAndResolvePath(
       filePath,
-      options.workspaceRoot,
-      options?.allowOutsideWorkspace,
+      context.workspaceRoot,
+      context?.allowOutsideWorkspace,
     );
     if (typeof validationResult !== 'string') {
       fileError = validationResult.error;

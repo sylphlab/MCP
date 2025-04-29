@@ -2,6 +2,7 @@ import { defineTool, jsonPart } from '@sylphlab/tools-core';
 import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core';
 import { z } from 'zod';
 import { DecodeBase64ToolInputSchema } from './decodeBase64Tool.schema.js';
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
 
 // --- TypeScript Type from Schema ---
 export type DecodeBase64ToolInput = z.infer<typeof DecodeBase64ToolInputSchema>;
@@ -37,21 +38,22 @@ export const decodeBase64Tool = defineTool({
   name: 'decodeBase64',
   description: 'Decodes a Base64 string into UTF-8.',
   inputSchema: DecodeBase64ToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
   execute: async (
-    input: DecodeBase64ToolInput,
-    _options: ToolExecuteOptions,
+    // Use new signature with destructuring
+    { args }: { context: ToolExecuteOptions; args: DecodeBase64ToolInput }
   ): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)
-    const parsed = DecodeBase64ToolInputSchema.safeParse(input);
+    const parsed = DecodeBase64ToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { encoded } = parsed.data;
+    const { encoded } = parsed.data; // Get data from parsed args
 
     const results: DecodeBase64Result[] = [];
     let decoded: string | undefined;
@@ -94,7 +96,7 @@ export const decodeBase64Tool = defineTool({
       suggestion,
     });
 
-    // Return the result wrapped in jsonPart
+    // Return the results wrapped in jsonPart
     return [jsonPart(results, DecodeBase64OutputSchema)];
   },
 });

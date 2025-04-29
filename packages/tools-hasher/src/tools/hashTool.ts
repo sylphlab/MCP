@@ -70,24 +70,30 @@ async function processSingleHash(item: HashInputItem): Promise<HashResultItem> {
 }
 
 // --- Tool Definition using defineTool ---
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const hashTool = defineTool({
   name: 'hash',
   description: 'Computes cryptographic hashes for one or more input strings.',
   inputSchema: hashToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
   // Use the array schema
 
-  execute: async (input: HashToolInput, _options: ToolExecuteOptions): Promise<Part[]> => {
+  execute: async (
+    // Use new signature with destructuring
+    { args }: { context: ToolExecuteOptions; args: HashToolInput }
+  ): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)
-    const parsed = hashToolInputSchema.safeParse(input);
+    const parsed = hashToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { items } = parsed.data;
+    const { items } = parsed.data; // Get data from parsed args
 
     const results: HashResultItem[] = [];
 

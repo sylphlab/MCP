@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import process from 'node:process';
 import { startMcpServer } from '@sylphlab/tools-adaptor-mcp';
-import type { Tool, ToolExecuteOptions } from '@sylphlab/tools-core';
+import type { ToolDefinition, ToolExecuteOptions } from '@sylphlab/tools-core'; // Use ToolDefinition
 import { description, name, version } from '../package.json'; // Import metadata
 
 // Import all defined tools from the core memory package
@@ -18,7 +18,8 @@ import {
 } from '@sylphlab/tools-memory';
 
 // biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
-const tools: Tool<any>[] = [
+// Use <any, any> to allow tools with different context schemas in the array
+const tools: ToolDefinition<any, any>[] = [
   createEntitiesTool,
   createRelationsTool,
   addObservationsTool,

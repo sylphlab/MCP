@@ -42,28 +42,30 @@ const CreateFolderResultSchema = z.object({
 const CreateFolderOutputSchema = z.array(CreateFolderResultSchema);
 
 // --- Tool Definition using defineTool ---
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const createFolderTool = defineTool({
   name: 'create-folder',
   description: 'Creates one or more new folders at the specified paths within the workspace.',
   inputSchema: createFolderToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
    // Use the constant schema instance
 
   execute: async (
-    // Core logic passed to defineTool
-    input: CreateFolderToolInput,
-    options: ToolExecuteOptions,
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: CreateFolderToolInput }
   ): Promise<Part[]> => {
     // Return Part[] directly
 
     // Zod validation (throw error on failure)
-    const parsed = createFolderToolInputSchema.safeParse(input);
+    const parsed = createFolderToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { folderPaths } = parsed.data;
+    const { folderPaths } = parsed.data; // Get data from parsed args
 
     const results: CreateFolderResult[] = [];
     // let anySuccess = false; // Removed unused variable
@@ -76,10 +78,11 @@ export const createFolderTool = defineTool({
       let fullPath: string;
 
       // --- Validate and Resolve Path ---
+      // Use context for workspaceRoot and allowOutsideWorkspace
       const validationResult = validateAndResolvePath(
         folderPath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
+        context.workspaceRoot,
+        context?.allowOutsideWorkspace,
       );
       if (typeof validationResult !== 'string') {
         error = validationResult.error;

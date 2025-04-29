@@ -23,9 +23,12 @@ export interface Chunk extends Document {
   // Metadata will be augmented during chunking (e.g., nodeType, codeLanguage)
 }
 
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
 import type { ToolExecuteOptions } from '@sylphlab/tools-core';
-import type { EmbeddingModelConfig } from './embedding.js';
-import type { VectorDbConfig, IndexManager } from './indexManager.js'; // Import IndexManager
+import { z } from 'zod'; // Import z
+// Import schemas needed for RagConfigSchema
+import { EmbeddingModelConfigSchema, type EmbeddingModelConfig } from './embedding.js'; // Import type as well
+import { VectorDbConfigSchema, IndexManager, type VectorDbConfig } from './indexManager.js'; // Import type as well
 import type { ChunkingOptions } from './chunking.js';
 
 /**
@@ -33,9 +36,17 @@ import type { ChunkingOptions } from './chunking.js';
  * This is passed to core tools via RagCoreToolExecuteOptions.
  */
 export interface RagConfig {
-  vectorDb: VectorDbConfig;
-  embedding: EmbeddingModelConfig;
+  vectorDb: VectorDbConfig; // Type is now imported
+  embedding: EmbeddingModelConfig; // Type is now imported
 }
+
+/**
+ * Zod schema corresponding to RagConfig.
+ */
+export const RagConfigSchema = z.object({
+  vectorDb: VectorDbConfigSchema,
+  embedding: EmbeddingModelConfigSchema,
+});
 
 /**
  * Extended ToolExecuteOptions specifically for core RAG tools.
@@ -50,6 +61,20 @@ export interface RagConfig {
  * initialized IndexManager instance and the core RAG configuration.
  */
 export interface RagToolExecuteOptions extends ToolExecuteOptions {
-  indexManager: IndexManager;
+  indexManager: IndexManager; // IndexManager is a class instance, tricky to represent in Zod directly
   ragConfig: RagConfig; // Keep ragConfig for embedding details etc.
 }
+
+/**
+ * Zod schema corresponding to RagToolExecuteOptions.
+ * Note: Representing class instances like IndexManager in Zod is complex.
+ * We use z.any() and rely on runtime checks or type assertions for now.
+ * A more robust solution might involve dependency injection or a service locator pattern.
+ */
+export const RagContextSchema = BaseContextSchema.extend({
+  indexManager: z.any().refine(val => val instanceof IndexManager, {
+    message: "indexManager must be an instance of IndexManager"
+  }), // Use z.any() for class instance, add refinement
+  ragConfig: RagConfigSchema,
+});
+export type RagContext = z.infer<typeof RagContextSchema>;

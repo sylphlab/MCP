@@ -3,7 +3,8 @@ import { jsonPart } from '@sylphlab/tools-core';
 import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core';
 import { z } from 'zod';
 import type { IndexManager } from '../indexManager.js';
-import type { RagToolExecuteOptions } from '../types.js'; // Import the shared extended options type
+import type { RagToolExecuteOptions, RagContext } from '../types.js'; // Import RagContext
+import { RagContextSchema } from '../types.js'; // Import schema
 
 // --- Input Schema ---
 const IndexStatusInputSchema = z.object({}).optional(); // No input needed
@@ -59,18 +60,20 @@ const IndexStatusResultSchema = z.object({
 const IndexStatusOutputSchema = z.array(IndexStatusResultSchema);
 
 // --- Tool Definition using defineTool ---
+// Generic parameters are now inferred from the definition object
 export const indexStatusTool = defineTool({
   name: 'get-index-status',
   description: 'Gets the status of the RAG index (chunk count, collection name) and the background service state.',
   inputSchema: IndexStatusInputSchema,
+  contextSchema: RagContextSchema, // Add the context schema
 
 
   execute: async (
-    _input: IndexStatusInput, // Input is optional/empty
-    options: ToolExecuteOptions, // Keep base type for compatibility
+    // Context type is inferred from RagContextSchema
+    { context, args }: { context: RagContext; args: IndexStatusInput } // Use destructuring, args unused
   ): Promise<Part[]> => {
-    // Zod validation
-    const parsed = IndexStatusInputSchema.safeParse(_input);
+    // Zod validation (args is likely empty or unused, but validate for consistency)
+    const parsed = IndexStatusInputSchema.safeParse(args);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : ''}`)
@@ -78,9 +81,9 @@ export const indexStatusTool = defineTool({
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
 
-    // Assert options type to access indexManager and potentially ragService
-    // Assuming ragService instance is passed via options if available
-    const ragOptions = options as RagToolExecuteOptions & { ragService?: { getServiceStatus: () => any } };
+    // Access context properties
+    // Assuming ragService instance might be passed via context if available
+    const { indexManager, ragService } = context as RagContext & { ragService?: { getServiceStatus: () => any } }; // Use type assertion for optional ragService
 
     let dbSuccess = false;
     let chunkCount: number | undefined;
@@ -88,10 +91,10 @@ export const indexStatusTool = defineTool({
     let dbError: string | undefined;
     let dbSuggestion: string | undefined;
 
-    // Try to get DB status from IndexManager
-    if (ragOptions.indexManager?.isInitialized()) { // Use optional chaining
+    // Try to get DB status from IndexManager in context
+    if (indexManager?.isInitialized()) { // Use optional chaining
         try {
-            const indexDbStatus = await ragOptions.indexManager.getStatus();
+            const indexDbStatus = await indexManager.getStatus();
             chunkCount = indexDbStatus.count;
             collectionName = indexDbStatus.name;
             dbSuccess = true; // DB status retrieval was successful
@@ -102,15 +105,15 @@ export const indexStatusTool = defineTool({
         }
     } else {
         dbSuccess = false;
-        dbError = 'IndexManager instance is missing or not initialized in ToolExecuteOptions.';
+        dbError = 'IndexManager instance is missing or not initialized in context.'; // Updated message
         dbSuggestion = 'Ensure the RAG service started correctly and passed the IndexManager.';
     }
 
-    // Get service status if available
+    // Get service status if available from context
     let serviceStatus: any = null; // Use 'any' to avoid complex type checking for now
-    if (ragOptions.ragService && typeof ragOptions.ragService.getServiceStatus === 'function') {
+    if (ragService && typeof ragService.getServiceStatus === 'function') {
         try {
-            serviceStatus = ragOptions.ragService.getServiceStatus();
+            serviceStatus = ragService.getServiceStatus();
         } catch (serviceError) {
             console.error("Error calling ragService.getServiceStatus():", serviceError);
             // Don't fail the whole tool, just report service status as unknown
@@ -134,8 +137,9 @@ export const indexStatusTool = defineTool({
       totalFilesInitialScan: serviceStatus?.totalFilesInitialScan,
     };
 
-    // Return the result wrapped in jsonPart
-    return [jsonPart([finalResult], IndexStatusOutputSchema)];
+    // Validate and return
+    const validatedOutput = IndexStatusResultSchema.parse(finalResult); // Parse single object
+    return [jsonPart([validatedOutput], IndexStatusOutputSchema)]; // Wrap in array for output schema
   },
 });
 

@@ -63,27 +63,30 @@ async function fetchPublicIp(): Promise<{ ip: string | null; error: string | nul
 }
 
 // --- Tool Definition using defineTool ---
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const getPublicIpTool = defineTool({
   name: 'get-public-ip',
   description: 'Retrieves the public IP address of the machine running the MCP server.',
   inputSchema: GetPublicIpToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
   
 
   execute: async (
-    input: GetPublicIpToolInput,
-    _options: ToolExecuteOptions,
+    // Use new signature with destructuring
+    { args }: { context: ToolExecuteOptions; args: GetPublicIpToolInput }
   ): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)
-    const parsed = GetPublicIpToolInputSchema.safeParse(input);
+    const parsed = GetPublicIpToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { id } = parsed.data; // Input schema might be empty
+    const { id } = parsed.data; // Get data from parsed args
 
     const results: GetPublicIpResult[] = [];
     let ip: string | undefined;

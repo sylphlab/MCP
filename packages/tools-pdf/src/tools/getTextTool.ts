@@ -137,15 +137,21 @@ async function processSinglePdfGetText(
 }
 
 // --- Tool Definition using defineTool ---
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const getTextTool = defineTool({
   name: 'get-text',
   description: 'Extracts text content from one or more PDF files.',
   inputSchema: getTextToolInputSchema,
-  execute: async (input: GetTextToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
+  contextSchema: BaseContextSchema, // Add context schema
+  execute: async (
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: GetTextToolInput }
+  ): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)
-    const parsed = getTextToolInputSchema.safeParse(input);
+    const parsed = getTextToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
@@ -153,17 +159,18 @@ export const getTextTool = defineTool({
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
 
-    // Add upfront check for workspaceRoot
-    if (!options?.workspaceRoot) {
-      throw new Error('Workspace root is not available in options.');
+    // Add upfront check for workspaceRoot from context
+    if (!context?.workspaceRoot) {
+      throw new Error('Workspace root is not available in context.'); // Updated message
     }
 
-    const { items } = parsed.data;
+    const { items } = parsed.data; // Get data from parsed args
     const results: GetTextResultItem[] = [];
 
     // Process requests sequentially (or parallelize with Promise.all)
     for (const item of items) {
-      const result = await processSinglePdfGetText(item, options);
+      // Pass context to processSinglePdfGetText
+      const result = await processSinglePdfGetText(item, context);
       results.push(result);
     }
 

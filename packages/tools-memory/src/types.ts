@@ -1,4 +1,6 @@
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
 import type { ToolExecuteOptions as CoreToolExecuteOptions } from '@sylphlab/tools-core'; // Use alias again
+import { z } from 'zod'; // Import z
 
 /**
  * Extends the core ToolExecuteOptions to include memory-specific options.
@@ -7,6 +9,15 @@ export interface MemoryToolExecuteOptions extends CoreToolExecuteOptions { // Ex
   /** Optional override for the memory file path. */
   memoryFilePath?: string;
 }
+
+/**
+ * Zod schema corresponding to MemoryToolExecuteOptions.
+ */
+export const MemoryContextSchema = BaseContextSchema.extend({
+  memoryFilePath: z.string().optional(),
+});
+export type MemoryContext = z.infer<typeof MemoryContextSchema>;
+
 
 // --- Knowledge Graph Specific Types ---
 

@@ -1,5 +1,5 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
-import type { Part } from '@sylphlab/tools-core';
+import type { Part } from '@sylphlab/tools-core'; // No ToolContext import needed
 import type { z } from 'zod';
 import { loadGraph, saveGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
 import type { MemoryToolExecuteOptions, KnowledgeGraph, Relation } from '../types'; // Import types
@@ -11,23 +11,30 @@ import {
 // Infer input type from schema
 type CreateRelationsInput = z.infer<typeof createRelationsToolInputSchema>;
 
+import { MemoryContextSchema, type MemoryContext } from '../types.js'; // Import schema and inferred type
+
+// Generic parameters are now inferred from the definition object
 export const createRelationsTool = defineTool({
   name: 'create-relations',
   description: 'Create multiple new relations between entities in the knowledge graph. Relations should be in active voice.',
   inputSchema: createRelationsToolInputSchema,
+  contextSchema: MemoryContextSchema, // Add the context schema
 
   execute: async (
-    input: CreateRelationsInput,
-    options: MemoryToolExecuteOptions,
+    // Context type is inferred from MemoryContextSchema
+    { context, args }: { context: MemoryContext; args: CreateRelationsInput } // Use destructuring
   ): Promise<Part[]> => {
-    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
+    // context and args are destructured
+    // Access options via context
+    const memoryFilePath = resolveMemoryFilePath(context.workspaceRoot, context.memoryFilePath);
 
     try {
       const currentGraph = await loadGraph(memoryFilePath);
       const existingRelationSet = new Set(currentGraph.relations.map(r => `${r.from}|${r.to}|${r.relationType}`));
       const newRelations: Relation[] = [];
 
-      for (const relationInput of input.relations) {
+      // Access input via args
+      for (const relationInput of args.relations) {
         const relationKey = `${relationInput.from}|${relationInput.to}|${relationInput.relationType}`;
         if (!existingRelationSet.has(relationKey)) {
           newRelations.push(relationInput);

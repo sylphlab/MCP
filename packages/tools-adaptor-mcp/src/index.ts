@@ -1,5 +1,6 @@
 import type { z } from 'zod';
-import { mapWhen, type Tool as SylphTool, type ToolExecuteOptions } from '@sylphlab/tools-core';
+// Import ToolDefinition and rename it
+import { mapWhen, type ToolDefinition as SylphToolDefinition, type ToolExecuteOptions, type BaseContextSchema } from '@sylphlab/tools-core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -9,25 +10,32 @@ export type McpServerOptions = {
     name: string;
     version: string;
     description: string;
-    tools: SylphTool[]; // Use the updated type for tools
+    tools: SylphToolDefinition[]; // Use the updated type for tools
 }
 
-export function registerTools(server: McpServer, tools: SylphTool<z.ZodTypeAny>[], options: ToolExecuteOptions) {
+// Update function signature to use ToolDefinition
+export function registerTools(server: McpServer, tools: SylphToolDefinition<z.ZodTypeAny, typeof BaseContextSchema>[], options: ToolExecuteOptions) {
     for (const tool of tools) {
-        const { execute } = tool;
-        const schema = tool.inputSchema;
-        const isObjectSchema = 'shape' in schema; // Check if it has a .shape property, safer than instanceof z.ZodObject
+        const { execute, contextSchema, inputSchema } = tool; // Destructure contextSchema and inputSchema
+        const isObjectSchema = 'shape' in inputSchema; // Check inputSchema
         // Wrap primitive schema in { value: schema } to conform to ZodRawShape
-        const schemaDefinition = isObjectSchema ? (schema as z.ZodObject<z.ZodRawShape>).shape : { value: schema };
+        const inputSchemaDefinition = isObjectSchema ? (inputSchema as z.ZodObject<z.ZodRawShape>).shape : { value: inputSchema };
+        // TODO: Use contextSchema for validation/transformation if needed in the future
         server.tool(
             tool.name,
             tool.description,
-            schemaDefinition,
+            inputSchemaDefinition, // Use the potentially wrapped input schema definition
             async (args: Record<string, unknown>) => {
                 try {
-                    // If the original schema was primitive, extract the value from args.value, otherwise pass the whole args object
+                    // If the original input schema was primitive, extract the value from args.value
                     const executionArgs = isObjectSchema ? args : args.value;
-                    const content = await execute(executionArgs, options);
+                    // Prepare the context object based on the tool's contextSchema
+                    // For now, we pass the base options. A more robust solution might involve
+                    // validating/transforming options based on contextSchema here.
+                    const executionContext = options; // Pass base options as context for now
+
+                    // Call execute with the new signature { context, args }
+                    const content = await execute({ context: executionContext, args: executionArgs });
                     const newContent = mapWhen(content, {
                         text: (part) => ({
                             type: 'text' as const,

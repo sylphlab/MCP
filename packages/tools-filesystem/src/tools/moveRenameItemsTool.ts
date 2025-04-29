@@ -43,25 +43,28 @@ const MoveRenameItemsOutputSchema = z.array(MoveRenameItemResultSchema);
 
 // --- Tool Definition using defineTool ---
 
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const moveRenameItemsTool = defineTool({
   name: 'move-rename-items',
   description:
     'Moves or renames one or more files or folders within the workspace. Use relative paths.',
   inputSchema: moveRenameItemsToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
 
   execute: async (
-    input: MoveRenameItemsToolInput,
-    options: ToolExecuteOptions,
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: MoveRenameItemsToolInput }
   ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
-    const parsed = moveRenameItemsToolInputSchema.safeParse(input);
+    const parsed = moveRenameItemsToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { items, overwrite } = parsed.data;
+    const { items, overwrite } = parsed.data; // Get data from parsed args
     // Determine dryRun status: default false if overwrite is false, true if overwrite is true
     const isDryRun = parsed.data.dryRun ?? overwrite;
 
@@ -76,10 +79,11 @@ export const moveRenameItemsTool = defineTool({
       let destinationFullPath: string | undefined;
 
       // --- Validate Paths ---
+      // Use context for workspaceRoot and allowOutsideWorkspace
       const sourceValidation = validateAndResolvePath(
         item.sourcePath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
+        context.workspaceRoot,
+        context?.allowOutsideWorkspace,
       );
       if (typeof sourceValidation !== 'string') {
         error = `Source path validation failed: ${sourceValidation.error}`;
@@ -100,8 +104,8 @@ export const moveRenameItemsTool = defineTool({
       // Only validate destination if source is valid
       const destValidation = validateAndResolvePath(
         item.destinationPath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
+        context.workspaceRoot, // Use context
+        context?.allowOutsideWorkspace, // Use context
       );
       if (typeof destValidation !== 'string') {
         error = `Destination path validation failed: ${destValidation.error}`;

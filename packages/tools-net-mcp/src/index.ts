@@ -3,7 +3,7 @@ import process from 'node:process';
 // Remove direct SDK imports
 // import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { Tool, ToolExecuteOptions } from '@sylphlab/tools-core';
+import type { ToolDefinition, ToolExecuteOptions } from '@sylphlab/tools-core'; // Use ToolDefinition
 // Import the server start function
 import { startMcpServer } from '@sylphlab/tools-adaptor-mcp';
 
@@ -20,7 +20,7 @@ import { description, name, version } from '../package.json'; // Import metadata
 
 // Array of imported tool objects
 // biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
-const tools: Tool<any>[] = [getPublicIpTool, getInterfacesTool, fetchTool, downloadTool];
+const tools: ToolDefinition<any>[] = [getPublicIpTool, getInterfacesTool, fetchTool, downloadTool]; // Use ToolDefinition
 
 // --- Server Start ---
 // Directly call startMcpServer at the top level

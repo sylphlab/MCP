@@ -34,26 +34,29 @@ const EncodeBase64ResultSchema = z.object({
 const EncodeBase64OutputSchema = z.array(EncodeBase64ResultSchema);
 
 // --- Tool Definition using defineTool ---
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const encodeBase64Tool = defineTool({
   name: 'encodeBase64',
   description: 'Encodes a UTF-8 string into Base64.',
   inputSchema: EncodeBase64ToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
 
   execute: async (
-    input: EncodeBase64ToolInput,
-    _options: ToolExecuteOptions,
+    // Use new signature with destructuring
+    { args }: { context: ToolExecuteOptions; args: EncodeBase64ToolInput }
   ): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)
-    const parsed = EncodeBase64ToolInputSchema.safeParse(input);
+    const parsed = EncodeBase64ToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { input: textToEncode } = parsed.data;
+    const { input: textToEncode } = parsed.data; // Get data from parsed args
 
     const results: EncodeBase64Result[] = [];
     let encoded: string | undefined;

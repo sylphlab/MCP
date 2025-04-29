@@ -140,30 +140,38 @@ async function processSingleDownload(
 
 // --- Tool Definition using defineTool ---
 
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const downloadTool = defineTool({
   name: 'download',
   description: 'Downloads one or more files from URLs to specified paths within the workspace.',
   inputSchema: downloadToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
 
-  execute: async (input: DownloadToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
-    const parsed = downloadToolInputSchema.safeParse(input);
+  execute: async (
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: DownloadToolInput }
+  ): Promise<Part[]> => {
+    const parsed = downloadToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    if (!options?.workspaceRoot) {
-      throw new Error('Workspace root is not available in options.');
+    // Check workspaceRoot from context
+    if (!context?.workspaceRoot) {
+      throw new Error('Workspace root is not available in context.'); // Updated message
     }
 
-    const { items } = parsed.data;
+    const { items } = parsed.data; // Get data from parsed args
     const results: DownloadResultItem[] = [];
 
     // Process downloads sequentially, catching errors from processSingleDownload
     try {
         for (const item of items) {
-          const result = await processSingleDownload(item, options);
+          // Pass context to processSingleDownload
+          const result = await processSingleDownload(item, context);
           results.push(result);
         }
     } catch (e: unknown) {

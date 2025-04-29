@@ -39,26 +39,29 @@ const GetInterfacesResultSchema = z.object({
 const GetInterfacesOutputSchema = z.array(GetInterfacesResultSchema);
 
 // --- Tool Definition using defineTool ---
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const getInterfacesTool = defineTool({
   name: 'get-interfaces',
   description: 'Retrieves details about the network interfaces on the machine.',
   inputSchema: GetInterfacesToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
 
   execute: async (
-    input: GetInterfacesToolInput,
-    _options: ToolExecuteOptions,
+    // Use new signature with destructuring
+    { args }: { context: ToolExecuteOptions; args: GetInterfacesToolInput }
   ): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)
-    const parsed = GetInterfacesToolInputSchema.safeParse(input);
+    const parsed = GetInterfacesToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { id } = parsed.data; // Input schema might be empty, handle accordingly
+    const { id } = parsed.data; // Get data from parsed args
 
     const results: GetInterfacesResult[] = [];
     let interfaces: NetworkInterfaces | undefined;

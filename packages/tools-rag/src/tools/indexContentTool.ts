@@ -17,7 +17,8 @@ import {
   VectorDbProvider,
 } from '../indexManager.js';
 import { SupportedLanguage } from '../parsing.js';
-import type { Chunk, RagToolExecuteOptions } from '../types.js'; // Use the shared options type
+import type { Chunk, RagToolExecuteOptions, RagContext } from '../types.js'; // Use the shared options type, Import RagContext
+import { RagContextSchema } from '../types.js'; // Import schema
 
 // --- Input Schemas ---
 export const IndexContentInputItemSchema = z.object({
@@ -74,37 +75,40 @@ const IndexContentResultItemSchema = z.object({
 const IndexContentOutputSchema = z.array(IndexContentResultItemSchema);
 
 // --- Tool Definition using defineTool ---
+// Generic parameters are now inferred from the definition object
 export const indexContentTool = defineTool({
   name: 'index-content',
   description: 'Chunks, embeds, and indexes provided text content.',
   inputSchema: IndexContentInputSchema,
+  contextSchema: RagContextSchema, // Add the context schema
 
 
   execute: async (
-    input: IndexContentToolInput,
-    options: ToolExecuteOptions, // Keep base type for compatibility
+    // Context type is inferred from RagContextSchema
+    { context, args }: { context: RagContext; args: IndexContentToolInput } // Use destructuring
   ): Promise<Part[]> => {
     // Zod validation
-    const parsed = IndexContentInputSchema.safeParse(input);
+    // Validate args instead of the old input
+    const parsed = IndexContentInputSchema.safeParse(args);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
+    // Get input data from parsed args
     const { items, chunkingOptions } = parsed.data;
 
-    // Assert options type to access indexManager and ragConfig
-    const ragOptions = options as RagToolExecuteOptions;
-    if (!ragOptions.indexManager || !ragOptions.ragConfig) {
-      throw new Error('IndexManager instance or RagConfig is missing in ToolExecuteOptions.');
+    // Access context properties
+    const { indexManager, ragConfig } = context;
+    if (!indexManager || !ragConfig) {
+      throw new Error('IndexManager instance or RagConfig is missing in context.'); // Updated error message
     }
     // Check if the manager instance itself is initialized
-    if (!ragOptions.indexManager.isInitialized()) {
+    if (!indexManager.isInitialized()) {
         throw new Error('IndexManager is not initialized. Cannot index content.');
     }
-    const indexManager = ragOptions.indexManager;
-    const { embedding: embeddingConfig } = ragOptions.ragConfig; // Get embedding config
+    const { embedding: embeddingConfig } = ragConfig; // Get embedding config
 
     const results: IndexContentResultItem[] = [];
 
@@ -152,7 +156,7 @@ export const indexContentTool = defineTool({
           },
         }));
 
-        // Generate embeddings using config from options
+        // Generate embeddings using config from context
         const embeddings = await generateEmbeddings(chunkObjects, embeddingConfig);
         if (embeddings.length !== chunkObjects.length) {
           throw new Error('Mismatch between number of chunks and generated embeddings.');
@@ -165,7 +169,7 @@ export const indexContentTool = defineTool({
           vector: embeddings[index],
         }));
 
-        // Upsert items using the indexManager from options
+        // Upsert items using the indexManager from context
         await indexManager.upsertItems(indexedItems);
 
         itemResult.success = true;

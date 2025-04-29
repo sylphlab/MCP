@@ -1,5 +1,5 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
-import type { Part } from '@sylphlab/tools-core';
+import type { Part } from '@sylphlab/tools-core'; // No ToolContext import needed
 import type { z } from 'zod';
 import { loadGraph, saveGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
 import type { MemoryToolExecuteOptions, KnowledgeGraph, Entity, Relation } from '../types'; // Import types
@@ -11,20 +11,27 @@ import {
 // Infer input type from schema
 type DeleteEntitiesInput = z.infer<typeof deleteEntitiesToolInputSchema>;
 
+import { MemoryContextSchema, type MemoryContext } from '../types.js'; // Import schema and inferred type
+
+// Generic parameters are now inferred from the definition object
 export const deleteEntitiesTool = defineTool({
   name: 'delete-entities',
   description: 'Delete multiple entities and their associated relations from the knowledge graph.',
   inputSchema: deleteEntitiesToolInputSchema,
+  contextSchema: MemoryContextSchema, // Add the context schema
 
   execute: async (
-    input: DeleteEntitiesInput,
-    options: MemoryToolExecuteOptions,
+    // Context type is inferred from MemoryContextSchema
+    { context, args }: { context: MemoryContext; args: DeleteEntitiesInput } // Use destructuring
   ): Promise<Part[]> => {
-    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
+    // context and args are destructured
+    // Access options via context
+    const memoryFilePath = resolveMemoryFilePath(context.workspaceRoot, context.memoryFilePath);
 
     try {
       const currentGraph = await loadGraph(memoryFilePath);
-      const namesToDeleteSet = new Set(input.entityNames);
+      // Access input via args
+      const namesToDeleteSet = new Set(args.entityNames);
       const deletedEntityNames: string[] = [];
 
       const nextEntities = currentGraph.entities.filter((e: Entity) => {

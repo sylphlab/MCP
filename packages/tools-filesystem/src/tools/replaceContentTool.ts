@@ -59,24 +59,27 @@ const ReplaceContentOutputSchema = z.array(FileReplaceResultSchema);
 
 // --- Tool Definition using defineTool ---
 
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const replaceContentTool = defineTool({
   name: 'replace-content',
   description: 'Performs search and replace operations across multiple files (supports globs).',
   inputSchema: replaceContentToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
 
   execute: async (
-    input: ReplaceContentToolInput,
-    options: ToolExecuteOptions,
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: ReplaceContentToolInput }
   ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
-    const parsed = replaceContentToolInputSchema.safeParse(input);
+    const parsed = replaceContentToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { paths: pathPatterns, operations } = parsed.data;
+    const { paths: pathPatterns, operations } = parsed.data; // Get data from parsed args
     // Get dryRun flag, default to true as replace is considered unsafe
     const isDryRun = parsed.data.dryRun ?? true;
 
@@ -86,7 +89,7 @@ export const replaceContentTool = defineTool({
     // Keep try/catch for glob errors
     try {
       resolvedFilePaths = await glob(pathPatterns, {
-        cwd: options.workspaceRoot,
+        cwd: context.workspaceRoot, // Use context
         absolute: false,
         onlyFiles: true,
         dot: true,
@@ -106,7 +109,7 @@ export const replaceContentTool = defineTool({
     }
 
     for (const relativeFilePath of resolvedFilePaths) {
-      const fullPath = path.resolve(options.workspaceRoot, relativeFilePath);
+      const fullPath = path.resolve(context.workspaceRoot, relativeFilePath); // Use context
       let fileSuccess = true;
       let fileError: string | undefined;
       let totalReplacementsMade = 0;
@@ -116,9 +119,9 @@ export const replaceContentTool = defineTool({
       let suggestion: string | undefined;
 
       // --- Path Validation ---
-      const relativeCheck = path.relative(options.workspaceRoot, fullPath);
+      const relativeCheck = path.relative(context.workspaceRoot, fullPath); // Use context
       if (
-        !options?.allowOutsideWorkspace &&
+        !context?.allowOutsideWorkspace && // Use context
         (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck))
       ) {
         fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;

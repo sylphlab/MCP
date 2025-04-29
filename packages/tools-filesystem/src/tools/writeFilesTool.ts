@@ -47,21 +47,27 @@ const WriteFilesOutputSchema = z.array(WriteFileResultSchema);
 
 // --- Tool Definition using defineTool ---
 
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const writeFilesTool = defineTool({
   name: 'write-files',
   description: 'Writes or appends content to one or more files within the workspace.',
   inputSchema: writeFilesToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
 
-  execute: async (input: WriteFilesToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
+  execute: async (
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: WriteFilesToolInput }
+  ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
-    const parsed = writeFilesToolInputSchema.safeParse(input);
+    const parsed = writeFilesToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { items, encoding, append } = parsed.data;
+    const { items, encoding, append } = parsed.data; // Get data from parsed args
     // Determine dryRun: default false for append (safer), true for overwrite (!append)
     const isDryRun = parsed.data.dryRun ?? !append;
 
@@ -78,10 +84,11 @@ export const writeFilesTool = defineTool({
       const operation = append ? 'append' : 'write';
 
       // --- Validate Path ---
+      // Use context for workspaceRoot and allowOutsideWorkspace
       const validationResult = validateAndResolvePath(
         item.path,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
+        context.workspaceRoot,
+        context?.allowOutsideWorkspace,
       );
       if (typeof validationResult !== 'string') {
         error = validationResult?.error ?? 'Unknown path validation error';

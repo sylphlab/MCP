@@ -1,5 +1,5 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
-import type { Part } from '@sylphlab/tools-core';
+import type { Part } from '@sylphlab/tools-core'; // No ToolContext import needed
 import type { z } from 'zod';
 import { loadGraph, resolveMemoryFilePath } from '../graphUtils'; // Import helpers
 import type { MemoryToolExecuteOptions } from '../types'; // Import types
@@ -11,16 +11,22 @@ import {
 // Infer input type (empty object)
 type ReadGraphInput = z.infer<typeof readGraphToolInputSchema>;
 
+import { MemoryContextSchema, type MemoryContext } from '../types.js'; // Import schema and inferred type
+
+// Generic parameters are now inferred from the definition object
 export const readGraphTool = defineTool({
   name: 'read-graph',
   description: 'Read the entire knowledge graph.',
   inputSchema: readGraphToolInputSchema, // Empty schema
+  contextSchema: MemoryContextSchema, // Add the context schema
 
   execute: async (
-    _input: ReadGraphInput,
-    options: MemoryToolExecuteOptions,
+    // Context type is inferred from MemoryContextSchema
+    { context }: { context: MemoryContext; args: ReadGraphInput } // Use destructuring, args unused
   ): Promise<Part[]> => {
-    const memoryFilePath = resolveMemoryFilePath(options.workspaceRoot, options.memoryFilePath);
+    // context is destructured
+    // Access options via context
+    const memoryFilePath = resolveMemoryFilePath(context.workspaceRoot, context.memoryFilePath);
 
     try {
       const graphData = await loadGraph(memoryFilePath);

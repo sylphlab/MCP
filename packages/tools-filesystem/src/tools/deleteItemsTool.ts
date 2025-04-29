@@ -35,22 +35,28 @@ const DeleteItemResultSchema = z.object({
 const DeleteItemsOutputSchema = z.array(DeleteItemResultSchema);
 
 // --- Tool Definition using defineTool ---
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const deleteItemsTool = defineTool({
   name: 'delete-items',
   description:
     'Deletes specified files or directories (supports globs - TODO: implement glob support). Uses trash by default.',
   inputSchema: deleteItemsToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
 
-  execute: async (input: DeleteItemsToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
+  execute: async (
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: DeleteItemsToolInput }
+  ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
-    const parsed = deleteItemsToolInputSchema.safeParse(input);
+    const parsed = deleteItemsToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { paths: inputPaths, recursive, useTrash } = parsed.data;
+    const { paths: inputPaths, recursive, useTrash } = parsed.data; // Get data from parsed args
     // Deletion is unsafe, default dryRun to true
     const isDryRun = parsed.data.dryRun ?? true;
     // TODO: Implement glob expansion for inputPaths if needed
@@ -67,10 +73,11 @@ export const deleteItemsTool = defineTool({
       let fullPath: string;
 
       // --- Validate and Resolve Path ---
+      // Use context for workspaceRoot and allowOutsideWorkspace
       const validationResult = validateAndResolvePath(
         itemPath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
+        context.workspaceRoot,
+        context?.allowOutsideWorkspace,
       );
       if (typeof validationResult !== 'string') {
         error = validationResult.error;

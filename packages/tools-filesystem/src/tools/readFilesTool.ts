@@ -51,14 +51,20 @@ const ReadFilesOutputSchema = z.array(ReadFileResultSchema);
 
 // --- Tool Definition using defineTool ---
 
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const readFilesTool = defineTool({
   name: 'read-files',
   description: 'Reads the content of one or more files within the workspace.',
   inputSchema: readFilesToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
 
-  execute: async (input: ReadFilesToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
+  execute: async (
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: ReadFilesToolInput }
+  ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
-    const parsed = readFilesToolInputSchema.safeParse(input);
+    const parsed = readFilesToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
@@ -72,7 +78,7 @@ export const readFilesTool = defineTool({
       includeStats,
       includeLineNumbers,
       includeHash,
-    } = parsed.data;
+    } = parsed.data; // Get data from parsed args
 
     const results: ReadFileResult[] = [];
 
@@ -87,10 +93,11 @@ export const readFilesTool = defineTool({
       let fullPath: string | undefined;
 
       // --- Validate Path ---
+      // Use context for workspaceRoot and allowOutsideWorkspace
       const validationResult = validateAndResolvePath(
         itemPath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
+        context.workspaceRoot,
+        context?.allowOutsideWorkspace,
       );
       if (typeof validationResult !== 'string') {
         error = `Path validation failed: ${validationResult.error}`;

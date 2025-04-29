@@ -84,24 +84,30 @@ async function processSingleJson(item: JsonInputItem): Promise<JsonResultItem> {
 }
 
 // --- Tool Definition using defineTool ---
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const jsonTool = defineTool({
   name: 'json',
   description: 'Performs JSON operations (parse or stringify) on one or more inputs.',
   inputSchema: jsonToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
   // Use the array schema
 
-  execute: async (input: JsonToolInput, _options: ToolExecuteOptions): Promise<Part[]> => {
+  execute: async (
+    // Use new signature with destructuring
+    { args }: { context: ToolExecuteOptions; args: JsonToolInput }
+  ): Promise<Part[]> => {
     // Return Part[]
 
     // Zod validation (throw error on failure)
-    const parsed = jsonToolInputSchema.safeParse(input);
+    const parsed = jsonToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { items } = parsed.data;
+    const { items } = parsed.data; // Get data from parsed args
 
     const results: JsonResultItem[] = [];
 

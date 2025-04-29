@@ -3,7 +3,7 @@ import process from 'node:process';
 // Remove direct SDK imports, factory handles them
 // import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import type { Tool, ToolExecuteOptions } from '@sylphlab/tools-core';
+import type { ToolDefinition, ToolExecuteOptions } from '@sylphlab/tools-core'; // Use ToolDefinition
 // Import the server start function
 import { startMcpServer } from '@sylphlab/tools-adaptor-mcp';
 
@@ -14,7 +14,7 @@ import { description, name, version } from '../package.json'; // Import metadata
 // --- Server Setup ---
 
 // biome-ignore lint/suspicious/noExplicitAny: Necessary for array of tools with diverse signatures
-const tools: Tool<any>[] = [encodeBase64Tool, decodeBase64Tool];
+const tools: ToolDefinition<any>[] = [encodeBase64Tool, decodeBase64Tool]; // Use ToolDefinition
 
 // --- Server Start ---
 // Use an async IIFE to handle top-level await for CJS compatibility

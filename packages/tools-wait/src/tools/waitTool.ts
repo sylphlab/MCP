@@ -52,23 +52,34 @@ async function processSingleWait(item: WaitInputItem): Promise<WaitResultItem> {
 }
 
 // --- Tool Definition using defineTool ---
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
+// Since this tool only needs the base context, we provide BaseContextSchema.
+// The generic parameters for defineTool are now inferred.
 export const waitTool = defineTool({
   name: 'wait',
   description: 'Waits sequentially for one or more specified durations in milliseconds.',
   inputSchema: waitToolInputSchema,
+  contextSchema: BaseContextSchema, // Add the base context schema
   // Use the array schema
 
-  execute: async (input: WaitToolInput, _options: ToolExecuteOptions): Promise<Part[]> => {
+  execute: async (
+    // The context type is now correctly inferred from BaseContextSchema
+    { args }: { context: ToolExecuteOptions; args: WaitToolInput } // Destructure args directly
+  ): Promise<Part[]> => {
+    // context is available if needed
     // Return Part[]
 
     // Zod validation (throw error on failure)
-    const parsed = waitToolInputSchema.safeParse(input);
+    // Validate args instead of the old input
+    const parsed = waitToolInputSchema.safeParse(args);
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
+    // Get items from parsed data (which comes from args)
     const { items } = parsed.data;
 
     const results: WaitResultItem[] = [];

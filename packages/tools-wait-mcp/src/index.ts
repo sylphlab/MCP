@@ -1,12 +1,12 @@
 import process from 'node:process';
-import type { Tool, ToolExecuteOptions } from '@sylphlab/tools-core';
+import type { ToolDefinition, ToolExecuteOptions } from '@sylphlab/tools-core'; // Use ToolDefinition
 import { startMcpServer } from '@sylphlab/tools-adaptor-mcp';
 import { waitTool } from '@sylphlab/tools-wait';
 import { description, name, version } from '../package.json'; // Import metadata
 
 // --- Server Setup ---
 
-const tools: Tool<any>[] = [waitTool];
+const tools: ToolDefinition<any>[] = [waitTool]; // Use ToolDefinition
 
 // --- Server Start ---
 // Directly call startMcpServer at the top level

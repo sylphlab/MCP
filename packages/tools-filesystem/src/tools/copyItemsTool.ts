@@ -58,22 +58,24 @@ const CopyItemsOutputSchema = z.array(CopyItemResultSchema);
 
 // --- Tool Definition using defineTool ---
 
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const copyItemsTool = defineTool({
   name: 'copy-items',
   description:
     'Copies one or more files or folders within the workspace. Handles recursion. Use relative paths.',
   inputSchema: copyItemsToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
    // Use the constant schema instance
 
   execute: async (
-    // Core logic passed to defineTool
-    input: CopyItemsToolInput,
-    options: ToolExecuteOptions,
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: CopyItemsToolInput }
   ): Promise<Part[]> => {
     // Removed generic
 
     // Zod validation (throw error on failure)
-    const parsed = copyItemsToolInputSchema.safeParse(input);
+    const parsed = copyItemsToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
@@ -81,7 +83,7 @@ export const copyItemsTool = defineTool({
       // Return error structure instead of throwing
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { items, overwrite } = parsed.data;
+    const { items, overwrite } = parsed.data; // Get data from parsed args
     // Determine dryRun status: default false if overwrite is false, true if overwrite is true
     const isDryRun = parsed.data.dryRun ?? overwrite; // Default depends on overwrite safety
 
@@ -96,10 +98,11 @@ export const copyItemsTool = defineTool({
       let destinationFullPath: string;
 
       // --- Validate and Resolve Paths ---
+      // Use context for workspaceRoot and allowOutsideWorkspace
       const sourceValidationResult = validateAndResolvePath(
         item.sourcePath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
+        context.workspaceRoot,
+        context?.allowOutsideWorkspace,
       );
       if (typeof sourceValidationResult !== 'string') {
         error = sourceValidationResult.error;
@@ -118,8 +121,8 @@ export const copyItemsTool = defineTool({
 
       const destValidationResult = validateAndResolvePath(
         item.destinationPath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
+        context.workspaceRoot, // Use context
+        context?.allowOutsideWorkspace, // Use context
       );
       if (typeof destValidationResult !== 'string') {
         error = destValidationResult.error;

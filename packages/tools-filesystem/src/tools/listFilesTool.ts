@@ -111,21 +111,27 @@ async function listDirectoryRecursive(
 
 // --- Tool Definition using defineTool ---
 
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const listFilesTool = defineTool({
   name: 'list-files',
   description: 'Lists files and directories within one or more specified paths in the workspace.',
   inputSchema: listFilesToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
 
-  execute: async (input: ListFilesToolInput, options: ToolExecuteOptions): Promise<Part[]> => {
+  execute: async (
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: ListFilesToolInput }
+  ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
-    const parsed = listFilesToolInputSchema.safeParse(input);
+    const parsed = listFilesToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    const { paths: inputPaths, recursive, maxDepth, includeStats } = parsed.data;
+    const { paths: inputPaths, recursive, maxDepth, includeStats } = parsed.data; // Get data from parsed args
 
     const results: { [inputPath: string]: PathListResult } = {};
 
@@ -137,10 +143,11 @@ export const listFilesTool = defineTool({
       let fullPath: string;
 
       // --- Validate and Resolve Path ---
+      // Use context for workspaceRoot and allowOutsideWorkspace
       const validationResult = validateAndResolvePath(
         inputPath,
-        options.workspaceRoot,
-        options?.allowOutsideWorkspace,
+        context.workspaceRoot,
+        context?.allowOutsideWorkspace,
       );
       if (typeof validationResult !== 'string') {
         pathError = validationResult.error;
@@ -161,7 +168,7 @@ export const listFilesTool = defineTool({
         if (recursive) {
           pathEntries = await listDirectoryRecursive(
             fullPath,
-            options.workspaceRoot,
+            context.workspaceRoot, // Use context
             0,
             maxDepth,
             includeStats,
@@ -172,7 +179,7 @@ export const listFilesTool = defineTool({
           pathEntries = [];
           for (const dirent of dirents) {
             const entryFullPath = path.join(fullPath, dirent.name);
-            const entryRelativePath = path.relative(options.workspaceRoot, entryFullPath);
+            const entryRelativePath = path.relative(context.workspaceRoot, entryFullPath); // Use context
             let entryStat: Stats | undefined = undefined;
             if (includeStats) {
               try {

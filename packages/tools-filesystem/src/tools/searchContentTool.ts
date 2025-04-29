@@ -64,24 +64,27 @@ const SearchContentOutputSchema = z.array(FileSearchResultSchema);
 
 // --- Tool Definition using defineTool ---
 
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
+
 export const searchContentTool = defineTool({
   name: 'search-content',
   description: 'Searches for content within multiple files (supports globs).',
   inputSchema: searchContentToolInputSchema,
+  contextSchema: BaseContextSchema, // Add context schema
 
   execute: async (
-    input: SearchContentToolInput,
-    options: ToolExecuteOptions,
+    // Use new signature with destructuring
+    { context, args }: { context: ToolExecuteOptions; args: SearchContentToolInput }
   ): Promise<Part[]> => {
     // Zod validation (throw error on failure)
-    const parsed = searchContentToolInputSchema.safeParse(input);
+    const parsed = searchContentToolInputSchema.safeParse(args); // Validate args
     if (!parsed.success) {
       const errorMessages = Object.entries(parsed.error.flatten().fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
         .join('; ');
       throw new Error(`Input validation failed: ${errorMessages}`);
     }
-    // Destructure all input properties
+    // Destructure all input properties from parsed args
     const {
       paths: pathPatterns,
       query,
@@ -98,7 +101,7 @@ export const searchContentTool = defineTool({
     // Keep try/catch for glob errors
     try {
       resolvedFilePaths = await glob(pathPatterns, {
-        cwd: options.workspaceRoot,
+        cwd: context.workspaceRoot, // Use context
         absolute: false,
         onlyFiles: true,
         dot: true,
@@ -117,16 +120,16 @@ export const searchContentTool = defineTool({
     }
 
     for (const relativeFilePath of resolvedFilePaths) {
-      const fullPath = path.resolve(options.workspaceRoot, relativeFilePath);
+      const fullPath = path.resolve(context.workspaceRoot, relativeFilePath); // Use context
       let fileSuccess = true;
       let fileError: string | undefined;
       const matches: SearchMatch[] = [];
       let suggestion: string | undefined;
 
       // --- Path Validation ---
-      const relativeCheck = path.relative(options.workspaceRoot, fullPath);
+      const relativeCheck = path.relative(context.workspaceRoot, fullPath); // Use context
       if (
-        !options?.allowOutsideWorkspace &&
+        !context?.allowOutsideWorkspace && // Use context
         (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck))
       ) {
         fileError = `Path validation failed: Matched file '${relativeFilePath}' is outside workspace root.`;
