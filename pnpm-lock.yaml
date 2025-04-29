@@ -696,9 +696,6 @@ importers:
       '@types/lodash-es':
         specifier: ^4.17.12
         version: 4.17.12
-      '@types/minimatch':
-        specifier: ^5.1.2
-        version: 5.1.2
       '@types/node':
         specifier: ^20.12.12
         version: 20.17.30
@@ -2129,9 +2126,6 @@ packages:
 
   '@types/long@4.0.2':
     resolution: {integrity: sha512-MqTGEo5bj5t157U6fA/BiDynNkn0YknVdh48CMPkTSpFTVmvao5UQmm7uEF6xBEo7qIMAlY/JSleYaE6VOdpaA==}
-
-  '@types/minimatch@5.1.2':
-    resolution: {integrity: sha512-K0VQKziLUWkVKiRVrx4a40iPaxTUefQmjtkQofBkYRcoaaL/8rhwDWww9qWbrgicNOgnpIsMxyNIUM4+n6dUIA==}
 
   '@types/node-fetch@2.6.12':
     resolution: {integrity: sha512-8nneRWKCg3rMtF69nLQJnOYUcbafYeFSjqkw3jCRLsqkWFlHaoQrr5mXmofFGOx3DKn7UfmBMyov8ySvLRVldA==}
@@ -5830,8 +5824,6 @@ snapshots:
   '@types/lodash@4.17.16': {}
 
   '@types/long@4.0.2': {}
-
-  '@types/minimatch@5.1.2': {}
 
   '@types/node-fetch@2.6.12':
     dependencies:
