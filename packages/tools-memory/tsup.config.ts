@@ -7,4 +7,7 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   clean: true,
+  external: [ // Add this line
+    '@sylphlab/tools-core', // Mark tools-core as external
+  ], // Add this line
 });
