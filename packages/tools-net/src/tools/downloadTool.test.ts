@@ -13,6 +13,7 @@ import { type MockedFunction, beforeEach, describe, expect, it, vi } from 'vites
 import { downloadTool } from './downloadTool.js';
 // Import both types from downloadTool.types.js
 import type { DownloadToolInput, DownloadResultItem } from './downloadTool.types.js';
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
 
 // --- Mocks ---
 // Mock fs/promises, ensuring constants are passed through
@@ -56,7 +57,7 @@ vi.mock('node:https', () => {
 
 // Helper to extract JSON result
 function getJsonResult<T>(parts: Part[]): T | undefined {
-  const jsonPart = parts.find(part => part.type === 'json');
+  const jsonPart = parts.find((part): part is Part & { type: 'json' } => part.type === 'json'); // Type predicate
   return jsonPart?.value as T | undefined;
 }
 
@@ -77,7 +78,7 @@ function createMockResponse(statusCode: number, statusMessage: string, headers: 
 
 
 const WORKSPACE_ROOT = path.resolve('/test/workspace'); // Use platform-specific path
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const mockContext: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Rename to mockContext
 
 describe('downloadTool', () => {
   // Use vi.mocked to access the mocked functions consistently
@@ -122,8 +123,8 @@ describe('downloadTool', () => {
   it('should download a file successfully', async () => {
     mockedAccess.mockRejectedValue({ code: 'ENOENT' }); // Ensure file doesn't exist
 
-    const input: DownloadToolInput = { items: [{ url: 'https://example.com/file.zip', destinationPath: 'downloads/file.zip' }] };
-    const parts = await downloadTool.execute(input, defaultOptions);
+    const args: DownloadToolInput = { items: [{ url: 'https://example.com/file.zip', destinationPath: 'downloads/file.zip', overwrite: false }] }; // Add overwrite
+    const parts = await downloadTool.execute({ context: mockContext, args }); // Use new signature
 
     const expectedDestPath = path.normalize(path.join(WORKSPACE_ROOT, 'downloads', 'file.zip'));
     expect(mockedHttpsGet).toHaveBeenCalledWith('https://example.com/file.zip', expect.any(Function));
@@ -148,9 +149,9 @@ describe('downloadTool', () => {
         return mockReq as any;
     });
 
-    const input: DownloadToolInput = { items: [{ url: 'https://fail.com/file.zip', destinationPath: 'downloads/fail.zip' }] };
+    const args: DownloadToolInput = { items: [{ url: 'https://fail.com/file.zip', destinationPath: 'downloads/fail.zip', overwrite: false }] }; // Add overwrite
 
-    await expect(downloadTool.execute(input, defaultOptions))
+    await expect(downloadTool.execute({ context: mockContext, args })) // Use new signature
         .rejects
         .toThrow('Download failed for item https://fail.com/file.zip: Network request failed: Network Failure');
 
@@ -176,9 +177,9 @@ describe('downloadTool', () => {
         return { on: vi.fn(), setTimeout: vi.fn(), destroy: vi.fn(), end: vi.fn() } as any;
      });
 
-     const input: DownloadToolInput = { items: [{ url: 'https://example.com/notfound.zip', destinationPath: 'downloads/notfound.zip' }] };
+     const args: DownloadToolInput = { items: [{ url: 'https://example.com/notfound.zip', destinationPath: 'downloads/notfound.zip', overwrite: false }] }; // Add overwrite
 
-     await expect(downloadTool.execute(input, defaultOptions))
+     await expect(downloadTool.execute({ context: mockContext, args })) // Use new signature
         .rejects
         .toThrow("Download failed for item https://example.com/notfound.zip: Download failed. Status Code: 404. Error page content");
 
@@ -195,9 +196,9 @@ describe('downloadTool', () => {
      mockedPipeline.mockRejectedValue(new Error('Disk full'));
      mockedAccess.mockRejectedValue({ code: 'ENOENT' }); // Ensure file doesn't exist initially
 
-     const input: DownloadToolInput = { items: [{ url: 'https://example.com/goodfile.zip', destinationPath: 'downloads/diskfull.zip' }] };
+     const args: DownloadToolInput = { items: [{ url: 'https://example.com/goodfile.zip', destinationPath: 'downloads/diskfull.zip', overwrite: false }] }; // Add overwrite
 
-     await expect(downloadTool.execute(input, defaultOptions))
+     await expect(downloadTool.execute({ context: mockContext, args })) // Use new signature
         .rejects
         .toThrow('Download failed for item https://example.com/goodfile.zip: File write failed: Disk full');
 
@@ -213,8 +214,8 @@ describe('downloadTool', () => {
      mockedAccess.mockResolvedValue(undefined); // Simulate file exists
      mockedUnlink.mockResolvedValue(undefined);
 
-     const input: DownloadToolInput = { items: [{ url: 'https://example.com/overwrite.zip', destinationPath: 'downloads/overwrite.zip', overwrite: true }] };
-     const parts = await downloadTool.execute(input, defaultOptions);
+     const args: DownloadToolInput = { items: [{ url: 'https://example.com/overwrite.zip', destinationPath: 'downloads/overwrite.zip', overwrite: true }] }; // Add overwrite
+     const parts = await downloadTool.execute({ context: mockContext, args }); // Use new signature
 
      const expectedDestPath = path.normalize(path.join(WORKSPACE_ROOT, 'downloads', 'overwrite.zip'));
      expect(mockedAccess).toHaveBeenCalledWith(expectedDestPath); // Corrected: Check existence without mode
@@ -229,9 +230,9 @@ describe('downloadTool', () => {
       // Use default https.get mock (success, though shouldn't be called)
      mockedAccess.mockResolvedValue(undefined); // Simulate file exists
 
-     const input: DownloadToolInput = { items: [{ url: 'https://example.com/exists.zip', destinationPath: 'downloads/exists.zip' /* overwrite defaults to false */ }] };
+     const args: DownloadToolInput = { items: [{ url: 'https://example.com/exists.zip', destinationPath: 'downloads/exists.zip', overwrite: false }] }; // Add overwrite
 
-     await expect(downloadTool.execute(input, defaultOptions))
+     await expect(downloadTool.execute({ context: mockContext, args })) // Use new signature
         .rejects
         .toThrow("Download failed for item https://example.com/exists.zip: File already exists at 'downloads/exists.zip'. Use overwrite: true to replace.");
 

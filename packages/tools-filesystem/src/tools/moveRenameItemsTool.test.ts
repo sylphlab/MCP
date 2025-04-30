@@ -5,6 +5,7 @@ import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core'; // Import 
 import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type MoveRenameItemsToolInput, moveRenameItemsTool } from './moveRenameItemsTool.js';
 import type { MoveRenameItemResult } from './moveRenameItemsTool.js'; // Import correct result type
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -15,27 +16,20 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
-const allowOutsideOptions: ToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
+const mockContext: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Rename to mockContext
+const allowOutsideContext: ToolExecuteOptions = { ...mockContext, allowOutsideWorkspace: true }; // Rename to allowOutsideContext
 
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
 function getJsonResult<T>(parts: Part[]): T[] | undefined {
-  // console.log('DEBUG: getJsonResult received parts:', JSON.stringify(parts, null, 2)); // Keep commented for now
   const jsonPart = parts.find(part => part.type === 'json');
-  // console.log('DEBUG: Found jsonPart:', JSON.stringify(jsonPart, null, 2)); // Keep commented for now
-  // Check if jsonPart exists and has a 'value' property (which holds the actual data)
   if (jsonPart && jsonPart.value !== undefined) {
-    // console.log('DEBUG: typeof jsonPart.value:', typeof jsonPart.value); // Keep commented for now
-    // console.log('DEBUG: Attempting to use jsonPart.value directly'); // Keep commented for now
     try {
-      // Assuming the value is already the correct array type based on defineTool's outputSchema
       return jsonPart.value as T[];
     } catch (_e) {
       return undefined;
     }
   }
-  // console.log('DEBUG: jsonPart or jsonPart.value is undefined or null.'); // Keep commented for now
   return undefined;
 }
 
@@ -71,14 +65,16 @@ describe('moveRenameItemsTool', () => {
     };
     // stat rejects with ENOENT by default
 
-    const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
+    const parts = await moveRenameItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<MoveRenameItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining
-    expect(itemResult?.sourcePath).toBe('old.txt'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.sourcePath).toBe('old.txt');
     expect(itemResult?.destinationPath).toBe('new.txt'); // Added optional chaining
     expect(itemResult?.message).toContain('Moved/Renamed'); // Added optional chaining
     expect(itemResult?.error).toBeUndefined(); // Added optional chaining
@@ -101,14 +97,16 @@ describe('moveRenameItemsTool', () => {
     };
     mockStat.mockResolvedValue(createMockStats(false, true)); // Destination exists
 
-    const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
+    const parts = await moveRenameItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<MoveRenameItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining
-    expect(itemResult?.message).toContain('Would move/rename'); // Corrected dry run message check
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.message).toContain('Would move/rename');
     expect(itemResult?.message).toContain('(overwriting existing)'); // Added optional chaining
     expect(itemResult?.error).toBeUndefined(); // Added optional chaining
     expect(itemResult?.dryRun).toBe(true); // Added optional chaining // dryRun defaults to true when overwrite is true
@@ -127,14 +125,16 @@ describe('moveRenameItemsTool', () => {
     };
     mockStat.mockResolvedValue(createMockStats(false, true)); // Destination exists
 
-    const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
+    const parts = await moveRenameItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<MoveRenameItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining
-    expect(itemResult?.message).toContain('Moved/Renamed'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.message).toContain('Moved/Renamed');
     expect(itemResult?.message).toContain('(overwrote existing)'); // Added optional chaining
     expect(itemResult?.error).toBeUndefined(); // Added optional chaining
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
@@ -157,14 +157,16 @@ describe('moveRenameItemsTool', () => {
     };
     mockStat.mockResolvedValue(createMockStats(false, true)); // Destination exists
 
-    const parts = await moveRenameItemsTool.execute(input, defaultOptions); // Corrected variable name
-    const results = getJsonResult<MoveRenameItemResult>(parts); // Corrected definition
+    const parts = await moveRenameItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<MoveRenameItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('already exists and overwrite is false'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('already exists and overwrite is false');
     expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
@@ -178,9 +180,9 @@ describe('moveRenameItemsTool', () => {
   });
 
   it('should throw validation error for empty items array', async () => {
-    const input = { items: [] };
-    await expect(moveRenameItemsTool.execute(input as any, defaultOptions))
-        .rejects.toThrow('Input validation failed: items: At least one move/rename item is required.'); // Corrected Zod message
+    const args = { items: [] }; // Rename to args
+    await expect(moveRenameItemsTool.execute({ context: mockContext, args: args as any })) // Use new signature
+        .rejects.toThrow('Input validation failed: items: At least one move/rename item is required.');
     expect(mockRename).not.toHaveBeenCalled();
   });
 
@@ -190,14 +192,16 @@ describe('moveRenameItemsTool', () => {
       items: [{ sourcePath: 'valid.txt', destinationPath: '../outside.txt' }],
       overwrite: false,
     };
-    const parts = await moveRenameItemsTool.execute(input, defaultOptions); // allowOutsideWorkspace defaults false
-    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
+    const parts = await moveRenameItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<MoveRenameItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('Path validation failed'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Path validation failed');
     expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining // Default dryRun
 
@@ -216,14 +220,16 @@ describe('moveRenameItemsTool', () => {
     mockRename.mockRejectedValue(renameError);
     // stat rejects with ENOENT (default mock) for destination
 
-    const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
+    const parts = await moveRenameItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<MoveRenameItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('ENOENT'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('ENOENT');
     expect(itemResult?.suggestion).toContain('Verify the source path'); // Added optional chaining
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
@@ -240,14 +246,16 @@ describe('moveRenameItemsTool', () => {
     mockMkdir.mockRejectedValue(mkdirError);
     // stat rejects with ENOENT (default mock) for destination
 
-    const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
+    const parts = await moveRenameItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<MoveRenameItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('EACCES'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('EACCES');
     expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
@@ -265,14 +273,16 @@ describe('moveRenameItemsTool', () => {
     const rmError = new Error('EPERM');
     mockRm.mockRejectedValue(rmError); // Mock rm failure
 
-    const parts = await moveRenameItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
+    const parts = await moveRenameItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<MoveRenameItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('EPERM'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('EPERM');
     expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
@@ -290,14 +300,16 @@ describe('moveRenameItemsTool', () => {
     // stat rejects with ENOENT (default mock) for destination
     mockRename.mockResolvedValue(undefined);
 
-    const parts = await moveRenameItemsTool.execute(input, allowOutsideOptions);
-    const results = getJsonResult<MoveRenameItemResult>(parts); // Added type argument
+    const parts = await moveRenameItemsTool.execute({ context: allowOutsideContext, args: input }); // Use new signature and allowOutsideContext
+    const results = getJsonResult<MoveRenameItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining
-    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.error).toBeUndefined();
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockMkdir).toHaveBeenCalledTimes(1);

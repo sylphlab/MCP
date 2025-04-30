@@ -41,8 +41,7 @@ import * as mupdfjs from 'mupdf/mupdfjs';
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
 function getJsonResult<T>(parts: Part[]): T[] | undefined {
-  // console.log('DEBUG: getJsonResult received parts:', JSON.stringify(parts, null, 2)); // Keep commented for now
-  const jsonPart = parts.find((part) => part.type === 'json');
+  const jsonPart = parts.find((part): part is Part & { type: 'json' } => part.type === 'json'); // Type predicate
   // console.log('DEBUG: Found jsonPart:', JSON.stringify(jsonPart, null, 2)); // Keep commented for now
   // Check if jsonPart exists and has a 'value' property (which holds the actual data)
   if (jsonPart && jsonPart.value !== undefined) {
@@ -115,13 +114,16 @@ describe('getTextTool.execute', () => {
   });
 
   it('should read PDF text for a single item batch', async () => {
-    const input: GetTextToolInput = { items: [{ id: 'pdf1', filePath: 'test.pdf' }] };
-    const parts = await getTextTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const args: GetTextToolInput = { items: [{ id: 'pdf1', filePath: 'test.pdf' }] }; // Rename to args
+    // Use new signature
+    const parts = await getTextTool.execute({ context: defaultOptions, args });
+    const results = getJsonResult<GetTextResultItem>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
 
     expect(readFile).toHaveBeenCalledWith(resolvedValidPath);
     expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(
@@ -142,13 +144,15 @@ describe('getTextTool.execute', () => {
   });
 
   it('should handle file read error (ENOENT) for a single item batch', async () => {
-    const input: GetTextToolInput = { items: [{ id: 'pdf2', filePath: 'nonexistent.pdf' }] };
-    const parts = await getTextTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const args: GetTextToolInput = { items: [{ id: 'pdf2', filePath: 'nonexistent.pdf' }] }; // Rename to args
+    const parts = await getTextTool.execute({ context: defaultOptions, args }); // Use new signature
+    const results = getJsonResult<GetTextResultItem>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
 
     expect(readFile).toHaveBeenCalledWith(path.join(WORKSPACE_ROOT, 'nonexistent.pdf'));
     expect(mupdfjs.PDFDocument.openDocument).not.toHaveBeenCalled();
@@ -168,13 +172,15 @@ describe('getTextTool.execute', () => {
       throw openError;
     });
 
-    const input: GetTextToolInput = { items: [{ id: 'pdf3', filePath: 'test.pdf' }] };
-    const parts = await getTextTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const args: GetTextToolInput = { items: [{ id: 'pdf3', filePath: 'test.pdf' }] }; // Rename to args
+    const parts = await getTextTool.execute({ context: defaultOptions, args }); // Use new signature
+    const results = getJsonResult<GetTextResultItem>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
 
     expect(readFile).toHaveBeenCalledWith(resolvedValidPath);
     expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(
@@ -193,13 +199,15 @@ describe('getTextTool.execute', () => {
   });
 
   it('should fail for path outside workspace by default (single item batch)', async () => {
-    const input: GetTextToolInput = { items: [{ id: 'pdf4', filePath: '../outside.pdf' }] };
-    const parts = await getTextTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const args: GetTextToolInput = { items: [{ id: 'pdf4', filePath: '../outside.pdf' }] }; // Rename to args
+    const parts = await getTextTool.execute({ context: defaultOptions, args }); // Use new signature
+    const results = getJsonResult<GetTextResultItem>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
 
     expect(itemResult.success).toBe(false);
     expect(itemResult.id).toBe('pdf4');
@@ -213,13 +221,15 @@ describe('getTextTool.execute', () => {
   });
 
   it('should succeed reading PDF outside workspace when allowed (single item batch)', async () => {
-    const input: GetTextToolInput = { items: [{ id: 'pdf5', filePath: '../outside.pdf' }] };
-    const parts = await getTextTool.execute(input, allowOutsideOptions);
-    const results = getJsonResult(parts);
+    const args: GetTextToolInput = { items: [{ id: 'pdf5', filePath: '../outside.pdf' }] }; // Rename to args
+    const parts = await getTextTool.execute({ context: allowOutsideOptions, args }); // Use new signature
+    const results = getJsonResult<GetTextResultItem>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
 
     expect(readFile).toHaveBeenCalledWith(resolvedOutsidePath);
     expect(mupdfjs.PDFDocument.openDocument).toHaveBeenCalledWith(
@@ -238,7 +248,7 @@ describe('getTextTool.execute', () => {
   });
 
   it('should process a batch of multiple PDF extractions with mixed results', async () => {
-    const input: GetTextToolInput = {
+    const args: GetTextToolInput = { // Rename to args
       items: [
         { id: 'batch_ok', filePath: 'test.pdf' }, // Success
         { id: 'batch_enoent', filePath: 'error.pdf' }, // Fail (ENOENT - mocked for this path)
@@ -260,8 +270,8 @@ describe('getTextTool.execute', () => {
       return mockMuPdfDoc as any;
     });
 
-    const parts = await getTextTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const parts = await getTextTool.execute({ context: defaultOptions, args }); // Use new signature
+    const results = getJsonResult<GetTextResultItem>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(4); // One result object per input item

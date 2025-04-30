@@ -17,8 +17,8 @@ vi.mock('fast-glob', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
-const allowOutsideOptions: ToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
+const mockContext: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Rename to mockContext
+const allowOutsideContext: ToolExecuteOptions = { ...mockContext, allowOutsideWorkspace: true }; // Rename to allowOutsideContext
 
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
@@ -63,10 +63,10 @@ describe('searchContentTool', () => {
     const content = 'Line 1: Hello\nLine 2: hello world\nLine 3: HELLO';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(content);
-    const input = createInput([filePath], 'Hello');
+    const args = createInput([filePath], 'Hello'); // Rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -82,10 +82,10 @@ describe('searchContentTool', () => {
     const content = 'Line 1: Hello\nLine 2: hello world\nLine 3: HELLO';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(content);
-    const input = createInput([filePath], 'hello', { matchCase: false });
+    const args = createInput([filePath], 'hello', { matchCase: false }); // Rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -105,10 +105,10 @@ describe('searchContentTool', () => {
     const content = 'Value: 123\nValue: 456\nIgnore: 789';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(content);
-    const input = createInput([filePath], 'Value: (\\d+)', { isRegex: true });
+    const args = createInput([filePath], 'Value: (\\d+)', { isRegex: true }); // Rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -128,10 +128,10 @@ describe('searchContentTool', () => {
     const content = 'Line 1\nLine 2 - Match\nLine 3\nLine 4';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(content);
-    const input = createInput([filePath], 'Match', { contextLinesBefore: 1, contextLinesAfter: 1 });
+    const args = createInput([filePath], 'Match', { contextLinesBefore: 1, contextLinesAfter: 1 }); // Rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -148,10 +148,10 @@ describe('searchContentTool', () => {
     const content = 'match\nmatch\nmatch';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(content);
-    const input = createInput([filePath], 'match', { maxResultsPerFile: 2 });
+    const args = createInput([filePath], 'match', { maxResultsPerFile: 2 }); // Rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -165,10 +165,10 @@ describe('searchContentTool', () => {
     const content = 'Nothing to see here';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(content);
-    const input = createInput([filePath], 'missing');
+    const args = createInput([filePath], 'missing'); // Rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -181,10 +181,10 @@ describe('searchContentTool', () => {
     const files = ['file1.txt', 'file2.txt'];
     mockGlob.mockResolvedValue(files);
     mockReadFile.mockResolvedValueOnce('Match here').mockResolvedValueOnce('No match');
-    const input = createInput(files, 'Match');
+    const args = createInput(files, 'Match'); // Rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(2);
@@ -199,16 +199,16 @@ describe('searchContentTool', () => {
 
   // Added new test case for empty paths validation
   it('should throw validation error for empty paths array', async () => {
-    const input = { paths: [], query: 'test' }; // Provide query for valid input structure
-    await expect(searchContentTool.execute(input as any, defaultOptions))
-        .rejects.toThrow('Input validation failed: paths: paths array cannot be empty.'); // Corrected Zod message
+    const args = { paths: [], query: 'test' }; // Rename to args
+    await expect(searchContentTool.execute({ context: mockContext, args: args as any })) // Use new signature
+        .rejects.toThrow('Input validation failed: paths: paths array cannot be empty.');
   });
 
   it('should throw glob error', async () => {
     const globError = new Error('Invalid glob pattern');
     mockGlob.mockRejectedValue(globError);
-    const input = createInput(['['], 'test');
-    await expect(searchContentTool.execute(input, defaultOptions))
+    const args = createInput(['['], 'test'); // Rename to args
+    await expect(searchContentTool.execute({ context: mockContext, args })) // Use new signature
         .rejects.toThrow(`Glob pattern error: ${globError.message}`);
   });
 
@@ -217,10 +217,10 @@ describe('searchContentTool', () => {
     mockGlob.mockResolvedValue([filePath]);
     const readError = new Error('Permission denied');
     mockReadFile.mockRejectedValue(readError);
-    const input = createInput([filePath], 'test');
+    const args = createInput([filePath], 'test'); // Rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -234,10 +234,10 @@ describe('searchContentTool', () => {
     const filePath = 'file.txt';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue('content');
-    const input = createInput([filePath], '(', { isRegex: true }); // Invalid regex
+    const args = createInput([filePath], '(', { isRegex: true }); // Invalid regex, rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -253,10 +253,10 @@ describe('searchContentTool', () => {
     const fileContent = 'word1 word2';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(fileContent);
-    const input = createInput([filePath], '\\b', { isRegex: true }); // Word boundaries
+    const args = createInput([filePath], '\\b', { isRegex: true }); // Word boundaries, rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions); // Removed duplicate call
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -274,10 +274,10 @@ describe('searchContentTool', () => {
     eaccesError.code = 'EACCES';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockRejectedValue(eaccesError);
-    const input = createInput([filePath], 'test');
+    const args = createInput([filePath], 'test'); // Rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -290,10 +290,10 @@ describe('searchContentTool', () => {
   it('should handle path validation failure for matched file', async () => {
     const filePath = '../outside.txt';
     mockGlob.mockResolvedValue([filePath]);
-    const input = createInput([filePath], 'a');
+    const args = createInput([filePath], 'a'); // Rename to args
 
-    const parts = await searchContentTool.execute(input, defaultOptions); // allowOutsideWorkspace: false
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: mockContext, args }); // Use new signature, context has allowOutsideWorkspace: false
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
@@ -309,10 +309,10 @@ describe('searchContentTool', () => {
     const content = 'Match outside';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(content);
-    const input = createInput([filePath], 'outside');
+    const args = createInput([filePath], 'outside'); // Rename to args
 
-    const parts = await searchContentTool.execute(input, allowOutsideOptions);
-    const results = getJsonResult<FileSearchResult>(parts); // Added type argument
+    const parts = await searchContentTool.execute({ context: allowOutsideContext, args }); // Use new signature and allowOutsideContext
+    const results = getJsonResult<FileSearchResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);

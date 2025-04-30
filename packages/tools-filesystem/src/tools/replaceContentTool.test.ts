@@ -9,6 +9,7 @@ import {
   replaceContentTool,
 } from './replaceContentTool.js';
 import type { FileReplaceResult } from './replaceContentTool.js'; // Import correct result type
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
 
 // Mock the specific fs/promises functions we need
 vi.mock('node:fs/promises', () => ({
@@ -22,13 +23,13 @@ vi.mock('fast-glob', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
-const allowOutsideOptions: ToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
+const mockContext: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Rename to mockContext
+const allowOutsideContext: ToolExecuteOptions = { ...mockContext, allowOutsideWorkspace: true }; // Rename to allowOutsideContext
 
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
 function getJsonResult<T>(parts: Part[]): T[] | undefined {
-  const jsonPart = parts.find(part => part.type === 'json');
+  const jsonPart = parts.find((part): part is Part & { type: 'json' } => part.type === 'json'); // Type predicate
   if (jsonPart && jsonPart.value !== undefined) {
     try {
       return jsonPart.value as T[];
@@ -42,7 +43,6 @@ function getJsonResult<T>(parts: Part[]): T[] | undefined {
 // Helper to extract Text summary from parts
 function getTextSummary(parts: Part[]): string | undefined {
     const textPart = parts.find(part => part.type === 'text');
-    // Corrected property access from 'content' to 'value'
     return textPart?.value as string | undefined;
 }
 
@@ -72,22 +72,23 @@ describe('replaceContentTool', () => {
     const expectedContent = 'hi world, hi';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(initialContent);
-    // Added missing isRegex property
-    const input = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }], false); // dryRun: false
+    const args = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }], false); // dryRun: false, Rename to args
 
-    const parts = await replaceContentTool.execute(input, defaultOptions);
+    const parts = await replaceContentTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult<FileReplaceResult>(parts);
     const summary = getTextSummary(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true);
-    expect(itemResult?.path).toBe(filePath);
-    expect(itemResult?.replacementsMade).toBe(2);
-    expect(itemResult?.contentChanged).toBe(true);
-    expect(itemResult?.dryRun).toBe(false);
-    expect(itemResult?.error).toBeUndefined();
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.path).toBe(filePath);
+    expect(itemResult.replacementsMade).toBe(2);
+    expect(itemResult.contentChanged).toBe(true);
+    expect(itemResult.dryRun).toBe(false);
+    expect(itemResult.error).toBeUndefined();
 
     expect(summary).toContain('1 matched file(s)');
     expect(summary).toContain('1 processed successfully');
@@ -106,22 +107,24 @@ describe('replaceContentTool', () => {
     const expectedContent = 'L1\nL2';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(initialContent);
-    const input = createInput(
+    const args = createInput( // Rename to args
       [filePath],
       [{ search: 'line (\\d)', replace: 'L$1', isRegex: true, flags: 'g' }],
       false // dryRun: false
     );
 
-    const parts = await replaceContentTool.execute(input, defaultOptions);
+    const parts = await replaceContentTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult<FileReplaceResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true);
-    expect(itemResult?.replacementsMade).toBe(2); // Regex matches twice
-    expect(itemResult?.contentChanged).toBe(true);
-    expect(itemResult?.dryRun).toBe(false);
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.replacementsMade).toBe(2); // Regex matches twice
+    expect(itemResult.contentChanged).toBe(true);
+    expect(itemResult.dryRun).toBe(false);
 
     expect(mockWriteFile).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, filePath),
@@ -133,12 +136,11 @@ describe('replaceContentTool', () => {
     const files = ['file1.txt', 'sub/file2.txt'];
     mockGlob.mockResolvedValue(files);
     mockReadFile.mockResolvedValueOnce('content A').mockResolvedValueOnce('content B');
-    // Added missing isRegex property
-    const input = createInput(['**/*.txt'], [{ search: 'content', replace: 'CONTENT', isRegex: false }], false);
+    const args = createInput(['**/*.txt'], [{ search: 'content', replace: 'CONTENT', isRegex: false }], false); // Rename to args
     const expectedContent1 = 'CONTENT A';
     const expectedContent2 = 'CONTENT B';
 
-    const parts = await replaceContentTool.execute(input, defaultOptions);
+    const parts = await replaceContentTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult<FileReplaceResult>(parts);
     const summary = getTextSummary(parts);
 
@@ -166,20 +168,21 @@ describe('replaceContentTool', () => {
     const initialContent = 'no matches here';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(initialContent);
-    // Added missing isRegex property
-    const input = createInput([filePath], [{ search: 'missing', replace: 'found', isRegex: false }], false);
+    const args = createInput([filePath], [{ search: 'missing', replace: 'found', isRegex: false }], false); // Rename to args
 
-    const parts = await replaceContentTool.execute(input, defaultOptions);
+    const parts = await replaceContentTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult<FileReplaceResult>(parts);
     const summary = getTextSummary(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1); // Implementation pushes result even if no change
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true);
-    expect(itemResult?.replacementsMade).toBe(0);
-    expect(itemResult?.contentChanged).toBe(false);
-    expect(itemResult?.dryRun).toBe(false);
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.replacementsMade).toBe(0);
+    expect(itemResult.contentChanged).toBe(false);
+    expect(itemResult.dryRun).toBe(false);
 
     expect(summary).toContain('1 matched file(s)');
     expect(summary).toContain('1 processed successfully');
@@ -193,22 +196,24 @@ describe('replaceContentTool', () => {
     const initialContent = 'hello world';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(initialContent);
-    // Added missing isRegex property
-    const input = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }], true); // dryRun: true
+    const args = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }], true); // dryRun: true, Rename to args
 
-    const parts = await replaceContentTool.execute(input, defaultOptions);
+    const parts = await replaceContentTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult<FileReplaceResult>(parts);
     const summary = getTextSummary(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Dry run simulation is success
-    expect(itemResult?.path).toBe(filePath);
-    expect(itemResult?.replacementsMade).toBe(1); // Reports changes that *would* be made
-    expect(itemResult?.contentChanged).toBe(true); // Reports content *would* change
-    expect(itemResult?.dryRun).toBe(true);
-    expect(itemResult?.error).toBeUndefined();
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+
+    expect(itemResult.success).toBe(true); // Dry run simulation is success
+    expect(itemResult.path).toBe(filePath);
+    expect(itemResult.replacementsMade).toBe(1); // Reports changes that *would* be made
+    expect(itemResult.contentChanged).toBe(true); // Reports content *would* change
+    expect(itemResult.dryRun).toBe(true);
+    expect(itemResult.error).toBeUndefined();
 
     expect(summary).toContain('1 matched file(s)');
     expect(summary).toContain('1 processed successfully');
@@ -220,10 +225,9 @@ describe('replaceContentTool', () => {
 
   it('should return success with empty results if no files match glob', async () => {
     mockGlob.mockResolvedValue([]); // No files matched
-    // Added missing isRegex property
-    const input = createInput(['*.nomatch'], [{ search: 'a', replace: 'b', isRegex: false }]);
+    const args = createInput(['*.nomatch'], [{ search: 'a', replace: 'b', isRegex: false }]); // Rename to args
 
-    const parts = await replaceContentTool.execute(input, defaultOptions);
+    const parts = await replaceContentTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult<FileReplaceResult>(parts);
     const summary = getTextSummary(parts);
 
@@ -236,19 +240,17 @@ describe('replaceContentTool', () => {
   });
 
   it('should throw validation error for invalid input (empty operations)', async () => {
-    const input = { paths: ['*.txt'], operations: [] };
-    await expect(replaceContentTool.execute(input as any, defaultOptions))
-        .rejects.toThrow('Input validation failed: operations: operations array cannot be empty.'); // Corrected Zod message
+    const args = { paths: ['*.txt'], operations: [] }; // Rename to args
+    await expect(replaceContentTool.execute({ context: mockContext, args: args as any })) // Use new signature
+        .rejects.toThrow('Input validation failed: operations: operations array cannot be empty.');
     expect(mockGlob).not.toHaveBeenCalled();
   });
 
   it('should throw glob error', async () => {
     const globError = new Error('Invalid glob pattern');
     mockGlob.mockRejectedValue(globError);
-    // Added missing isRegex property
-    const input = createInput(['[invalid'], [{ search: 'a', replace: 'b', isRegex: false }]);
-
-    await expect(replaceContentTool.execute(input, defaultOptions))
+    const args = createInput(['[invalid'], [{ search: 'a', replace: 'b', isRegex: false }]); // Rename to args
+    await expect(replaceContentTool.execute({ context: mockContext, args })) // Use new signature
         .rejects.toThrow(`Glob pattern error: ${globError.message}`);
   });
 
@@ -257,18 +259,19 @@ describe('replaceContentTool', () => {
     mockGlob.mockResolvedValue([filePath]);
     const readError = new Error('Permission denied');
     mockReadFile.mockRejectedValue(readError);
-    // Added missing isRegex property
-    const input = createInput([filePath], [{ search: 'a', replace: 'b', isRegex: false }]);
+    const args = createInput([filePath], [{ search: 'a', replace: 'b', isRegex: false }]); // Rename to args
 
-    const parts = await replaceContentTool.execute(input, defaultOptions);
+    const parts = await replaceContentTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult<FileReplaceResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false);
-    expect(itemResult?.error).toContain('Permission denied');
-    expect(itemResult?.suggestion).toEqual(expect.any(String));
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Permission denied');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
@@ -279,18 +282,19 @@ describe('replaceContentTool', () => {
     mockReadFile.mockResolvedValue(initialContent);
     const writeError = new Error('Disk full');
     mockWriteFile.mockRejectedValue(writeError);
-    // Added missing isRegex property
-    const input = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }], false);
+    const args = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }], false); // Rename to args
 
-    const parts = await replaceContentTool.execute(input, defaultOptions);
+    const parts = await replaceContentTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult<FileReplaceResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false);
-    expect(itemResult?.error).toContain('Disk full');
-    expect(itemResult?.suggestion).toEqual(expect.any(String));
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Disk full');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
     expect(mockWriteFile).toHaveBeenCalledTimes(1); // Write was attempted
   });
 
@@ -298,35 +302,38 @@ describe('replaceContentTool', () => {
     const filePath = 'file.txt';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue('content');
-    const input = createInput([filePath], [{ search: '(', replace: 'fail', isRegex: true }]); // Invalid regex
+    const args = createInput([filePath], [{ search: '(', replace: 'fail', isRegex: true }]); // Invalid regex, rename to args
 
-    const parts = await replaceContentTool.execute(input, defaultOptions);
+    const parts = await replaceContentTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult<FileReplaceResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false);
-    expect(itemResult?.error).toContain('Invalid regex');
-    expect(itemResult?.suggestion).toEqual(expect.any(String));
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Invalid regex');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
   it('should handle path validation failure for matched file', async () => {
     const filePath = '../outside.txt';
     mockGlob.mockResolvedValue([filePath]);
-    // Added missing isRegex property
-    const input = createInput([filePath], [{ search: 'a', replace: 'b', isRegex: false }]);
+    const args = createInput([filePath], [{ search: 'a', replace: 'b', isRegex: false }]); // Rename to args
 
-    const parts = await replaceContentTool.execute(input, defaultOptions); // allowOutsideWorkspace: false
+    const parts = await replaceContentTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult<FileReplaceResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false);
-    expect(itemResult?.error).toContain('Path validation failed');
-    expect(itemResult?.suggestion).toEqual(expect.any(String));
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Path validation failed');
+    expect(itemResult.suggestion).toEqual(expect.any(String));
     expect(mockReadFile).not.toHaveBeenCalled();
     expect(mockWriteFile).not.toHaveBeenCalled();
   });
@@ -337,17 +344,18 @@ describe('replaceContentTool', () => {
     const expectedContent = 'hi outside';
     mockGlob.mockResolvedValue([filePath]);
     mockReadFile.mockResolvedValue(initialContent);
-    // Added missing isRegex property
-    const input = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }], false);
+    const args = createInput([filePath], [{ search: 'hello', replace: 'hi', isRegex: false }], false); // Rename to args
 
-    const parts = await replaceContentTool.execute(input, allowOutsideOptions);
+    const parts = await replaceContentTool.execute({ context: allowOutsideContext, args }); // Use new signature and allowOutsideContext
     const results = getJsonResult<FileReplaceResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true);
-    expect(itemResult?.error).toBeUndefined();
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.error).toBeUndefined();
     expect(mockReadFile).toHaveBeenCalledTimes(1);
     expect(mockReadFile).toHaveBeenCalledWith(path.resolve(WORKSPACE_ROOT, filePath), 'utf-8');
     expect(mockWriteFile).toHaveBeenCalledTimes(1);

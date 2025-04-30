@@ -5,7 +5,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'; // Import type
 // Import the actual functions to test
 import { registerTools, startMcpServer, type McpServerOptions } from './index.js';
-import type { Tool as SylphTool, ToolExecuteOptions, TextPart, JsonPart, ImagePart, AudioPart, FileRefPart } from '@sylphlab/tools-core';
+// Import ToolDefinition instead of Tool, and BaseContextSchema as a value
+import { BaseContextSchema, type ToolDefinition, type ToolExecuteOptions, type TextPart, type JsonPart, type ImagePart, type AudioPart, type FileRefPart } from '@sylphlab/tools-core';
 
 // --- Mocking Setup ---
 const mockMcpToolMethod = vi.fn();
@@ -37,13 +38,14 @@ vi.mock('@modelcontextprotocol/sdk/server/stdio.js', async (importOriginal) => {
 // --- End Mocking Setup ---
 
 
-// Helper to create mock Sylph tools (Unchanged)
+// Helper to create mock Sylph tools
 const createMockTool = (
     name: string,
     description: string,
     inputSchema: z.ZodTypeAny,
-    executeResult: TextPart | JsonPart | ImagePart | AudioPart | FileRefPart | Error
-): SylphTool<z.ZodTypeAny> => {
+    executeResult: TextPart | JsonPart | ImagePart | AudioPart | FileRefPart | Error,
+    contextSchema: z.ZodTypeAny = BaseContextSchema // Add contextSchema, default to Base
+): ToolDefinition<z.ZodTypeAny, z.ZodTypeAny> => { // Use ToolDefinition
     const executeMock = vi.fn().mockImplementation(async () => {
         if (executeResult instanceof Error) {
             throw executeResult;
@@ -57,15 +59,15 @@ const createMockTool = (
         }
         return [executeResult];
     });
-    return { name, description, inputSchema, execute: executeMock };
+    // Return ToolDefinition structure
+    return { name, description, inputSchema, contextSchema, execute: executeMock };
 };
 
 
 describe('tools-adaptor-mcp', () => {
-    // Remove mockServerInstance from here, it's created implicitly by the mock in registerTools tests
     const mockToolExecuteOptions: ToolExecuteOptions = { workspaceRoot: '/mock/workspace' };
 
-    // Define mock tools (Unchanged)
+    // Define mock tools using ToolDefinition
     const mockTextTool = createMockTool('textTool', 'desc1', z.object({ p1: z.string() }), { type: 'text', value: 'result1' });
     const mockJsonTool = createMockTool('jsonTool', 'desc2', z.object({ p2: z.number() }), { type: 'json', value: { data: 'result2' }, schema: z.any() });
     const mockImageTool = createMockTool('imageTool', 'desc3', z.object({ p3: z.boolean() }), { type: 'image', mimeType: 'image/png', data: 'base64data' });
@@ -77,8 +79,9 @@ describe('tools-adaptor-mcp', () => {
         name: 'nonErrorTool',
         description: 'Throws non-error',
         inputSchema: z.object({}),
+        contextSchema: BaseContextSchema, // Add context schema
         execute: vi.fn().mockImplementation(async () => { throw 'Something bad happened'; }),
-    } as unknown as SylphTool;
+    } as unknown as ToolDefinition; // Use ToolDefinition
 
     const allMockTools = [ mockTextTool, mockJsonTool, mockImageTool, mockAudioTool, mockFileRefTool, mockErrorTool, mockPrimitiveSchemaTool, mockNonErrorThrowTool ];
 
@@ -104,7 +107,7 @@ describe('tools-adaptor-mcp', () => {
             allMockTools.forEach((tool, index) => {
                 // Match the implementation: wrap primitive schemas
                 const isObjectSchema = 'shape' in tool.inputSchema;
-                const expectedSchemaShape = isObjectSchema ? (tool.inputSchema as z.ZodObject<z.ZodRawShape>).shape : { value: tool.inputSchema };
+                const expectedSchemaShape = isObjectSchema ? (tool.inputSchema as z.ZodObject<any>).shape : { value: tool.inputSchema };
                 expect(mockMcpToolMethod).toHaveBeenNthCalledWith(
                     index + 1,
                     tool.name,
@@ -130,7 +133,8 @@ describe('tools-adaptor-mcp', () => {
             const toolCallback = (mockMcpToolMethod as Mock).mock.calls[0][3];
             const args = { p1: 'test' };
             await toolCallback(args);
-            expect(mockTextTool.execute).toHaveBeenCalledWith(args, mockToolExecuteOptions);
+            // Expect execute to be called with { context, args }
+            expect(mockTextTool.execute).toHaveBeenCalledWith({ context: mockToolExecuteOptions, args });
         });
 
         // --- Mapping tests remain the same ---
@@ -174,7 +178,8 @@ describe('tools-adaptor-mcp', () => {
             const callback = (mockMcpToolMethod as Mock).mock.calls[0][3];
             const result = await callback({});
             expect(result).toEqual({ content: [{ type: 'text', text: 'Error: Tool execution failed' }], isError: true });
-            expect(mockErrorTool.execute).toHaveBeenCalledWith({}, mockToolExecuteOptions);
+            // Expect execute to be called with { context, args }
+            expect(mockErrorTool.execute).toHaveBeenCalledWith({ context: mockToolExecuteOptions, args: {} });
         });
 
          it('should handle non-Error throws from tool execution', async () => {
@@ -182,7 +187,8 @@ describe('tools-adaptor-mcp', () => {
             const callback = (mockMcpToolMethod as Mock).mock.calls[0][3];
             const result = await callback({});
             expect(result).toEqual({ content: [{ type: 'text', text: 'Error: Something bad happened' }], isError: true });
-            expect(mockNonErrorThrowTool.execute).toHaveBeenCalledWith({}, mockToolExecuteOptions);
+            // Expect execute to be called with { context, args }
+            expect(mockNonErrorThrowTool.execute).toHaveBeenCalledWith({ context: mockToolExecuteOptions, args: {} });
         });
     });
 

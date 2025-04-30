@@ -29,13 +29,20 @@ import path from 'node:path';
 describe('Core Utilities', () => {
   // Test defineTool
   describe('defineTool', () => {
-    const testSchema = z.object({ name: z.string() });
+    const testInputSchema = z.object({ name: z.string() });
+    const testContextSchema = z.object({ // Define a simple context schema for the test
+      workspaceRoot: z.string(),
+      testValue: z.number().optional(),
+    });
+    type TestContext = z.infer<typeof testContextSchema>; // Infer context type
+
     const testTool = defineTool({
       name: 'testTool',
       description: 'A simple test tool',
-      inputSchema: testSchema,
-      execute: async (input: { name: string }) => {
-        return [textPart(`Hello, ${input.name}!`)];
+      inputSchema: testInputSchema,
+      contextSchema: testContextSchema, // Provide the context schema
+      execute: async ({ context, args }: { context: TestContext; args: { name: string } }) => { // Use new signature
+        return [textPart(`Hello, ${args.name}! Context: ${context.workspaceRoot}, ${context.testValue ?? 'N/A'}`)];
       },
     });
 
@@ -43,14 +50,22 @@ describe('Core Utilities', () => {
       expect(testTool).toBeDefined();
       expect(testTool.name).toBe('testTool');
       expect(testTool.description).toBe('A simple test tool');
-      expect(testTool.inputSchema).toBe(testSchema);
+      expect(testTool.inputSchema).toBe(testInputSchema);
+      expect(testTool.contextSchema).toBe(testContextSchema); // Check context schema
       expect(typeof testTool.execute).toBe('function');
     });
 
     it('should execute the tool function correctly', async () => {
-      const mockOptions: ToolExecuteOptions = { workspaceRoot: '/test' }; // Mock options
-      const result = await testTool.execute({ name: 'World' }, mockOptions); // Pass options
-      expect(result).toEqual([textPart('Hello, World!')]);
+      const mockContext: TestContext = { workspaceRoot: '/test', testValue: 123 }; // Mock context matching schema
+      // Call execute with the new { context, args } structure
+      const result = await testTool.execute({ context: mockContext, args: { name: 'World' } });
+      expect(result).toEqual([textPart('Hello, World! Context: /test, 123')]);
+    });
+
+     it('should execute correctly even if optional context is missing', async () => {
+        const mockContextMinimal: TestContext = { workspaceRoot: '/another' }; // Minimal context
+        const result = await testTool.execute({ context: mockContextMinimal, args: { name: 'Again' } });
+        expect(result).toEqual([textPart('Hello, Again! Context: /another, N/A')]);
     });
   });
 

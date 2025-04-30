@@ -14,8 +14,8 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
-const allowOutsideOptions: ToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
+const mockContext: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Rename to mockContext
+const allowOutsideContext: ToolExecuteOptions = { ...mockContext, allowOutsideWorkspace: true }; // Rename to allowOutsideContext
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
 function getJsonResult<T>(parts: Part[]): T[] | undefined {
@@ -61,14 +61,16 @@ describe('copyItemsTool', () => {
     };
     // mockStat rejects with ENOENT by default for destination check
 
-    const parts = await copyItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<CopyItemResult>(parts); // Added type argument
+    const parts = await copyItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<CopyItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining
-    expect(itemResult?.sourcePath).toBe('source.txt'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.sourcePath).toBe('source.txt');
     expect(itemResult?.destinationPath).toBe('dest/target.txt'); // Added optional chaining
     expect(itemResult?.message).toContain('Copied'); // Added optional chaining
     expect(itemResult?.error).toBeUndefined(); // Added optional chaining
@@ -91,14 +93,16 @@ describe('copyItemsTool', () => {
     // Mock stat to resolve for destination, indicating it exists
     mockStat.mockResolvedValue(createMockStats(true));
 
-    const parts = await copyItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<CopyItemResult>(parts); // Added type argument
+    const parts = await copyItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<CopyItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('Destination path \'existing.txt\' already exists and overwrite is false.'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Destination path \'existing.txt\' already exists and overwrite is false.');
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
     expect(mockStat).toHaveBeenCalledTimes(1); // Only stat destination
     expect(mockCp).not.toHaveBeenCalled();
@@ -113,14 +117,16 @@ describe('copyItemsTool', () => {
     mockStat.mockResolvedValue(createMockStats(true));
     mockCp.mockResolvedValue(undefined); // Ensure cp succeeds
 
-    const parts = await copyItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<CopyItemResult>(parts); // Added type argument
+    const parts = await copyItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<CopyItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.message).toContain('[Dry Run]'); // Added optional chaining
-    expect(itemResult?.message).toContain('Would copy'); // Corrected expectation for dry run message
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.message).toContain('[Dry Run]');
+    expect(itemResult.message).toContain('Would copy');
     expect(itemResult?.message).toContain('(overwriting existing)'); // Added optional chaining
     expect(itemResult?.error).toBeUndefined(); // Added optional chaining
     expect(itemResult?.dryRun).toBe(true); // Added optional chaining // dryRun defaults to true when overwrite is true
@@ -137,14 +143,16 @@ describe('copyItemsTool', () => {
     };
     // Destination doesn't exist (default stat mock)
 
-    const parts = await copyItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<CopyItemResult>(parts); // Added type argument
+    const parts = await copyItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<CopyItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining // Dry run simulation is success
-    expect(itemResult?.message).toContain('[Dry Run]'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true); // Dry run simulation is success
+    expect(itemResult.message).toContain('[Dry Run]');
     expect(itemResult?.dryRun).toBe(true); // Added optional chaining
     expect(itemResult?.error).toBeUndefined(); // Added optional chaining
 
@@ -161,14 +169,16 @@ describe('copyItemsTool', () => {
      // Destination exists
     mockStat.mockResolvedValue(createMockStats(true));
 
-    const parts = await copyItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<CopyItemResult>(parts); // Added type argument
+    const parts = await copyItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<CopyItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining // Dry run simulation is success
-    expect(itemResult?.message).toContain('[Dry Run]'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true); // Dry run simulation is success
+    expect(itemResult.message).toContain('[Dry Run]');
     expect(itemResult?.message).toContain('(overwriting existing)'); // Added optional chaining
     expect(itemResult?.dryRun).toBe(true); // Added optional chaining
     expect(itemResult?.error).toBeUndefined(); // Added optional chaining
@@ -179,17 +189,17 @@ describe('copyItemsTool', () => {
 
 
   it('should fail if input items array is empty', async () => {
-    const _input = { items: [] };
+    const args = { items: [] }; // Rename to args
     // Expect execute to throw due to Zod validation
-    await expect(copyItemsTool.execute(_input as any, defaultOptions))
-        .rejects.toThrow('Input validation failed: items: At least one copy item is required.'); // Corrected Zod message
+    await expect(copyItemsTool.execute({ context: mockContext, args: args as any })) // Use new signature
+        .rejects.toThrow('Input validation failed: items: At least one copy item is required.');
     expect(mockCp).not.toHaveBeenCalled();
   });
 
   it('should fail if an item has missing sourcePath', async () => {
-    const _input = { items: [{ destinationPath: 'dest.txt' }] };
-    await expect(copyItemsTool.execute(_input as any, defaultOptions))
-        .rejects.toThrow('Input validation failed: items: Required'); // Corrected Zod message
+    const args = { items: [{ destinationPath: 'dest.txt' }] }; // Rename to args
+    await expect(copyItemsTool.execute({ context: mockContext, args: args as any })) // Use new signature
+        .rejects.toThrow('Input validation failed: items: Required');
     expect(mockCp).not.toHaveBeenCalled();
   });
 
@@ -205,14 +215,16 @@ describe('copyItemsTool', () => {
     // Mock cp to fail with ENOENT
     mockCp.mockRejectedValue(enoentError);
 
-    const parts = await copyItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<CopyItemResult>(parts); // Added type argument
+    const parts = await copyItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<CopyItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('Source path does not exist'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Source path does not exist');
     expect(itemResult?.suggestion).toContain('Verify the source path'); // Added optional chaining
     expect(mockCp).toHaveBeenCalledTimes(1);
   });
@@ -229,14 +241,16 @@ describe('copyItemsTool', () => {
     // Mock stat to fail for destination (doesn't exist)
     mockStat.mockRejectedValue({ code: 'ENOENT' });
 
-    const parts = await copyItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<CopyItemResult>(parts); // Added type argument
+    const parts = await copyItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<CopyItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('Something went wrong'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Something went wrong');
     expect(itemResult?.suggestion).toContain('Check file paths, permissions'); // Added optional chaining
     expect(mockCp).toHaveBeenCalledTimes(1);
   });
@@ -247,14 +261,16 @@ describe('copyItemsTool', () => {
       overwrite: false, // Added missing property
     };
 
-    const parts = await copyItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<CopyItemResult>(parts); // Added type argument
+    const parts = await copyItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<CopyItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('Path validation failed'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Path validation failed');
     expect(itemResult?.error).toContain('Path must resolve within'); // Corrected path validation message check
     expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
     expect(mockCp).not.toHaveBeenCalled();
@@ -268,14 +284,16 @@ describe('copyItemsTool', () => {
      // Mock stat for source to succeed (needed before dest validation)
      mockStat.mockResolvedValueOnce(createMockStats(true)); // For source check if any
 
-    const parts = await copyItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<CopyItemResult>(parts); // Added type argument
+    const parts = await copyItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<CopyItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('Path validation failed'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Path validation failed');
     expect(itemResult?.error).toContain('Path must resolve within'); // Corrected path validation message check
     expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
     expect(mockCp).not.toHaveBeenCalled();
@@ -291,14 +309,16 @@ describe('copyItemsTool', () => {
     // Mock stat to fail for destination (doesn't exist)
     mockStat.mockRejectedValue({ code: 'ENOENT' });
 
-    const parts = await copyItemsTool.execute(input, allowOutsideOptions); // Use allowOutsideOptions
-    const results = getJsonResult<CopyItemResult>(parts); // Added type argument
+    const parts = await copyItemsTool.execute({ context: allowOutsideContext, args: input }); // Use new signature and allowOutsideContext
+    const results = getJsonResult<CopyItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining
-    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.error).toBeUndefined();
     expect(mockCp).toHaveBeenCalledTimes(1);
     expect(mockCp).toHaveBeenCalledWith(
       path.resolve(WORKSPACE_ROOT, '../outside.txt'), // Correct resolved path

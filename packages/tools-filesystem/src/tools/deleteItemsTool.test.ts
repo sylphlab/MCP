@@ -19,7 +19,7 @@ vi.mock('trash', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Ensure this is defined correctly
+const mockContext: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Rename to mockContext
 
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
@@ -60,15 +60,17 @@ describe('deleteItemsTool', () => {
 
   it('should successfully delete a single item using trash (default)', async () => {
     // Input type requires recursive and useTrash, providing defaults
-    const input: DeleteItemsToolInput = { paths: ['file_to_trash.txt'], recursive: true, useTrash: true }; // useTrash defaults to true conceptually, but type requires it
-    const parts = await deleteItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<DeleteItemResult>(parts); // Added type argument
+    const args: DeleteItemsToolInput = { paths: ['file_to_trash.txt'], recursive: true, useTrash: true }; // Rename to args
+    const parts = await deleteItemsTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<DeleteItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining
-    expect(itemResult?.path).toBe('file_to_trash.txt'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.path).toBe('file_to_trash.txt');
     expect(itemResult?.message).toContain('Would move'); // Corrected dry run message check
     expect(itemResult?.error).toBeUndefined(); // Added optional chaining
     expect(itemResult?.dryRun).toBe(true); // Added optional chaining // dryRun defaults to true
@@ -80,15 +82,17 @@ describe('deleteItemsTool', () => {
 
   it('should successfully delete a single item using trash (not dry run)', async () => {
     // Added missing recursive property
-    const input: DeleteItemsToolInput = { paths: ['file_to_trash.txt'], useTrash: true, dryRun: false, recursive: true };
-    const parts = await deleteItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<DeleteItemResult>(parts); // Added type argument
+    const args: DeleteItemsToolInput = { paths: ['file_to_trash.txt'], useTrash: true, dryRun: false, recursive: true }; // Rename to args
+    const parts = await deleteItemsTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<DeleteItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining
-    expect(itemResult?.path).toBe('file_to_trash.txt'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.path).toBe('file_to_trash.txt');
     expect(itemResult?.message).toContain('moved to trash successfully'); // Added optional chaining
     expect(itemResult?.error).toBeUndefined(); // Added optional chaining
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
@@ -107,8 +111,8 @@ describe('deleteItemsTool', () => {
       recursive: true,
       dryRun: false, // Explicitly not dry run
     };
-    const parts = await deleteItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<DeleteItemResult>(parts); // Added type argument
+    const parts = await deleteItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<DeleteItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(2);
@@ -138,14 +142,16 @@ describe('deleteItemsTool', () => {
      // Mock stat to resolve (file exists) for clearer dry run message
      // mockStat.mockResolvedValue({} as any); // Already default in beforeEach
 
-    const parts = await deleteItemsTool.execute(input, defaultOptions); // Restored correct syntax
-    const results = getJsonResult<DeleteItemResult>(parts); // Added type argument
+    const parts = await deleteItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<DeleteItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining // Dry run is success
-    expect(itemResult?.message).toContain('[Dry Run] Would delete'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true); // Dry run is success
+    expect(itemResult.message).toContain('[Dry Run] Would delete');
     expect(itemResult?.dryRun).toBe(true); // Added optional chaining
     expect(itemResult?.error).toBeUndefined(); // Added optional chaining
 
@@ -155,24 +161,26 @@ describe('deleteItemsTool', () => {
   }); // Restored closing bracket
 
   it('should throw validation error for empty paths array', async () => {
-    const input = { paths: [] };
-    await expect(deleteItemsTool.execute(input as any, defaultOptions))
-        .rejects.toThrow('Input validation failed: paths: paths array cannot be empty.'); // Corrected Zod message
+    const args = { paths: [] }; // Rename to args
+    await expect(deleteItemsTool.execute({ context: mockContext, args: args as any })) // Use new signature
+        .rejects.toThrow('Input validation failed: paths: paths array cannot be empty.');
     expect(mockTrash).not.toHaveBeenCalled();
     expect(mockRm).not.toHaveBeenCalled();
   });
 
   it('should handle path validation failure (outside workspace)', async () => {
     // Added missing properties
-    const input: DeleteItemsToolInput = { paths: ['../outside.txt'], recursive: true, useTrash: true };
-    const parts = await deleteItemsTool.execute(input, { ...defaultOptions, allowOutsideWorkspace: false });
-    const results = getJsonResult<DeleteItemResult>(parts); // Added type argument
+    const args: DeleteItemsToolInput = { paths: ['../outside.txt'], recursive: true, useTrash: true }; // Rename to args
+    const parts = await deleteItemsTool.execute({ context: { ...mockContext, allowOutsideWorkspace: false }, args }); // Use new signature
+    const results = getJsonResult<DeleteItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('Path validation failed'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Path validation failed');
     expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
     expect(itemResult?.dryRun).toBe(true); // Added optional chaining // Default dryRun
 
@@ -188,14 +196,16 @@ describe('deleteItemsTool', () => {
     // Mock stat needed for trash execution path
     mockStat.mockResolvedValue({} as any);
 
-    const parts = await deleteItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<DeleteItemResult>(parts); // Added type argument
+    const parts = await deleteItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<DeleteItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('Failed to trash'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Failed to trash');
     expect(itemResult?.error).toContain('Trash failed'); // Added optional chaining
     expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
@@ -210,14 +220,16 @@ describe('deleteItemsTool', () => {
     const testError = new Error('rm failed');
     mockRm.mockRejectedValue(testError);
 
-    const parts = await deleteItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult<DeleteItemResult>(parts); // Added type argument
+    const parts = await deleteItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<DeleteItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(false); // Added optional chaining
-    expect(itemResult?.error).toContain('Failed to delete permanently'); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(false);
+    expect(itemResult.error).toContain('Failed to delete permanently');
     expect(itemResult?.error).toContain('rm failed'); // Added optional chaining
     expect(itemResult?.suggestion).toEqual(expect.any(String)); // Added optional chaining
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
@@ -233,14 +245,16 @@ describe('deleteItemsTool', () => {
     // Mock stat to resolve for existence check
     mockStat.mockResolvedValue({} as any);
 
-    const parts = await deleteItemsTool.execute(input, { ...defaultOptions, allowOutsideWorkspace: true });
-    const results = getJsonResult<DeleteItemResult>(parts); // Added type argument
+    const parts = await deleteItemsTool.execute({ context: { ...mockContext, allowOutsideWorkspace: true }, args: input }); // Use new signature
+    const results = getJsonResult<DeleteItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining
-    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.error).toBeUndefined();
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockTrash).toHaveBeenCalledTimes(1);
@@ -253,14 +267,16 @@ describe('deleteItemsTool', () => {
     const input: DeleteItemsToolInput = { paths: ['../outside.txt'], useTrash: false, dryRun: false, recursive: true };
     mockRm.mockResolvedValue(undefined);
 
-    const parts = await deleteItemsTool.execute(input, { ...defaultOptions, allowOutsideWorkspace: true });
-    const results = getJsonResult<DeleteItemResult>(parts); // Added type argument
+    const parts = await deleteItemsTool.execute({ context: { ...mockContext, allowOutsideWorkspace: true }, args: input }); // Use new signature
+    const results = getJsonResult<DeleteItemResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
-    expect(itemResult?.success).toBe(true); // Added optional chaining
-    expect(itemResult?.error).toBeUndefined(); // Added optional chaining
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
+    expect(itemResult.success).toBe(true);
+    expect(itemResult.error).toBeUndefined();
     expect(itemResult?.dryRun).toBe(false); // Added optional chaining
 
     expect(mockRm).toHaveBeenCalledTimes(1);

@@ -12,9 +12,9 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
-const allowOutsideOptions: ToolExecuteOptions = {
-  ...defaultOptions,
+const mockContext: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Rename to mockContext
+const allowOutsideContext: ToolExecuteOptions = { // Rename to allowOutsideContext
+  ...mockContext,
   allowOutsideWorkspace: true,
 };
 // Helper to extract JSON result from parts
@@ -60,12 +60,14 @@ describe('statItemsTool', () => {
     const mockStatsData = createMockStats(true);
     mockStat.mockResolvedValue(mockStatsData);
 
-    const parts = await statItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const parts = await statItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<StatItemResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(true);
     expect(itemResult.path).toBe('file.txt');
     expect(itemResult.stat).toEqual(mockStatsData);
@@ -81,8 +83,8 @@ describe('statItemsTool', () => {
     const mockStats2 = createMockStats(true);
     mockStat.mockResolvedValueOnce(mockStats1).mockResolvedValueOnce(mockStats2);
 
-    const parts = await statItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const parts = await statItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<StatItemResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(2);
@@ -99,12 +101,14 @@ describe('statItemsTool', () => {
     (enoentError as NodeJS.ErrnoException).code = 'ENOENT';
     mockStat.mockRejectedValue(enoentError);
 
-    const parts = await statItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const parts = await statItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<StatItemResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(false);
     expect(itemResult.stat).toBeUndefined();
     expect(itemResult.error).toContain("Path 'nonexistent.txt' not found");
@@ -118,12 +122,14 @@ describe('statItemsTool', () => {
     (accessError as NodeJS.ErrnoException).code = 'EACCES';
     mockStat.mockRejectedValue(accessError);
 
-    const parts = await statItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const parts = await statItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<StatItemResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(false);
     expect(itemResult.stat).toBeUndefined();
     expect(itemResult.error).toContain('Failed to get stats');
@@ -140,20 +146,24 @@ describe('statItemsTool', () => {
 
     mockStat.mockResolvedValueOnce(mockStatsFound).mockRejectedValueOnce(enoentError);
 
-    const parts = await statItemsTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const parts = await statItemsTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<StatItemResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(2);
 
     // First item (success)
     const itemResult1 = results?.[0];
+    expect(itemResult1).toBeDefined(); // Add check
+    if (!itemResult1) return; // Type guard
     expect(itemResult1.success).toBe(true);
     expect(itemResult1.stat).toEqual(mockStatsFound);
     expect(itemResult1.error).toBeUndefined();
 
     // Second item (not found)
     const itemResult2 = results?.[1];
+    expect(itemResult2).toBeDefined(); // Add check
+    if (!itemResult2) return; // Type guard
     expect(itemResult2.success).toBe(false);
     expect(itemResult2.stat).toBeUndefined();
     expect(itemResult2.error).toContain('not found');
@@ -163,21 +173,23 @@ describe('statItemsTool', () => {
   });
 
   it('should throw validation error for empty paths array', async () => {
-    const input = { paths: [] };
-    await expect(statItemsTool.execute(input as any, defaultOptions)).rejects.toThrow(
+    const args = { paths: [] }; // Rename to args
+    await expect(statItemsTool.execute({ context: mockContext, args: args as any })).rejects.toThrow( // Use new signature
       'Input validation failed: paths: paths array cannot be empty.',
     );
     expect(mockStat).not.toHaveBeenCalled();
   });
 
   it('should handle path validation failure (outside workspace)', async () => {
-    const input: StatItemsToolInput = { paths: ['../outside.txt'] };
-    const parts = await statItemsTool.execute(input, defaultOptions); // allowOutsideWorkspace defaults false
-    const results = getJsonResult(parts);
+    const args: StatItemsToolInput = { paths: ['../outside.txt'] }; // Rename to args
+    const parts = await statItemsTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<StatItemResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(false);
     expect(itemResult.error).toContain('Path validation failed');
     expect(itemResult.suggestion).toEqual(expect.any(String));
@@ -185,16 +197,18 @@ describe('statItemsTool', () => {
   });
 
   it('should allow stat outside workspace when allowOutsideWorkspace is true', async () => {
-    const input: StatItemsToolInput = { paths: ['../outside.txt'] };
+    const args: StatItemsToolInput = { paths: ['../outside.txt'] }; // Rename to args
     const mockStatsData = createMockStats(true);
     mockStat.mockResolvedValue(mockStatsData);
 
-    const parts = await statItemsTool.execute(input, allowOutsideOptions);
-    const results = getJsonResult(parts);
+    const parts = await statItemsTool.execute({ context: allowOutsideContext, args }); // Use new signature and allowOutsideContext
+    const results = getJsonResult<StatItemResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(true);
     expect(itemResult.error).toBeUndefined();
     expect(itemResult.stat).toEqual(mockStatsData);

@@ -13,8 +13,8 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
-const allowOutsideOptions: ToolExecuteOptions = { ...defaultOptions, allowOutsideWorkspace: true };
+const mockContext: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Rename to mockContext
+const allowOutsideContext: ToolExecuteOptions = { ...mockContext, allowOutsideWorkspace: true }; // Rename to allowOutsideContext
 
 // Helper to extract JSON result from parts (returns Record, not Array for this tool)
 function getJsonResult(parts: Part[]): Record<string, PathListResult> | undefined {
@@ -77,7 +77,7 @@ describe('listFilesTool', () => {
     ];
     mockReaddir.mockResolvedValue(mockDirents);
 
-    const parts = await listFilesTool.execute(input, defaultOptions);
+    const parts = await listFilesTool.execute({ context: mockContext, args: input }); // Use new signature
     const results = getJsonResult(parts);
 
     expect(results).toBeDefined();
@@ -109,7 +109,7 @@ describe('listFilesTool', () => {
     mockStat.mockResolvedValueOnce(createMockStats(true, false)); // For dir1 input check
     mockStat.mockResolvedValueOnce(createMockStats(true, false)); // For subdir check
 
-    const parts = await listFilesTool.execute(input, defaultOptions);
+    const parts = await listFilesTool.execute({ context: mockContext, args: input }); // Use new signature
     const results = getJsonResult(parts);
 
     expect(results).toBeDefined();
@@ -135,7 +135,7 @@ describe('listFilesTool', () => {
     // Only input path stat check needed
     mockStat.mockResolvedValueOnce(createMockStats(true, false));
 
-    const parts = await listFilesTool.execute(input, defaultOptions);
+    const parts = await listFilesTool.execute({ context: mockContext, args: input }); // Use new signature
     const results = getJsonResult(parts);
 
     expect(results).toBeDefined();
@@ -156,8 +156,8 @@ describe('listFilesTool', () => {
       .mockResolvedValueOnce(createMockStats(true, false)) // For input path check
       .mockResolvedValueOnce(mockFileStats); // For file1.txt stat call
 
-    const parts = await listFilesTool.execute(input, defaultOptions); // Corrected variable name
-    const results = getJsonResult(parts); // Corrected definition
+    const parts = await listFilesTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult(parts);
 
     expect(results).toBeDefined();
     const dir1Result = results?.dir1;
@@ -170,16 +170,16 @@ describe('listFilesTool', () => {
   });
 
   it('should throw validation error for empty paths array', async () => {
-    const input = { paths: [] };
-    await expect(listFilesTool.execute(input as any, defaultOptions))
-        .rejects.toThrow('Input validation failed: paths: paths array cannot be empty.'); // Corrected Zod message
+    const args = { paths: [] }; // Rename to args
+    await expect(listFilesTool.execute({ context: mockContext, args: args as any })) // Use new signature
+        .rejects.toThrow('Input validation failed: paths: paths array cannot be empty.');
     expect(mockReaddir).not.toHaveBeenCalled();
   });
 
   it('should handle path validation failure (outside workspace)', async () => {
     // Added missing properties
-    const input: ListFilesToolInput = { paths: ['../outside'], recursive: false, includeStats: false };
-    const parts = await listFilesTool.execute(input, defaultOptions); // allowOutsideWorkspace defaults to false
+    const args: ListFilesToolInput = { paths: ['../outside'], recursive: false, includeStats: false }; // Rename to args
+    const parts = await listFilesTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult(parts);
 
     expect(results).toBeDefined();
@@ -192,12 +192,12 @@ describe('listFilesTool', () => {
 
   it('should handle non-existent path error', async () => {
     // Added missing properties
-    const input: ListFilesToolInput = { paths: ['nonexistent'], recursive: false, includeStats: false };
+    const args: ListFilesToolInput = { paths: ['nonexistent'], recursive: false, includeStats: false }; // Rename to args
     const statError = new Error('ENOENT');
     (statError as NodeJS.ErrnoException).code = 'ENOENT';
     mockStat.mockRejectedValue(statError); // Mock stat failure for input path
 
-    const parts = await listFilesTool.execute(input, defaultOptions);
+    const parts = await listFilesTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult(parts);
 
     expect(results).toBeDefined();
@@ -210,10 +210,10 @@ describe('listFilesTool', () => {
 
   it('should handle path is not a directory error', async () => {
     // Added missing properties
-    const input: ListFilesToolInput = { paths: ['file.txt'], recursive: false, includeStats: false };
+    const args: ListFilesToolInput = { paths: ['file.txt'], recursive: false, includeStats: false }; // Rename to args
     mockStat.mockResolvedValue(createMockStats(false, true)); // Mock stat says it's a file
 
-    const parts = await listFilesTool.execute(input, defaultOptions);
+    const parts = await listFilesTool.execute({ context: mockContext, args }); // Use new signature
     const results = getJsonResult(parts);
 
     expect(results).toBeDefined();
@@ -226,12 +226,12 @@ describe('listFilesTool', () => {
 
   it('should succeed listing outside workspace when allowed', async () => {
     // Added missing properties
-    const input: ListFilesToolInput = { paths: ['../outside'], recursive: false, includeStats: false };
+    const args: ListFilesToolInput = { paths: ['../outside'], recursive: false, includeStats: false }; // Rename to args
     const mockDirents = [createMockDirent('file_out.txt', false, true)];
     mockReaddir.mockResolvedValue(mockDirents);
     mockStat.mockResolvedValue(createMockStats(true, false)); // Mock stat for input path check
 
-    const parts = await listFilesTool.execute(input, allowOutsideOptions);
+    const parts = await listFilesTool.execute({ context: allowOutsideContext, args }); // Use new signature and allowOutsideContext
     const results = getJsonResult(parts);
 
     expect(results).toBeDefined();

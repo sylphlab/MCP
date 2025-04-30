@@ -5,7 +5,7 @@ import { type JsonToolInput, jsonTool } from './index.js'; // Removed JsonToolOu
 import type { JsonResultItem } from './tools/jsonTool.js';
 
 // Mock workspace root - not used by jsonTool's logic but required by execute signature
-const mockWorkspaceRoot = '';
+const mockContext = { workspaceRoot: '' }; // Use a mock context object
 
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
@@ -30,15 +30,18 @@ function getJsonResult<T>(parts: Part[]): T[] | undefined {
 
 describe('jsonTool.execute', () => {
   it('should parse valid JSON string in a single item batch', async () => {
-    const input: JsonToolInput = {
+    const args: JsonToolInput = { // Rename to args
       items: [{ id: 'a', operation: 'parse', data: '{"key": "value"}' }],
     };
-    const parts = await jsonTool.execute(input, { workspaceRoot: mockWorkspaceRoot });
-    const results = getJsonResult(parts);
+    // Call execute with the new { context, args } structure
+    const parts = await jsonTool.execute({ context: mockContext, args });
+    const results = getJsonResult<JsonResultItem>(parts); // Specify result type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(true);
     expect(itemResult.id).toBe('a');
     expect(itemResult.result).toEqual({ key: 'value' });
@@ -46,13 +49,15 @@ describe('jsonTool.execute', () => {
   });
 
   it('should return item error for invalid JSON string in parse (single item batch)', async () => {
-    const input: JsonToolInput = { items: [{ id: 'b', operation: 'parse', data: 'invalid json' }] };
-    const parts = await jsonTool.execute(input, { workspaceRoot: mockWorkspaceRoot });
-    const results = getJsonResult(parts);
+    const args: JsonToolInput = { items: [{ id: 'b', operation: 'parse', data: 'invalid json' }] }; // Rename to args
+    const parts = await jsonTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<JsonResultItem>(parts); // Specify result type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(false);
     expect(itemResult.id).toBe('b');
     expect(itemResult.result).toBeUndefined();
@@ -64,13 +69,15 @@ describe('jsonTool.execute', () => {
 
   it('should stringify a valid object in a single item batch', async () => {
     const data = { key: 'value', num: 123 };
-    const input: JsonToolInput = { items: [{ id: 'd', operation: 'stringify', data }] };
-    const parts = await jsonTool.execute(input, { workspaceRoot: mockWorkspaceRoot });
-    const results = getJsonResult(parts);
+    const args: JsonToolInput = { items: [{ id: 'd', operation: 'stringify', data }] }; // Rename to args
+    const parts = await jsonTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<JsonResultItem>(parts); // Specify result type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(true);
     expect(itemResult.id).toBe('d');
     expect(itemResult.result).toBe(JSON.stringify(data));
@@ -81,15 +88,17 @@ describe('jsonTool.execute', () => {
     // biome-ignore lint/suspicious/noExplicitAny: Intentional any for testing
     const circularObj: any = { key: 'value' };
     circularObj.self = circularObj;
-    const input: JsonToolInput = {
+    const args: JsonToolInput = { // Rename to args
       items: [{ id: 'e', operation: 'stringify', data: circularObj }],
     };
-    const parts = await jsonTool.execute(input, { workspaceRoot: mockWorkspaceRoot });
-    const results = getJsonResult(parts);
+    const parts = await jsonTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<JsonResultItem>(parts); // Specify result type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(false);
     expect(itemResult.id).toBe('e');
     expect(itemResult.result).toBeUndefined();
@@ -100,7 +109,7 @@ describe('jsonTool.execute', () => {
   });
 
   it('should process a batch of multiple JSON operations', async () => {
-    const input: JsonToolInput = {
+    const args: JsonToolInput = { // Rename to args
       items: [
         { id: 'f', operation: 'parse', data: '{"valid": true}' }, // success
         { id: 'g', operation: 'stringify', data: { num: 1 } }, // success
@@ -109,8 +118,8 @@ describe('jsonTool.execute', () => {
       ],
     };
 
-    const parts = await jsonTool.execute(input, { workspaceRoot: mockWorkspaceRoot });
-    const results = getJsonResult(parts);
+    const parts = await jsonTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<JsonResultItem>(parts); // Specify result type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(4);

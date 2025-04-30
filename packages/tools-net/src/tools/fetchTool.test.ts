@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'; // Removed afterEach as it wasn't used
 import type { ToolExecuteOptions, Part } from '@sylphlab/tools-core';
 import { fetchTool, type FetchToolInput, type FetchResultItem } from './fetchTool.js'; // Import types with .js extension
+import { BaseContextSchema } from '@sylphlab/tools-core'; // Import BaseContextSchema
 
 // Mock the global fetch function
 const mockFetch = vi.fn();
@@ -8,13 +9,11 @@ vi.stubGlobal('fetch', mockFetch);
 
 // Helper to extract JSON result
 function getJsonResult<T>(parts: Part[]): T | undefined {
-  const jsonPart = parts.find(part => part.type === 'json');
+  const jsonPart = parts.find((part): part is Part & { type: 'json' } => part.type === 'json'); // Type predicate
   return jsonPart?.value as T | undefined;
 }
 
-// Removed unused getTextResult helper
-
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: '/test' };
+const mockContext: ToolExecuteOptions = { workspaceRoot: '/test' }; // Rename to mockContext
 
 describe('fetchTool', () => {
 
@@ -32,9 +31,8 @@ describe('fetchTool', () => {
     };
     mockFetch.mockResolvedValue(mockResponse);
 
-    // Add missing required properties method and responseType
-    const input: FetchToolInput = { items: [{ url: 'https://example.com/data', method: 'GET', responseType: 'text' }] };
-    const parts = await fetchTool.execute(input, defaultOptions);
+    const args: FetchToolInput = { items: [{ url: 'https://example.com/data', method: 'GET', responseType: 'text' }] }; // Rename to args
+    const parts = await fetchTool.execute({ context: mockContext, args }); // Use new signature
 
     expect(mockFetch).toHaveBeenCalledWith('https://example.com/data', {
         method: 'GET',
@@ -61,9 +59,8 @@ describe('fetchTool', () => {
     };
     mockFetch.mockResolvedValue(mockResponse);
 
-    // Rename responseFormat to responseType and add missing method
-    const input: FetchToolInput = { items: [{ url: 'https://example.com/json', method: 'GET', responseType: 'json' }] };
-    const parts = await fetchTool.execute(input, defaultOptions);
+    const args: FetchToolInput = { items: [{ url: 'https://example.com/json', method: 'GET', responseType: 'json' }] }; // Rename to args
+    const parts = await fetchTool.execute({ context: mockContext, args }); // Use new signature
 
     expect(mockFetch).toHaveBeenCalledWith('https://example.com/json', {
         method: 'GET',
@@ -89,7 +86,7 @@ describe('fetchTool', () => {
     };
     mockFetch.mockResolvedValue(mockResponse);
 
-    const input: FetchToolInput = {
+    const args: FetchToolInput = { // Rename to args
       items: [{ // Wrap in items array
         url: 'https://example.com/create',
         method: 'POST',
@@ -98,7 +95,7 @@ describe('fetchTool', () => {
         responseType: 'json', // Rename responseFormat to responseType
       }]
     };
-    const parts = await fetchTool.execute(input, defaultOptions);
+    const parts = await fetchTool.execute({ context: mockContext, args }); // Use new signature
 
     expect(mockFetch).toHaveBeenCalledWith('https://example.com/create', {
       method: 'POST',
@@ -117,10 +114,9 @@ describe('fetchTool', () => {
     const fetchError = new Error('Network Error');
     mockFetch.mockRejectedValue(fetchError);
 
-    // Add missing required properties method and responseType
-    const input: FetchToolInput = { items: [{ url: 'https://invalid.url', method: 'GET', responseType: 'text' }] };
+    const args: FetchToolInput = { items: [{ url: 'https://invalid.url', method: 'GET', responseType: 'text' }] }; // Rename to args
 
-    await expect(fetchTool.execute(input, defaultOptions))
+    await expect(fetchTool.execute({ context: mockContext, args })) // Use new signature
       .rejects
       // Error message now includes the URL and is re-thrown by execute
       .toThrow('Fetch failed for https://invalid.url: Network Error');
@@ -142,10 +138,9 @@ describe('fetchTool', () => {
     };
     mockFetch.mockResolvedValue(mockResponse);
 
-    // Add missing required properties method and responseType
-    const input: FetchToolInput = { items: [{ url: 'https://example.com/missing', method: 'GET', responseType: 'text' }] };
+    const args: FetchToolInput = { items: [{ url: 'https://example.com/missing', method: 'GET', responseType: 'text' }] }; // Rename to args
 
-     await expect(fetchTool.execute(input, defaultOptions))
+     await expect(fetchTool.execute({ context: mockContext, args })) // Use new signature
        .rejects
         // Error message now includes the URL and status text, and is re-thrown by execute
        .toThrow('Fetch failed for https://example.com/missing: Fetch failed with status 404 Not Found: Resource not found');

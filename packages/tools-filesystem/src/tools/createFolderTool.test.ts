@@ -11,7 +11,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const mockContext: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Rename to mockContext
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
 function getJsonResult<T>(parts: Part[]): T[] | undefined {
@@ -42,13 +42,15 @@ describe('createFolderTool', () => {
   });
 
   it('should successfully create a single folder', async () => {
-    const input: CreateFolderToolInput = { folderPaths: ['new/folder'] };
-    const parts = await createFolderTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const args: CreateFolderToolInput = { folderPaths: ['new/folder'] }; // Rename to args
+    const parts = await createFolderTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<CreateFolderResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(true);
     expect(itemResult.path).toBe('new/folder');
     expect(itemResult.error).toBeUndefined();
@@ -61,9 +63,9 @@ describe('createFolderTool', () => {
   });
 
   it('should successfully create multiple folders', async () => {
-    const input: CreateFolderToolInput = { folderPaths: ['folder1', 'folder2/sub'] };
-    const parts = await createFolderTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const args: CreateFolderToolInput = { folderPaths: ['folder1', 'folder2/sub'] }; // Rename to args
+    const parts = await createFolderTool.execute({ context: mockContext, args }); // Use new signature
+    const results = getJsonResult<CreateFolderResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(2);
@@ -80,24 +82,26 @@ describe('createFolderTool', () => {
   });
 
   it('should throw validation error for empty folderPaths array', async () => {
-    const input = { folderPaths: [] }; // Invalid input
-    await expect(createFolderTool.execute(input as any, defaultOptions)).rejects.toThrow(
+    const args = { folderPaths: [] }; // Rename to args
+    await expect(createFolderTool.execute({ context: mockContext, args: args as any })).rejects.toThrow( // Use new signature
       'Input validation failed: folderPaths: folderPaths array cannot be empty.',
     );
     expect(mockMkdir).not.toHaveBeenCalled();
   });
 
   it('should handle path validation failure (outside workspace)', async () => {
-    const input: CreateFolderToolInput = { folderPaths: ['../outside'] };
-    const parts = await createFolderTool.execute(input, {
-      ...defaultOptions,
-      allowOutsideWorkspace: false,
+    const args: CreateFolderToolInput = { folderPaths: ['../outside'] }; // Rename to args
+    const parts = await createFolderTool.execute({ // Use new signature
+      context: { ...mockContext, allowOutsideWorkspace: false }, // Pass context directly
+      args,
     });
-    const results = getJsonResult(parts);
+    const results = getJsonResult<CreateFolderResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(false);
     expect(itemResult.error).toContain('Path validation failed');
     expect(itemResult.suggestion).toEqual(expect.any(String));
@@ -109,20 +113,24 @@ describe('createFolderTool', () => {
     const testError = new Error('Permission denied');
     mockMkdir.mockResolvedValueOnce(undefined).mockRejectedValueOnce(testError);
 
-    const parts = await createFolderTool.execute(input, defaultOptions);
-    const results = getJsonResult(parts);
+    const parts = await createFolderTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<CreateFolderResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(2);
 
     // First item (success)
     const itemResult1 = results?.[0];
+    expect(itemResult1).toBeDefined(); // Add check
+    if (!itemResult1) return; // Type guard
     expect(itemResult1.success).toBe(true);
     expect(itemResult1.path).toBe('valid/path');
     expect(itemResult1.error).toBeUndefined();
 
     // Second item (failure)
     const itemResult2 = results?.[1];
+    expect(itemResult2).toBeDefined(); // Add check
+    if (!itemResult2) return; // Type guard
     expect(itemResult2.success).toBe(false);
     expect(itemResult2.path).toBe('error/path');
     expect(itemResult2.error).toContain('Permission denied');
@@ -135,15 +143,17 @@ describe('createFolderTool', () => {
     const input: CreateFolderToolInput = { folderPaths: ['../outside/new'] };
     mockMkdir.mockResolvedValue(undefined);
 
-    const parts = await createFolderTool.execute(input, {
-      ...defaultOptions,
-      allowOutsideWorkspace: true,
+    const parts = await createFolderTool.execute({ // Use new signature
+      context: { ...mockContext, allowOutsideWorkspace: true }, // Pass context directly
+      args: input,
     });
-    const results = getJsonResult(parts);
+    const results = getJsonResult<CreateFolderResult>(parts); // Specify type
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const itemResult = results?.[0];
+    expect(itemResult).toBeDefined(); // Add check
+    if (!itemResult) return; // Type guard
     expect(itemResult.success).toBe(true);
     expect(itemResult.error).toBeUndefined();
 

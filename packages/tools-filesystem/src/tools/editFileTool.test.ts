@@ -14,7 +14,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 const WORKSPACE_ROOT = '/test/workspace';
-const defaultOptions: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT };
+const mockContext: ToolExecuteOptions = { workspaceRoot: WORKSPACE_ROOT }; // Rename to mockContext
 // Helper to extract JSON result from parts
 // Use generics to handle different result types
 function getJsonResult<T>(parts: Part[]): T[] | undefined {
@@ -65,15 +65,17 @@ describe('editFileTool', () => {
       dryRun: false,
     };
 
-    const parts = await editFileTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileEditResult>(parts); // Added type argument
+    const parts = await editFileTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<FileEditResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const fileResult = results?.[0];
+    expect(fileResult).toBeDefined(); // Add check
+    if (!fileResult) return; // Type guard
 
-    expect(fileResult?.success).toBe(true); // Added optional chaining
-    expect(fileResult?.path).toBe('file.txt'); // Added optional chaining
+    expect(fileResult.success).toBe(true);
+    expect(fileResult.path).toBe('file.txt');
     expect(fileResult?.dryRun).toBe(false); // Added optional chaining
     expect(fileResult?.oldHash).toBe(originalHash); // Added optional chaining
     expect(fileResult?.newHash).toBe(newHash); // Added optional chaining
@@ -106,15 +108,17 @@ describe('editFileTool', () => {
       dryRun: true, // Explicit dry run
     };
 
-    const parts = await editFileTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileEditResult>(parts); // Added type argument
+    const parts = await editFileTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<FileEditResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const fileResult = results?.[0];
+    expect(fileResult).toBeDefined(); // Add check
+    if (!fileResult) return; // Type guard
 
-    expect(fileResult?.success).toBe(true); // Added optional chaining // Dry run simulation is success
-    expect(fileResult?.path).toBe('file.txt'); // Added optional chaining
+    expect(fileResult.success).toBe(true); // Dry run simulation is success
+    expect(fileResult.path).toBe('file.txt');
     expect(fileResult?.dryRun).toBe(true); // Added optional chaining
     expect(fileResult?.oldHash).toBe(originalHash); // Added optional chaining
     expect(fileResult?.newHash).toBe(newHash); // Added optional chaining // New hash is calculated even in dry run
@@ -141,10 +145,10 @@ describe('editFileTool', () => {
     };
 
     // Test should expect validation error for empty patch
-    await expect(editFileTool.execute(input, defaultOptions))
-        .rejects.toThrow('Input validation failed: changes: Patch content cannot be empty.'); // Corrected Zod message
+    await expect(editFileTool.execute({ context: mockContext, args: input })) // Use new signature
+        .rejects.toThrow('Input validation failed: changes: Patch content cannot be empty.');
 
-    expect(mockWriteFile).not.toHaveBeenCalled(); // No write if validation fails
+    expect(mockWriteFile).not.toHaveBeenCalled();
   });
 
 
@@ -166,15 +170,17 @@ describe('editFileTool', () => {
       // dryRun defaults to false
     };
 
-    const parts = await editFileTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileEditResult>(parts); // Added type argument
+    const parts = await editFileTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<FileEditResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const fileResult = results?.[0];
+    expect(fileResult).toBeDefined(); // Add check
+    if (!fileResult) return; // Type guard
 
-    expect(fileResult?.success).toBe(false); // Added optional chaining
-    expect(fileResult?.error).toContain('File hash mismatch'); // Added optional chaining
+    expect(fileResult.success).toBe(false);
+    expect(fileResult.error).toContain('File hash mismatch');
     expect(fileResult?.suggestion).toContain('File content has changed'); // Added optional chaining
     expect(fileResult?.edit_results).toHaveLength(1); // Added optional chaining // Edit result should still be present, showing failure
     expect(fileResult?.edit_results[0].success).toBe(false); // Added optional chaining
@@ -194,15 +200,17 @@ describe('editFileTool', () => {
        // dryRun defaults to false
      };
 
-     const parts = await editFileTool.execute(input, defaultOptions);
-     const results = getJsonResult<FileEditResult>(parts); // Added type argument
+     const parts = await editFileTool.execute({ context: mockContext, args: input }); // Use new signature
+     const results = getJsonResult<FileEditResult>(parts);
 
      expect(results).toBeDefined();
      expect(results).toHaveLength(1);
      const fileResult = results?.[0];
+     expect(fileResult).toBeDefined(); // Add check
+     if (!fileResult) return; // Type guard
 
-     expect(fileResult?.success).toBe(false); // Added optional chaining
-     expect(fileResult?.error).toBeUndefined(); // Added optional chaining // File level error is undefined
+     expect(fileResult.success).toBe(false);
+     expect(fileResult.error).toBeUndefined(); // File level error is undefined
      expect(fileResult?.edit_results).toHaveLength(1); // Added optional chaining
      expect(fileResult?.edit_results[0].success).toBe(false); // Added optional chaining
      expect(fileResult?.edit_results[0].error).toContain('Failed to parse patch text'); // Added optional chaining
@@ -223,15 +231,17 @@ describe('editFileTool', () => {
        // dryRun defaults to false
      };
 
-     const parts = await editFileTool.execute(input, defaultOptions);
-     const results = getJsonResult<FileEditResult>(parts); // Added type argument
+     const parts = await editFileTool.execute({ context: mockContext, args: input }); // Use new signature
+     const results = getJsonResult<FileEditResult>(parts);
 
      expect(results).toBeDefined();
      expect(results).toHaveLength(1);
      const fileResult = results?.[0];
+     expect(fileResult).toBeDefined(); // Add check
+     if (!fileResult) return; // Type guard
 
-     expect(fileResult?.success).toBe(true); // File level success is true even if edit fails
-     expect(fileResult?.error).toBeUndefined(); // Added optional chaining
+     expect(fileResult.success).toBe(true); // File level success is true even if edit fails
+     expect(fileResult.error).toBeUndefined();
      expect(fileResult?.edit_results).toHaveLength(1); // Added optional chaining
      // Check the specific edit result for failure
      expect(fileResult?.edit_results[0].success).toBe(true); // Corrected assertion to match observed behavior (patch apply might succeed with fuzz)
@@ -255,15 +265,17 @@ describe('editFileTool', () => {
       // dryRun defaults to false
     };
 
-    const parts = await editFileTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileEditResult>(parts); // Added type argument
+    const parts = await editFileTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<FileEditResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const fileResult = results?.[0];
+    expect(fileResult).toBeDefined(); // Add check
+    if (!fileResult) return; // Type guard
 
-    expect(fileResult?.success).toBe(false); // Added optional chaining
-    expect(fileResult?.error).toContain('Permission denied'); // Added optional chaining
+    expect(fileResult.success).toBe(false);
+    expect(fileResult.error).toContain('Permission denied');
     expect(fileResult?.suggestion).toContain('read/write permissions'); // Added optional chaining
     expect(fileResult?.edit_results).toHaveLength(1); // Added optional chaining // Edit result shows failure due to read error
     expect(fileResult?.edit_results[0].success).toBe(false); // Added optional chaining
@@ -289,17 +301,19 @@ describe('editFileTool', () => {
     };
 
     // Execute should still resolve, but the result object indicates failure
-    const parts = await editFileTool.execute(input, defaultOptions);
-    const results = getJsonResult<FileEditResult>(parts); // Added type argument
+    const parts = await editFileTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<FileEditResult>(parts);
 
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const fileResult = results?.[0];
+    expect(fileResult).toBeDefined(); // Add check
+    if (!fileResult) return; // Type guard
 
     // File processing itself failed at the write stage, even if patch applied conceptually
-    expect(fileResult?.success).toBe(false); // Added optional chaining
-    expect(fileResult?.error).toContain('Disk full'); // Added optional chaining // Error from writeFile
+    expect(fileResult.success).toBe(false);
+    expect(fileResult.error).toContain('Disk full'); // Error from writeFile
     expect(fileResult?.suggestion).toContain('read/write permissions'); // Added optional chaining // Suggestion from generic file processing catch
     expect(fileResult?.edit_results).toHaveLength(1); // Added optional chaining
     expect(fileResult?.edit_results[0].success).toBe(true); // Added optional chaining // Patch application itself succeeded
@@ -315,15 +329,17 @@ describe('editFileTool', () => {
       // dryRun defaults to false
     };
 
-    const parts = await editFileTool.execute(input, defaultOptions); // allowOutsideWorkspace defaults to false
-    const results = getJsonResult<FileEditResult>(parts); // Added type argument
+    const parts = await editFileTool.execute({ context: mockContext, args: input }); // Use new signature
+    const results = getJsonResult<FileEditResult>(parts);
 
     expect(results).toBeDefined();
     expect(results).toHaveLength(1);
     const fileResult = results?.[0];
+    expect(fileResult).toBeDefined(); // Add check
+    if (!fileResult) return; // Type guard
 
-    expect(fileResult?.success).toBe(false); // Added optional chaining
-    expect(fileResult?.error).toContain('Path validation failed'); // Added optional chaining
+    expect(fileResult.success).toBe(false);
+    expect(fileResult.error).toContain('Path validation failed');
     expect(fileResult?.suggestion).toContain('Ensure the path'); // Corrected path validation message check
     expect(fileResult?.edit_results).toHaveLength(0); // Added optional chaining // No edits attempted
 
@@ -345,15 +361,17 @@ describe('editFileTool', () => {
        dryRun: false,
      };
 
-     const parts = await editFileTool.execute(input, { ...defaultOptions, allowOutsideWorkspace: true });
-     const results = getJsonResult<FileEditResult>(parts); // Added type argument
+     const parts = await editFileTool.execute({ context: { ...mockContext, allowOutsideWorkspace: true }, args: input }); // Use new signature and allowOutsideContext
+     const results = getJsonResult<FileEditResult>(parts);
 
      expect(results).toBeDefined();
      expect(results).toHaveLength(1);
      const fileResult = results?.[0];
+     expect(fileResult).toBeDefined(); // Add check
+     if (!fileResult) return; // Type guard
 
-     expect(fileResult?.success).toBe(true); // Added optional chaining
-     expect(fileResult?.error).toBeUndefined(); // Added optional chaining
+     expect(fileResult.success).toBe(true);
+     expect(fileResult.error).toBeUndefined();
      expect(fileResult?.edit_results[0].success).toBe(true); // Added optional chaining
 
      expect(mockReadFile).toHaveBeenCalledWith(resolvedPath);
