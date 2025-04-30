@@ -1,5 +1,13 @@
 # @sylphlab/mcp-net-core
 
+## 0.8.1
+
+### Patch Changes
+
+- 18cbf3c: bugfix
+- Updated dependencies [18cbf3c]
+  - @sylphlab/tools-core@0.4.1
+
 ## 0.8.0
 
 ### Minor Changes

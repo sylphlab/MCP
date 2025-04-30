@@ -1,5 +1,14 @@
 # @sylphlab/tools-rag-service
 
+## 0.2.1
+
+### Patch Changes
+
+- 18cbf3c: bugfix
+- Updated dependencies [18cbf3c]
+  - @sylphlab/tools-core@0.4.1
+  - @sylphlab/tools-rag@0.3.1
+
 ## 0.2.0
 
 ### Minor Changes

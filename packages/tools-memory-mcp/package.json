@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-memory-mcp",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "MCP Memory Server (Knowledge Graph based, CWD storage)",
   "type": "module",
   "main": "dist/index.js",

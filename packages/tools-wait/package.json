@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-wait",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Core logic for MCP wait tool",
   "type": "module",
   "main": "./dist/index.cjs",

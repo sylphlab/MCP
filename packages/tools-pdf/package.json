@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-pdf",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Core logic for MCP PDF tools (text extraction, etc.)",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-wait-mcp",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "MCP server providing wait tool",
   "type": "module",
   "main": "./dist/index.cjs",

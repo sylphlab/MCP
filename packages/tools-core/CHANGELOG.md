@@ -1,5 +1,11 @@
 # @sylphlab/mcp-core
 
+## 0.4.1
+
+### Patch Changes
+
+- 18cbf3c: bugfix
+
 ## 0.4.0
 
 ### Minor Changes

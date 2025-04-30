@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-net",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Core logic for MCP network tools",
   "type": "module",
   "main": "./dist/index.cjs",
