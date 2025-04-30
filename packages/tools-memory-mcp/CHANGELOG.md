@@ -1,5 +1,17 @@
 # @sylphlab/tools-memory-mcp
 
+## 0.2.2
+
+### Patch Changes
+
+- 18cbf3c: bugfix
+- 65f46fe: bugfix
+- Updated dependencies [18cbf3c]
+- Updated dependencies [65f46fe]
+  - @sylphlab/tools-adaptor-mcp@0.3.1
+  - @sylphlab/tools-core@0.4.1
+  - @sylphlab/tools-memory@0.2.2
+
 ## 0.2.1
 
 ### Patch Changes

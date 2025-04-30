@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-rag-mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "MCP Server for RAG operations using rag-core",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

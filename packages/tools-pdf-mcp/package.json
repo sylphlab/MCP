@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-pdf-mcp",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "MCP server providing PDF tools (text extraction, etc.)",
   "type": "module",
   "main": "./dist/index.cjs",

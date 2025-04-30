@@ -1,5 +1,15 @@
 # @sylphlab/mcp-base64
 
+## 0.5.1
+
+### Patch Changes
+
+- 18cbf3c: bugfix
+- Updated dependencies [18cbf3c]
+  - @sylphlab/tools-adaptor-mcp@0.3.1
+  - @sylphlab/tools-base64@0.5.1
+  - @sylphlab/tools-core@0.4.1
+
 ## 0.5.0
 
 ### Minor Changes

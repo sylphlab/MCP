@@ -1,6 +1,6 @@
 {
   "name": "@sylphlab/tools-rag",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Core RAG (Retrieval-Augmented Generation) logic for MCP",
   "keywords": [
     "mcp",
