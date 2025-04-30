@@ -47,8 +47,8 @@ export const deleteEdgesTool = defineTool({
       }
 
       const validatedOutput = deleteEdgesToolOutputSchema.parse(deletedCount);
-      // Return count in a structured way, consistent with potential future multi-part responses
-      return [jsonPart({ deletedCount: validatedOutput }, z.object({ deletedCount: deleteEdgesToolOutputSchema }))];
+      // Return the count directly as JSON, using the schema
+      return [jsonPart(validatedOutput, deleteEdgesToolOutputSchema)];
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error deleting edges.';

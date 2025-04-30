@@ -12,6 +12,8 @@ import crypto from 'node:crypto'; // Import crypto for UUID generation
 
 // Infer input type from schema
 type CreateNodesInput = z.infer<typeof createNodesToolInputSchema>;
+// Define the input structure for a single node more explicitly
+type NodeInput = CreateNodesInput['nodes'][number] & { id?: string }; // Allow optional ID in input type
 
 export const createNodesTool = defineTool({
   name: 'create_nodes', // New tool name
@@ -27,31 +29,46 @@ export const createNodesTool = defineTool({
     try {
       const currentGraph = await loadGraph(memoryFilePath);
       const newNodes: Node[] = [];
-      // Keep track of existing IDs to ensure generated UUIDs are unique (highly unlikely collision, but good practice)
       const existingIds = new Set(currentGraph.nodes.map(n => n.id));
 
-      for (const nodeInput of args.nodes) {
-        let newNodeId: string;
-        // Generate a unique UUID
-        do {
-          newNodeId = crypto.randomUUID();
-        } while (existingIds.has(newNodeId));
+      // First pass: Validate all incoming IDs and generate missing ones
+      const nodesToCreate: Node[] = [];
+      for (const nodeInput of args.nodes as NodeInput[]) { // Cast to allow checking for id
+        let nodeId: string;
+        if (nodeInput.id) {
+          // Check for ID collision BEFORE proceeding
+          if (existingIds.has(nodeInput.id)) {
+            throw new Error(`Node with provided ID '${nodeInput.id}' already exists.`);
+          }
+          // Also check for duplicates within the current batch request
+          if (nodesToCreate.some(n => n.id === nodeInput.id)) {
+             throw new Error(`Duplicate ID '${nodeInput.id}' provided in the same request.`);
+          }
+          nodeId = nodeInput.id;
+        } else {
+          // Generate a unique UUID if ID is not provided
+          do {
+            nodeId = crypto.randomUUID();
+          } while (existingIds.has(nodeId) || nodesToCreate.some(n => n.id === nodeId));
+        }
 
-        const newNode: Node = {
-          id: newNodeId,
+        nodesToCreate.push({
+          id: nodeId,
           labels: nodeInput.labels,
           properties: nodeInput.properties,
-        };
-        newNodes.push(newNode);
-        existingIds.add(newNodeId); // Add newly generated ID to the set
+        });
+        // Add ID to existingIds immediately to catch duplicates in the same batch
+        existingIds.add(nodeId);
       }
 
-      if (newNodes.length > 0) {
+      // If validation passed for all inputs, proceed to save
+      if (nodesToCreate.length > 0) {
         const nextGraph: KnowledgeGraph = {
           ...currentGraph,
-          nodes: [...currentGraph.nodes, ...newNodes], // Add new nodes
+          nodes: [...currentGraph.nodes, ...nodesToCreate], // Add new nodes
         };
         await saveGraph(memoryFilePath, nextGraph);
+        newNodes.push(...nodesToCreate); // Add successfully processed nodes to the output list
       }
 
       // Validate output against schema before returning

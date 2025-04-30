@@ -12,16 +12,26 @@ import { MemoryContextSchema, type MemoryContext } from '../types.js';
 // Infer input type from schema
 type FindNodesInput = z.infer<typeof findNodesToolInputSchema>;
 
-// Helper function to check if a value matches the query based on mode
+// Helper function to check if a value matches the query based on mode (Simplified)
 function matches(value: unknown, query: string, mode: 'substring' | 'exact'): boolean {
+  // console.log(`  [matches] Input: value="${value}", query="${query}", mode="${mode}"`);
   if (typeof value !== 'string') {
-    // If properties can contain non-strings, convert them for searching or handle differently
-    // For now, only match against string values in properties
+    // console.log("  [matches] Result: false (value is not a string)");
     return false;
   }
-  const lowerValue = value.toLowerCase();
   const lowerQuery = query.toLowerCase();
-  return mode === 'exact' ? lowerValue === lowerQuery : lowerValue.includes(lowerQuery);
+  const lowerValue = value.toLowerCase();
+  // console.log(`  [matches] Lower: lowerValue="${lowerValue}", lowerQuery="${lowerQuery}"`);
+  let result: boolean;
+  if (mode === 'exact') {
+    result = lowerValue === lowerQuery;
+  } else {
+    const includesResult = lowerValue.includes(lowerQuery);
+    // console.log(`  [matches] lowerValue.includes(lowerQuery) result: ${includesResult}`);
+    result = includesResult;
+  }
+  // console.log(`  [matches] Final Result: ${result}`);
+  return result;
 }
 
 // Helper function to search within properties object
@@ -29,11 +39,9 @@ function searchProperties(properties: Properties, query: string, mode: 'substrin
   for (const key in properties) {
     if (Object.prototype.hasOwnProperty.call(properties, key)) {
       const value = properties[key];
-      // Recursively search in nested objects or arrays if needed, or just check top-level string values
       if (typeof value === 'string' && matches(value, query, mode)) {
         return true;
       }
-      // Add logic here to handle arrays or nested objects if PropertyValueSchema allows them
     }
   }
   return false;
@@ -56,41 +64,49 @@ export const findNodesTool = defineTool({
       const currentGraph = await loadGraph(memoryFilePath);
 
       const filteredNodes = currentGraph.nodes.filter((node: Node) => {
-        let nameMatch = false;
+        // console.log(`Checking node: ${node.id}, Labels: ${node.labels.join(',')}, Props: ${JSON.stringify(node.properties)} for query: "${query}", search_in: ${search_in}, mode: ${mode}`);
+        // console.log(`  Node ${node.id} labels:`, node.labels);
+
+        if (search_in === 'name') {
+            const nodeName = node.properties?.name;
+            const keep = !!nodeName && matches(nodeName, query, mode);
+            // console.log(`  -> Keep (name only): ${keep}`);
+            return keep;
+        }
+        if (search_in === 'labels') {
+            let keep = false;
+            for (const label of node.labels) {
+                const isMatch = matches(label, query, mode);
+                // console.log(`    Label: "${label}", Query: "${query}", Mode: ${mode}, Match: ${isMatch}`);
+                if (isMatch) {
+                    keep = true;
+                    break;
+                }
+            }
+            // console.log(`  -> Keep (labels only): ${keep}`);
+            return keep;
+        }
+        if (search_in === 'properties') {
+            const keep = searchProperties(node.properties, query, mode);
+            // console.log(`  -> Keep (properties only): ${keep}`);
+            return keep;
+        }
+
+        // Default: search_in === 'all'
+        const nameMatch = !!node.properties?.name && matches(node.properties.name, query, mode);
         let labelMatch = false;
-        let propertiesMatch = false;
-
-        // Determine if we need to check name based on search_in
-        if (search_in === 'name' || search_in === 'all') {
-          // Assuming 'name' property exists within node.properties
-          const nodeName = node.properties?.name; // Adjust if name is not in properties
-          if (nodeName && matches(nodeName, query, mode)) {
-             nameMatch = true;
-          }
+        for (const label of node.labels) {
+             const isMatch = matches(label, query, mode);
+             // console.log(`    [all] Label: "${label}", Query: "${query}", Mode: ${mode}, Match: ${isMatch}`);
+            if (isMatch) {
+                labelMatch = true;
+                break;
+            }
         }
-
-        // Determine if we need to check labels based on search_in
-        if (search_in === 'labels' || search_in === 'all') {
-          if (node.labels.some(label => matches(label, query, mode))) {
-            labelMatch = true;
-          }
-        }
-
-        // Determine if we need to check properties based on search_in
-        if (search_in === 'properties' || search_in === 'all') {
-          if (searchProperties(node.properties, query, mode)) {
-            propertiesMatch = true;
-          }
-        }
-
-        // Return based on the specific search_in or the combination for 'all'/default
-        switch (search_in) {
-          case 'name': return nameMatch;
-          case 'labels': return labelMatch;
-          case 'properties': return propertiesMatch;
-          // case 'all': // REMOVED as default handles this
-          default: return nameMatch || labelMatch || propertiesMatch;
-        }
+        const propertiesMatch = searchProperties(node.properties, query, mode);
+        const keep = nameMatch || labelMatch || propertiesMatch;
+        // console.log(`  -> NameMatch: ${nameMatch}, LabelMatch: ${labelMatch}, PropsMatch: ${propertiesMatch}, Keep (all): ${keep}`);
+        return keep;
       });
 
       const totalCount = filteredNodes.length;

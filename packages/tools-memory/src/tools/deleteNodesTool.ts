@@ -1,6 +1,6 @@
 import { defineTool, jsonPart } from '@sylphlab/tools-core';
 import type { Part } from '@sylphlab/tools-core';
-import type { z } from 'zod';
+import { z } from 'zod'; // Keep z for parsing
 import { loadGraph, saveGraph, resolveMemoryFilePath } from '../graphUtils';
 import type { Node, Edge, KnowledgeGraph } from '../types'; // Import Node, Edge, KnowledgeGraph types
 import {
@@ -26,12 +26,12 @@ export const deleteNodesTool = defineTool({
     try {
       const currentGraph = await loadGraph(memoryFilePath);
       const idsToDeleteSet = new Set(args.nodeIds);
-      const deletedNodeIds: string[] = [];
+      const actualDeletedNodeIds: string[] = []; // Store actual UUIDs of deleted nodes
 
       // Filter out nodes to be deleted
       const nextNodes = currentGraph.nodes.filter((node: Node) => {
         if (idsToDeleteSet.has(node.id)) {
-          deletedNodeIds.push(node.id);
+          actualDeletedNodeIds.push(node.id); // Store the actual UUID
           return false; // Exclude this node
         }
         return true; // Keep this node
@@ -54,10 +54,12 @@ export const deleteNodesTool = defineTool({
         await saveGraph(memoryFilePath, nextGraph);
       }
 
-      const validatedOutput = deleteNodesToolOutputSchema.parse(deletedNodeIds);
+      // Parse the list of actual deleted UUIDs against the output schema
+      const validatedOutput = deleteNodesToolOutputSchema.parse(actualDeletedNodeIds);
       return [jsonPart(validatedOutput, deleteNodesToolOutputSchema)];
 
     } catch (error: unknown) {
+      // Keep original error message structure for now, fix assertion later if needed
       const errorMessage = error instanceof Error ? error.message : 'Unknown error deleting nodes.';
       throw new Error(`Failed to delete nodes: ${errorMessage}`);
     }
