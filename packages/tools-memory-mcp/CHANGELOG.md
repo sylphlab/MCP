@@ -1,5 +1,13 @@
 # @sylphlab/tools-memory-mcp
 
+## 0.2.1
+
+### Patch Changes
+
+- e4aae2f: changed .json to .jsonl
+- Updated dependencies [e4aae2f]
+  - @sylphlab/tools-memory@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
