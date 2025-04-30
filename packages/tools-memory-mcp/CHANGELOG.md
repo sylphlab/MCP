@@ -1,5 +1,16 @@
 # @sylphlab/tools-memory-mcp
 
+## 0.3.0
+
+### Minor Changes
+
+- 4ad90fc: redesign memory tool using property graphs
+
+### Patch Changes
+
+- Updated dependencies [4ad90fc]
+  - @sylphlab/tools-memory@0.3.0
+
 ## 0.2.2
 
 ### Patch Changes
